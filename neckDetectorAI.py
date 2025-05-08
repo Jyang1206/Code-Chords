@@ -1,7 +1,6 @@
-import cv2
 from ultralytics import YOLO
-
-from inference_sdk import InferenceHTTPClient
+from inference
+import cv2
 
 # Initialize client with your Roboflow publishable API key
 client = InferenceHTTPClient(
