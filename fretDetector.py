@@ -7,7 +7,7 @@ def calculate_angle(x1, y1, x2, y2):
 
 # Load and crop
 image = cv2.imread("Photos/PersonStock1.jpg")
-gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)d
 blurred = cv2.GaussianBlur(gray, (5, 5), 0)
 edges = cv2.Canny(blurred, 50, 100)
 
