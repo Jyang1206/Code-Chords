@@ -1,5 +1,4 @@
-from ultralytics import YOLO
-from inference
+from ultralytics import YOLOgit branch
 import cv2
 
 # Initialize client with your Roboflow publishable API key
