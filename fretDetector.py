@@ -7,6 +7,16 @@ def calculate_angle(x1, y1, x2, y2):
 
 # Load image
 image = cv2.imread("Photos/PersonStock1.jpg")
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD:fretboardDetector.py
+gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+=======
+gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)d
+>>>>>>> 5695f59ace06c85226224432dbc725afc3630d92:fretDetector.py
+blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+edges = cv2.Canny(blurred, 50, 100)
+>>>>>>> b42eb45b114659b09c95ea57e78ade2ff6cd6c3b
 
 # Step 1: Crop to neck
 neck = image[400:640, 300:1000]  # Manually adjusted bounds
