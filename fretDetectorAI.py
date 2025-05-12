@@ -10,7 +10,7 @@ client = InferenceHTTPClient(
 )
 
 # Image path
-image_path = "Photos/PersonStock1.jpg"
+image_path = "Photos/AcousticStock2.jpg"
 
 # Send the image to the model
 result = client.infer(
