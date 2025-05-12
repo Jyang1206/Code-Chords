@@ -3,48 +3,69 @@ import numpy as np
 from inference import InferencePipeline
 from inference.core.interfaces.camera.entities import VideoFrame
 from inference.core.interfaces.stream.sinks import render_boxes
+from collections import defaultdict
 
 # Replace with your actual API key and model ID
 API_KEY = "YOUR_ROBOFLOW_API_KEY"
 MODEL_ID = "guitar-frets-segmenter/1"
+
+# Memory of previous frame polygons
+previous_polygons = defaultdict(list)
+
+# Smoothing factor (between 0 - no smoothing, and 1 - very slow response)
+ALPHA = 0.8
 
 def custom_sink(predictions: dict, video_frame: VideoFrame):
     frame = video_frame.image.copy()
     detections = predictions.get("predictions", [])
 
     for idx, det in enumerate(detections):
+        det_id = det.get("detection_id")
+        label = det.get("class", "")
         points = det.get("points", [])
-        if not points:
+
+        if not points or not det_id:
             continue
 
-        polygon = np.array([[pt["x"], pt["y"]] for pt in points], dtype=np.int32)
-        cls = det.get("class", "").lower()
+        # Convert to NumPy polygon
+        current_poly = np.array([[pt["x"], pt["y"]] for pt in points], dtype=np.float32)
 
-        if cls == "hand":
-            overlay = frame.copy()
-            cv2.fillPoly(overlay, [polygon], color=(255, 75, 0))
-            cv2.addWeighted(overlay, 0.3, frame, 0.7, 0, frame)
-            cv2.polylines(frame, [polygon], True, (255, 255, 0), 2)
-            continue
+        # Smooth with previous polygon if available
+        if previous_polygons[det_id]:
+            prev_poly = np.array(previous_polygons[det_id], dtype=np.float32)
+            smoothed_poly = ALPHA * prev_poly + (1 - ALPHA) * current_poly
+        else:
+            smoothed_poly = current_poly
 
-        # Assign a unique color for each fret
-        color = tuple(int(c) for c in np.random.choice(range(256), size=3))
+        # Save this frame's polygon for future smoothing
+        previous_polygons[det_id] = smoothed_poly
+
+        polygon = smoothed_poly.astype(np.int32)
+
+        # Color and render logic (same as before)
+        if label == "Hand":
+            outline_color = (255, 255, 0)
+            fill_color = (255, 75, 0)
+        else:
+            outline_color = (0, 255, 0)
+            fill_color = tuple(np.random.randint(100, 255, 3).tolist())
+
         overlay = frame.copy()
-        cv2.fillPoly(overlay, [polygon], color)
-        cv2.addWeighted(overlay, 0.3, frame, 0.7, 0, frame)
-        cv2.polylines(frame, [polygon], True, color, 2)
+        cv2.fillPoly(overlay, [polygon], color=fill_color)
+        cv2.addWeighted(overlay, 0.4, frame, 0.6, 0, frame)
+        cv2.polylines(frame, [polygon], isClosed=True, color=outline_color, thickness=2)
 
-        # Align dots between top and bottom of the fret polygon
-        sorted_pts = sorted(polygon, key=lambda p: p[1])  # sort by y (top to bottom)
-        top_center = sorted_pts[0]
-        bottom_center = sorted_pts[-1]
-
-        # Interpolate 6 dots (strings) between top and bottom
-        for s in range(6):
-            alpha = s / 5
-            dot_x = int((1 - alpha) * top_center[0] + alpha * bottom_center[0])
-            dot_y = int((1 - alpha) * top_center[1] + alpha * bottom_center[1])
-            cv2.circle(frame, (dot_x, dot_y), 3, (0, 0, 255), -1)
+        if label != "Hand":
+            sorted_y = sorted(polygon, key=lambda p: p[1])
+            top_edge = sorted_y[:2]
+            bottom_edge = sorted_y[-2:]
+            top_avg = np.mean(top_edge, axis=0)
+            bottom_avg = np.mean(bottom_edge, axis=0)
+            
+            for s in range(6):
+                alpha = s / 5.0
+                dot = (1 - alpha) * top_avg + alpha * bottom_avg
+                cv2.circle(frame, tuple(dot.astype(int)), 3, (0, 0, 255), -1)
 
     # Display the annotated frame
     cv2.imshow("Fretboard Detection", frame)
