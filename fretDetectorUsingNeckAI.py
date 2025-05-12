@@ -3,73 +3,54 @@ import numpy as np
 import matplotlib.pyplot as plt
 from inference_sdk import InferenceHTTPClient
 
-# Initialize Roboflow client
+# Initialize the Roboflow client
 client = InferenceHTTPClient(
     api_url="https://detect.roboflow.com",
     api_key="PXAqQENZCRpDPtJ8rd4w"  # Replace with your actual API key
 )
 
-# Load image
+# Path to the input image
 image_path = "Photos/PersonStock1.jpg"
+
+# Load the image using OpenCV
 image = cv2.imread(image_path)
 output = image.copy()
 
-# Run inference
-result = client.infer(image_path, model_id="guitar-necks-detector/1")
+# Run inference using your instance segmentation model
+result = client.infer(image_path, model_id="guitar-frets-segmenter/1")  # Replace with your actual model ID
+
+# Extract predictions from the result
 detections = result.get("predictions", [])
 
+# Check if any detections are present
 if not detections:
-    print("No guitar neck detected.")
+    print("No objects detected.")
     exit()
 
-# Use the first detection (assumed neck)
-det = detections[0]
-x, y, w, h = det["x"], det["y"], det["width"], det["height"]
+# Iterate over each detection
+for det in detections:
+    # Extract the polygon points
+    points = det.get("points", [])
+    if not points:
+        continue  # Skip if no polygon points are available
 
-# Construct polygon from detection (assumes axis-aligned for now)
-top_left     = np.array([x - w / 2, y - h / 2])
-top_right    = np.array([x + w / 2, y - h / 2])
-bottom_right = np.array([x + w / 2, y + h / 2])
-bottom_left  = np.array([x - w / 2, y + h / 2])
-neck_polygon = np.array([top_left, top_right, bottom_right, bottom_left], dtype=np.float32)
+    # Convert points to a NumPy array
+    polygon = np.array([[pt["x"], pt["y"]] for pt in points], dtype=np.int32)
 
-# Draw green bounding box (thinner line)
-cv2.polylines(output, [neck_polygon.astype(np.int32)], isClosed=True, color=(0, 255, 0), thickness=1)
+    # Draw the polygon on the output image
+    cv2.polylines(output, [polygon], isClosed=True, color=(0, 255, 0), thickness=2)
 
-# Compute top and bottom neck edges
-top_edge = neck_polygon[1] - neck_polygon[0]
-bottom_edge = neck_polygon[2] - neck_polygon[3]
+    # Optionally, fill the polygon with a transparent overlay
+    overlay = output.copy()
+    cv2.fillPoly(overlay, [polygon], color=(0, 255, 0))
+    alpha = 0.3  # Transparency factor
+    cv2.addWeighted(overlay, alpha, output, 1 - alpha, 0, output)
 
-# Use fret ratios (skip open string area)
-def get_fret_ratios(num_frets=12):
-    return [(1 - 1 / (2 ** (n / 12))) for n in range(1, num_frets + 1)]
-
-ratios = get_fret_ratios()
-fret_positions = []
-
-# Interpolate fret lines from fret 1 onward
-for ratio in ratios:
-    top_pt = neck_polygon[0] + top_edge * ratio
-    bottom_pt = neck_polygon[3] + bottom_edge * ratio
-    fret_positions.append((top_pt, bottom_pt))
-
-# Draw each fret + string dots
-for idx, (top, bottom) in enumerate(fret_positions, start=1):
-    top = top.astype(np.int32)
-    bottom = bottom.astype(np.int32)
-
-    # Fret line
-    cv2.line(output, tuple(top), tuple(bottom), (255, 255, 0), 1)
-
-    # 6 red string dots from top to bottom
-    for s in range(6):
-        alpha = s / 5
-        dot = (1 - alpha) * top + alpha * bottom
-        cv2.circle(output, tuple(dot.astype(np.int32)), 3, (0, 0, 255), -1)
-
-# Display result
-plt.figure(figsize=(12, 6))
+# Display just the image (no border, no title, no axes)
 plt.imshow(cv2.cvtColor(output, cv2.COLOR_BGR2RGB))
-plt.title("Fret Positions with String Dots (from Fret 1)")
 plt.axis('off')
+plt.subplots_adjust(left=0, right=1, top=1, bottom=0)  # remove any padding
+plt.margins(0)
+plt.gca().xaxis.set_major_locator(plt.NullLocator())
+plt.gca().yaxis.set_major_locator(plt.NullLocator())
 plt.show()

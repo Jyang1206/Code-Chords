@@ -10,12 +10,12 @@ client = InferenceHTTPClient(
 )
 
 # Image path
-image_path = "Photos/AcousticStock2.jpg"
+image_path = "Photos/PersonStock1.jpg"
 
 # Send the image to the model
 result = client.infer(
     image_path,
-    model_id="guitar-fretboard/3"
+    model_id="guitar-frets-segmenter/1"
 )
 
 # Load image for drawing
