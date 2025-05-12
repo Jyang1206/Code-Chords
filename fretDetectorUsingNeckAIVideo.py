@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 from inference_sdk import InferenceHTTPClient
+import time
 
 # Initialize the Roboflow client
 client = InferenceHTTPClient(
@@ -8,62 +9,77 @@ client = InferenceHTTPClient(
     api_key="PXAqQENZCRpDPtJ8rd4w"
 )
 
-# Open input video
-cap = cv2.VideoCapture("Videos/AcousticStock1.mp4")  # replace with your video path
+# Open the video
+video_path = "Videos/AcousticStock1.mp4"
+cap = cv2.VideoCapture(video_path)
+
+# Frame skipping (for speed)
+skip_every_n_frames = 2
+frame_count = 0
+
+# Define color palette for frets
+def get_color(idx):
+    np.random.seed(idx)
+    return tuple(np.random.randint(0, 255, 3).tolist())
 
 while cap.isOpened():
     ret, frame = cap.read()
     if not ret:
         break
 
+    # Skip frames for speed
+    if frame_count % skip_every_n_frames != 0:
+        frame_count += 1
+        continue
+
     output = frame.copy()
 
-    # Save frame temporarily for inference
-    temp_path = "temp_frame.jpg"
-    cv2.imwrite(temp_path, frame)
-
-    # Run inference
-    result = client.infer(temp_path, model_id="guitar-frets-segmenter/1")
+    # Run inference directly on the frame (as image)
+    result = client.infer(frame, model_id="guitar-frets-segmenter/1")
     detections = result.get("predictions", [])
 
-    for det in detections:
+    for idx, det in enumerate(detections):
         points = det.get("points", [])
         if not points:
             continue
 
         polygon = np.array([[pt["x"], pt["y"]] for pt in points], dtype=np.int32)
 
-        if det.get("class", "").lower() == "hand":
-            cv2.polylines(output, [polygon], isClosed=True, color=(255, 255, 0), thickness=2)
-            overlay = output.copy()
-            cv2.fillPoly(overlay, [polygon], color=(255, 75, 0))
-            cv2.addWeighted(overlay, 0.3, output, 0.7, 0, output)
+        cls = det.get("class", "")
+        if cls == "Hand":
+            hand_overlay = output.copy()
+            cv2.fillPoly(hand_overlay, [polygon], color=(255, 75, 0))
+            cv2.addWeighted(hand_overlay, 0.3, output, 0.7, 0, output)
+            cv2.polylines(output, [polygon], True, (255, 255, 0), 2)
             continue
 
-        # Fill fret polygon with green
-        overlay = output.copy()
-        cv2.polylines(output, [polygon], isClosed=True, color=(0, 255, 0), thickness=2)
-        cv2.fillPoly(overlay, [polygon], color=(0, 255, 0))
-        cv2.addWeighted(overlay, 0.3, output, 0.7, 0, output)
+        # Colored overlay for each fret
+        fret_overlay = output.copy()
+        color = get_color(idx)
+        cv2.fillPoly(fret_overlay, [polygon], color)
+        cv2.addWeighted(fret_overlay, 0.3, output, 0.7, 0, output)
+        cv2.polylines(output, [polygon], True, color, 2)
 
-        # Compute vertical center axis
-        x_vals = [p["x"] for p in det["points"]]
-        y_vals = [p["y"] for p in det["points"]]
-        min_x, max_x = min(x_vals), max(x_vals)
-        top_center = ((min_x + max_x) / 2, min(y_vals))
-        bottom_center = ((min_x + max_x) / 2, max(y_vals))
+        # Align dots between top and bottom of the fret polygon
+        sorted_pts = sorted(polygon, key=lambda p: p[1])  # sort by y (top to bottom)
+        top_center = sorted_pts[0]
+        bottom_center = sorted_pts[-1]
 
-        # Draw 6 fret string dots
+        # Interpolate 6 dots (strings) between top and bottom
         for s in range(6):
             alpha = s / 5
-            dot_x = top_center[0] * (1 - alpha) + bottom_center[0] * alpha
-            dot_y = top_center[1] * (1 - alpha) + bottom_center[1] * alpha
-            cv2.circle(output, (int(dot_x), int(dot_y)), radius=3, color=(50, 50, 255), thickness=-1)
+            dot_x = int((1 - alpha) * top_center[0] + alpha * bottom_center[0])
+            dot_y = int((1 - alpha) * top_center[1] + alpha * bottom_center[1])
+            cv2.circle(output, (dot_x, dot_y), 3, (0, 0, 255), -1)
 
-    # Show the frame
+    # Display in OpenCV window
     cv2.imshow("Fretboard Detection", output)
-    if cv2.waitKey(1) & 0xFF == ord("q"):
+
+    # Press 'q' to quit early
+    if cv2.waitKey(1) & 0xFF == ord('q'):
         break
+
+    frame_count += 1
 
 cap.release()
 cv2.destroyAllWindows()
