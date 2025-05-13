@@ -4,7 +4,8 @@ from inference import get_model  # Direct single-model API
 from collections import defaultdict
 
 # Replace with your actual API key and model IDs
-API_KEY = "YOUR_ROBOFLOW_API_KEY"
+API_KEY_FRETBOARD_MODEL = "tNGaAGE5IufNanaTpyG3"
+API_KEY_FRETS_MODEL = "PXAqQENZCRpDPtJ8rd4w"
 FRETBOARD_MODEL_ID = "guitar-fretboard-detector/1"
 FRETS_MODEL_ID = "guitar-frets-segmenter/1"
 
@@ -58,15 +59,15 @@ def custom_sink(predictions: list, frame: np.ndarray):
 
 def main():
     # Load models
-    fretboard_model = get_model(FRETBOARD_MODEL_ID, api_key=API_KEY)
-    frets_model = get_model(FRETS_MODEL_ID, api_key=API_KEY)
+    fretboard_model = get_model(FRETBOARD_MODEL_ID, api_key=API_KEY_FRETBOARD_MODEL)
+    frets_model = get_model(FRETS_MODEL_ID, api_key=API_KEY_FRETS_MODEL)
 
     # Video capture (0 is your webcam; change if needed)
     cap = cv2.VideoCapture(0)
 
     while True:
-        fretboard_model = get_model(FRETBOARD_MODEL_ID, api_key=API_KEY)
-        frets_model = get_model(FRETS_MODEL_ID, api_key=API_KEY)
+        fretboard_model = get_model(FRETBOARD_MODEL_ID, api_key=API_KEY_FRETBOARD_MODEL)
+        frets_model = get_model(FRETS_MODEL_ID, api_key=API_KEY_FRETS_MODEL)
         cap = cv2.VideoCapture(0)  # <-- USE WEBCAM
 
         while True:
