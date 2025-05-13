@@ -9,23 +9,13 @@ API_KEY = "PXAqQENZCRpDPtJ8rd4w"
 MODEL_ID = "guitar-frets-segmenter/1"
 
 previous_polygons = defaultdict(list)
-ALPHA = 1.0
-
-# Accurate tilt using SVD
-def calculate_tilt_from_polygon(polygon):
-    points = polygon.astype(np.float32)
-    centroid = np.mean(points, axis=0)
-    centered = points - centroid
-    _, _, vh = np.linalg.svd(centered)
-    direction = vh[0]  # First principal component
-    angle_rad = math.atan2(direction[1], direction[0])
-    return angle_rad
+ALPHA = 0.2
 
 def custom_sink(predictions: dict, video_frame: VideoFrame):
     frame = video_frame.image.copy()
     detections = predictions.get("predictions", [])
 
-    for idx, det in enumerate(detections):
+    for det in detections:
         det_id = det.get("detection_id")
         label = det.get("class", "")
         points = det.get("points", [])
@@ -44,6 +34,7 @@ def custom_sink(predictions: dict, video_frame: VideoFrame):
         previous_polygons[det_id] = smoothed_poly
         polygon = smoothed_poly.astype(np.int32)
 
+        # Draw the filled polygon
         if label == "Hand":
             outline_color = (255, 255, 0)
             fill_color = (255, 75, 0)
@@ -56,22 +47,39 @@ def custom_sink(predictions: dict, video_frame: VideoFrame):
         cv2.addWeighted(overlay, 0.4, frame, 0.6, 0, frame)
         cv2.polylines(frame, [polygon], isClosed=True, color=outline_color, thickness=2)
 
+        # Only draw dots for frets
         if label != "Hand":
+            # Sort to get top and bottom edges
             sorted_y = sorted(polygon, key=lambda p: p[1])
-            top_edge = sorted_y[:2]
-            bottom_edge = sorted_y[-2:]
-            top_avg = np.mean(top_edge, axis=0)
-            bottom_avg = np.mean(bottom_edge, axis=0)
+            top_avg = np.mean(sorted_y[:2], axis=0)
+            bottom_avg = np.mean(sorted_y[-2:], axis=0)
 
-            angle_rad = calculate_tilt_from_polygon(polygon)
-            length = np.linalg.norm(bottom_avg - top_avg)
+            # Principal direction via SVD
+            origin = np.mean(polygon, axis=0)
+            centered = polygon - origin
+            _, _, vh = np.linalg.svd(centered)
+            direction = vh[0]
 
-            for s in range(6):
-                alpha = s / 5.0
+            # Align direction with vertical axis (bottom - top)
+            ref_vector = bottom_avg - top_avg
+            if np.dot(direction, ref_vector) < 0:
+                direction = -direction
+
+            # Project all points to line and get min projection (start of fret)
+            projections = (centered @ direction)
+            min_proj = np.min(projections)
+            max_proj = np.max(projections)
+            length = max_proj - min_proj
+
+            # Start drawing dots from the bottom edge along the direction
+            start_point = origin + min_proj * direction
+
+            for i in range(6):
+                alpha = i / 5.0
                 offset = alpha * length
-                dot_x = top_avg[0] + offset * abs(math.cos(angle_rad))
-                dot_y = top_avg[1] + offset * abs(math.sin(angle_rad))
-                cv2.circle(frame, (int(dot_x), int(dot_y)), 7, (0, 0, 255), -1)
+                point = start_point + offset * direction
+                if cv2.pointPolygonTest(polygon, tuple(point), False) >= 0:
+                    cv2.circle(frame, tuple(point.astype(int)), 7, (0, 0, 255), -1)
 
     cv2.imshow("Fretboard Detection", frame)
     if cv2.waitKey(1) & 0xFF == ord('q'):
