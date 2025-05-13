@@ -5,13 +5,9 @@ from inference.core.interfaces.camera.entities import VideoFrame
 from inference.core.interfaces.stream.sinks import render_boxes
 from collections import defaultdict
 
-# Replace with your actual API key and model ID
-API_KEY = "YOUR_ROBOFLOW_API_KEY"
-MODEL_ID = "guitar-frets-segmenter/1"
-
+API_KEY = "PXAqQENZCRpDPtJ8rd4w"
 # Memory of previous frame polygons
 previous_polygons = defaultdict(list)
-
 # Smoothing factor (between 0 - no smoothing, and 1 - very slow response)
 ALPHA = 0.8
 
@@ -72,15 +68,21 @@ def custom_sink(predictions: dict, video_frame: VideoFrame):
     if cv2.waitKey(1) & 0xFF == ord('q'):
         exit()
 
-# Initialize and start the inference pipeline
-pipeline = InferencePipeline.init_with_workflow(
-    api_key="tNGaAGE5IufNanaTpyG3",
-    workspace_name="guitar-detection-thbw0",
-    workflow_id="guitar-fretboarddetection-v1",
-    video_reference=0, # Path to video, device id (int, usually 0 for built in webcams), or RTSP stream url
-    max_fps=30,
+# Initialize the first pipeline: fretboard detector
+pipeline_fretboard = InferencePipeline.init(
+    model_id="guitar-fretboard-detector/1",
+    api_key=API_KEY,
+    video_reference=0,
+    on_prediction=custom_sink,
+)
+
+# Initialize the second pipeline: frets segmenter
+pipeline_frets = InferencePipeline.init(
+    model_id="guitar-frets-segmenter/1",
+    api_key=API_KEY,
+    video_reference= pipeline_fretboard.output,
+    # Use the output of the first pipeline as input for the second    
     on_prediction=custom_sink
 )
 
-pipeline.start()
-pipeline.join()
+pipeline_fretboard.start().thenApply(pipeline_frets.start())
