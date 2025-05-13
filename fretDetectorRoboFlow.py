@@ -80,9 +80,10 @@ pipeline_fretboard = InferencePipeline.init(
 pipeline_frets = InferencePipeline.init(
     model_id="guitar-frets-segmenter/1",
     api_key=API_KEY,
-    video_reference= pipeline_fretboard.output,
+    video_reference= 0,
     # Use the output of the first pipeline as input for the second    
     on_prediction=custom_sink
 )
 
-pipeline_fretboard.start().thenApply(pipeline_frets.start())
+pipeline_fretboard.start()
+pipeline_frets.start()
