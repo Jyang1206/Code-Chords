@@ -6,54 +6,37 @@ from inference.core.interfaces.camera.entities import VideoFrame
 API_KEY = "PXAqQENZCRpDPtJ8rd4w"
 MODEL_ID = "guitar-frets-segmenter/1"
 
-def find_center_points(polygon):
-    # Get bounding box
-    x_min = np.min(polygon[:, 0])
-    x_max = np.max(polygon[:, 0])
-    y_min = np.min(polygon[:, 1])
-    y_max = np.max(polygon[:, 1])
+def draw_fret_dots(frame, polygon):
+    """Draw dots along the fret polygon."""
+    y_coords = polygon[:, 1]
+    y_min = np.min(y_coords)
+    y_max = np.max(y_coords)
+    x_center = int(np.mean(polygon[:, 0]))
     
-    # Find center x-coordinate
-    center_x = (x_min + x_max) / 2
+    # Pre-calculate y positions
+    y_positions = np.linspace(y_min, y_max, 6, dtype=np.int32)
     
-    # Find points near top and bottom edges
-    top_y = y_min
-    bottom_y = y_max
-    
-    return np.array([center_x, top_y]), np.array([center_x, bottom_y])
+    # Draw red dots
+    for y in y_positions:
+        cv2.circle(frame, (x_center, int(y)), 4, (0, 0, 255), -1)
 
 def custom_sink(predictions: dict, video_frame: VideoFrame):
     frame = video_frame.image.copy()
     detections = predictions.get("predictions", [])
-
+    
+    # Process each detection
     for det in detections:
-        label = det.get("class", "")
-        points = det.get("points", [])
-
-        if not points:
+        if det.get("class", "") == "Hand" or not det.get("points"):
             continue
 
-        polygon = np.array([[pt["x"], pt["y"]] for pt in points], dtype=np.int32)
-
-        # Draw the filled polygon
-        if label == "Hand":
-            cv2.polylines(frame, [polygon], isClosed=True, color=(255, 255, 0), thickness=2)
-        else:
-            # Draw fret polygon
-            cv2.polylines(frame, [polygon], isClosed=True, color=(0, 255, 0), thickness=2)
-            
-            # Get top and bottom center points
-            top_point, bottom_point = find_center_points(polygon)
-            
-            # Draw dots vertically from top to bottom
-            for i in range(6):
-                ratio = i / 5.0  # Evenly space 6 dots
-                point = np.array([
-                    top_point[0],  # Keep x constant (vertical line)
-                    top_point[1] + ratio * (bottom_point[1] - top_point[1])  # Interpolate y only
-                ], dtype=np.int32)
-                
-                cv2.circle(frame, tuple(point), 4, (0, 0, 255), -1)
+        # Get polygon points
+        polygon = np.array([[pt["x"], pt["y"]] for pt in det["points"]], dtype=np.int32)
+        
+        # Draw fret outline in green
+        cv2.polylines(frame, [polygon], isClosed=True, color=(0, 255, 0), thickness=2)
+        
+        # Draw red dots
+        draw_fret_dots(frame, polygon)
 
     cv2.imshow("Fretboard Detection", frame)
     if cv2.waitKey(1) & 0xFF == ord('q'):
