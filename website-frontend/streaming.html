@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guitar Fretboard Detector - Streaming</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 20px;
+      background-color: #f5f5f5;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: white;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      color: #333;
+    }
+    .video-container {
+      margin: 20px 0;
+      position: relative;
+    }
+    img {
+      max-width: 100%;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+    .controls {
+      margin: 20px 0;
+    }
+    button {
+      background-color: #4CAF50;
+      border: none;
+      color: white;
+      padding: 10px 15px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 16px;
+      margin: 4px 2px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    button:disabled {
+      background-color: #cccccc;
+      cursor: not-allowed;
+    }
+    .scale-button {
+      background-color: #2196F3;
+      margin: 5px;
+      font-size: 14px;
+      padding: 8px 12px;
+    }
+    .scale-button:hover {
+      background-color: #0b7dda;
+    }
+    .debug-button {
+      background-color: #ff9800;
+    }
+    .debug-button:hover {
+      background-color: #e68a00;
+    }
+    .status {
+      margin: 10px 0;
+      padding: 10px;
+      background-color: #f1f1f1;
+      border-radius: 5px;
+    }
+    .loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.7);
+      color: white;
+      padding: 20px;
+      border-radius: 5px;
+      display: none;
+    }
+    .scale-controls {
+      margin: 20px 0;
+      border-top: 1px solid #eee;
+      padding-top: 15px;
+    }
+    .scale-group {
+      margin-bottom: 10px;
+    }
+    .scale-group h4 {
+      margin: 5px 0;
+      color: #555;
+    }
+    .fret-controls {
+      margin: 20px 0;
+      border-top: 1px solid #eee;
+      padding-top: 15px;
+    }
+    .fret-count-control {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 10px 0;
+    }
+    .slider {
+      width: 200px;
+      margin: 0 15px;
+    }
+    .server-settings {
+      margin: 10px 0;
+      padding: 10px;
+      background-color: #f9f9f9;
+      border-radius: 5px;
+    }
+    .server-settings label {
+      margin-right: 10px;
+    }
+    .server-settings input {
+      width: 80px;
+    }
+    .server-settings button {
+      background-color: #2196F3;
+    }
+    .server-settings #portStatus {
+      margin-top: 5px;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Guitar Fretboard Detector</h1>
+    <p>Real-time fretboard detection with streaming video</p>
+    
+    <div class="status" id="status">
+      Server status: Checking...
+    </div>
+    
+    <div class="server-settings" style="margin: 10px 0; padding: 10px; background-color: #f9f9f9; border-radius: 5px;">
+      <label for="serverPort">Server Port: </label>
+      <input type="number" id="serverPort" min="1000" max="65535" value="8000" style="width: 80px;">
+      <button id="connectButton" style="background-color: #2196F3;">Connect</button>
+      <div id="portStatus" style="margin-top: 5px; font-size: 12px;"></div>
+    </div>
+    
+    <div class="video-container">
+      <img id="videoStream" src="" alt="Video stream will appear here">
+      <div id="loadingIndicator" class="loading">Loading...</div>
+    </div>
+    
+    <div class="controls">
+      <button id="startButton">Start Stream</button>
+      <button id="stopButton" disabled>Stop Stream</button>
+      <button id="toggleDebug" class="debug-button">Toggle Debug Mode</button>
+      <button id="screenshotButton" class="debug-button" style="background-color: #E91E63;">Take Screenshot</button>
+      <button id="reinitializeButton" class="debug-button" style="background-color: #9C27B0;">Reset Fretboard</button>
+    </div>
+    
+    <div class="fret-controls">
+      <h3>Fretboard Settings</h3>
+      <div class="fret-count-control">
+        <label for="fretCount">Number of Frets: <span id="fretCountValue">12</span></label>
+        <input type="range" id="fretCount" min="1" max="24" value="12" class="slider">
+        <button id="setFretCount" class="debug-button" style="background-color: #3F51B5;">Apply</button>
+      </div>
+      <div class="fret-count-control">
+        <label for="apiInterval">API Interval: <span id="apiIntervalValue">0.5</span>s</label>
+        <input type="range" id="apiInterval" min="50" max="1000" step="50" value="500" class="slider">
+        <button id="setApiInterval" class="debug-button" style="background-color: #3F51B5;">Apply</button>
+      </div>
+    </div>
+    
+    <div class="scale-controls">
+      <h3>Change Scale</h3>
+      
+      <div class="scale-group">
+        <h4>Major Scales</h4>
+        <button class="scale-button" onclick="changeScale('C', 'major')">C Major</button>
+        <button class="scale-button" onclick="changeScale('G', 'major')">G Major</button>
+        <button class="scale-button" onclick="changeScale('D', 'major')">D Major</button>
+        <button class="scale-button" onclick="changeScale('A', 'major')">A Major</button>
+        <button class="scale-button" onclick="changeScale('E', 'major')">E Major</button>
+        <button class="scale-button" onclick="changeScale('F', 'major')">F Major</button>
+      </div>
+      
+      <div class="scale-group">
+        <h4>Minor Scales</h4>
+        <button class="scale-button" onclick="changeScale('A', 'minor')">A Minor</button>
+        <button class="scale-button" onclick="changeScale('E', 'minor')">E Minor</button>
+        <button class="scale-button" onclick="changeScale('B', 'minor')">B Minor</button>
+        <button class="scale-button" onclick="changeScale('D', 'minor')">D Minor</button>
+        <button class="scale-button" onclick="changeScale('G', 'minor')">G Minor</button>
+      </div>
+      
+      <div class="scale-group">
+        <h4>Pentatonic & Blues Scales</h4>
+        <button class="scale-button" onclick="changeScale('E', 'pentatonic_minor')">E Pentatonic Minor</button>
+        <button class="scale-button" onclick="changeScale('A', 'pentatonic_minor')">A Pentatonic Minor</button>
+        <button class="scale-button" onclick="changeScale('G', 'pentatonic_major')">G Pentatonic Major</button>
+        <button class="scale-button" onclick="changeScale('A', 'blues')">A Blues</button>
+        <button class="scale-button" onclick="changeScale('E', 'blues')">E Blues</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Configuration
+    let API_URL = 'http://localhost:8000';
+    let isStreaming = false;
+    
+    // DOM elements
+    const videoStream = document.getElementById('videoStream');
+    const startButton = document.getElementById('startButton');
+    const stopButton = document.getElementById('stopButton');
+    const toggleDebugButton = document.getElementById('toggleDebug');
+    const screenshotButton = document.getElementById('screenshotButton');
+    const statusElement = document.getElementById('status');
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    const fretCountSlider = document.getElementById('fretCount');
+    const fretCountValue = document.getElementById('fretCountValue');
+    const setFretCountButton = document.getElementById('setFretCount');
+    const serverPortInput = document.getElementById('serverPort');
+    const connectButton = document.getElementById('connectButton');
+    const portStatusDiv = document.getElementById('portStatus');
+    const apiIntervalSlider = document.getElementById('apiInterval');
+    const apiIntervalValue = document.getElementById('apiIntervalValue');
+    const setApiIntervalButton = document.getElementById('setApiInterval');
+    
+    // Update server URL when port is changed
+    function updateServerURL() {
+      const port = serverPortInput.value;
+      API_URL = `http://localhost:${port}`;
+      portStatusDiv.textContent = `Using server at ${API_URL}`;
+      portStatusDiv.style.color = 'blue';
+      
+      // Check server health with new port
+      checkServerHealth().then(available => {
+        if (available) {
+          portStatusDiv.textContent = `Connected to server at ${API_URL}`;
+          portStatusDiv.style.color = 'green';
+        } else {
+          portStatusDiv.textContent = `Could not connect to server at ${API_URL}`;
+          portStatusDiv.style.color = 'red';
+        }
+      });
+      
+      // Stop any existing stream
+      if (isStreaming) {
+        stopStream();
+      }
+    }
+    
+    // Connect button click handler
+    connectButton.addEventListener('click', updateServerURL);
+    
+    // Check server health
+    async function checkServerHealth() {
+      try {
+        const response = await fetch(`${API_URL}/health`);
+        if (response.ok) {
+          const data = await response.json();
+          statusElement.innerHTML = `
+            Server status: <span style="color:green">Connected</span><br>
+            Scale: ${data.scale}<br>
+            Debug mode: ${data.debug_mode ? 'On' : 'Off'}<br>
+            Frame count: ${data.frame_count}<br>
+            Fret count: ${data.fret_count}
+          `;
+          
+          // Update the fret count slider to match the server
+          if (data.fret_count) {
+            fretCountSlider.value = data.fret_count;
+            fretCountValue.textContent = data.fret_count;
+          }
+          
+          return true;
+        } else {
+          statusElement.innerHTML = `Server status: <span style="color:red">Error</span>`;
+          return false;
+        }
+      } catch (error) {
+        statusElement.innerHTML = `Server status: <span style="color:red">Not connected</span>`;
+        return false;
+      }
+    }
+    
+    // Start video stream
+    function startStream() {
+      if (isStreaming) return;
+      
+      loadingIndicator.style.display = 'block';
+      videoStream.src = `${API_URL}/video`;
+      
+      videoStream.onload = function() {
+        loadingIndicator.style.display = 'none';
+        isStreaming = true;
+        startButton.disabled = true;
+        stopButton.disabled = false;
+      };
+      
+      videoStream.onerror = function() {
+        loadingIndicator.style.display = 'none';
+        statusElement.innerHTML = `Server status: <span style="color:red">Stream error</span>`;
+        isStreaming = false;
+      };
+    }
+    
+    // Stop video stream
+    function stopStream() {
+      if (!isStreaming) return;
+      
+      videoStream.src = '';
+      isStreaming = false;
+      startButton.disabled = false;
+      stopButton.disabled = true;
+    }
+    
+    // Toggle debug mode
+    async function toggleDebug() {
+      try {
+        const response = await fetch(`${API_URL}/toggle_debug`);
+        if (response.ok) {
+          checkServerHealth();
+        }
+      } catch (error) {
+        console.error('Error toggling debug mode:', error);
+      }
+    }
+    
+    // Change scale
+    async function changeScale(root, scale) {
+      try {
+        const response = await fetch(`${API_URL}/change_scale`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ root, scale })
+        });
+        
+        if (response.ok) {
+          checkServerHealth();
+        }
+      } catch (error) {
+        console.error('Error changing scale:', error);
+      }
+    }
+    
+    // Reinitialize pipeline
+    async function reinitializePipeline() {
+      try {
+        statusElement.innerHTML = `Server status: <span style="color:orange">Resetting fretboard...</span>`;
+        const response = await fetch(`${API_URL}/reinitialize`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            statusElement.innerHTML = `Server status: <span style="color:green">Fretboard reset successfully</span>`;
+          } else {
+            statusElement.innerHTML = `Server status: <span style="color:red">Failed to reset: ${data.error}</span>`;
+          }
+          // Update status after a short delay
+          setTimeout(checkServerHealth, 1000);
+        }
+      } catch (error) {
+        console.error('Error resetting fretboard:', error);
+        statusElement.innerHTML = `Server status: <span style="color:red">Error resetting fretboard</span>`;
+      }
+    }
+    
+    // Take a screenshot
+    async function takeScreenshot() {
+      if (!isStreaming) {
+        alert('Please start the stream first');
+        return;
+      }
+      
+      try {
+        statusElement.innerHTML = `<span style="color:orange">Taking screenshot...</span>`;
+        const response = await fetch(`${API_URL}/save_screenshot`);
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            statusElement.innerHTML = `
+              <span style="color:green">Screenshot saved!</span><br>
+              Filename: ${data.filename}<br>
+              Scale: ${data.scale}
+            `;
+            
+            // Show notification that fades out
+            const notification = document.createElement('div');
+            notification.style.position = 'fixed';
+            notification.style.top = '20px';
+            notification.style.left = '50%';
+            notification.style.transform = 'translateX(-50%)';
+            notification.style.backgroundColor = 'rgba(0, 128, 0, 0.8)';
+            notification.style.color = 'white';
+            notification.style.padding = '10px 20px';
+            notification.style.borderRadius = '5px';
+            notification.style.zIndex = '1000';
+            notification.textContent = 'Screenshot saved!';
+            
+            document.body.appendChild(notification);
+            
+            // Fade out and remove after 3 seconds
+            setTimeout(() => {
+              notification.style.transition = 'opacity 1s';
+              notification.style.opacity = '0';
+              setTimeout(() => {
+                document.body.removeChild(notification);
+              }, 1000);
+            }, 2000);
+            
+          } else {
+            statusElement.innerHTML = `<span style="color:red">Error: ${data.error}</span>`;
+          }
+        } else {
+          statusElement.innerHTML = `<span style="color:red">Error taking screenshot</span>`;
+        }
+      } catch (error) {
+        console.error('Error taking screenshot:', error);
+        statusElement.innerHTML = `<span style="color:red">Error taking screenshot</span>`;
+      }
+    }
+    
+    // Update fret count display
+    fretCountSlider.addEventListener('input', function() {
+      fretCountValue.textContent = this.value;
+    });
+    
+    // Update API interval display
+    apiIntervalSlider.addEventListener('input', function() {
+      const value = this.value / 1000; // Convert to seconds
+      apiIntervalValue.textContent = value.toFixed(2);
+    });
+    
+    // Set fret count
+    async function setFretCount() {
+      try {
+        const fretCount = parseInt(fretCountSlider.value);
+        statusElement.innerHTML = `<span style="color:orange">Setting fret count to ${fretCount}...</span>`;
+        
+        const response = await fetch(`${API_URL}/set_fret_count`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ fret_count: fretCount })
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            statusElement.innerHTML = `<span style="color:green">Fret count set to ${data.fret_count}</span>`;
+          } else {
+            statusElement.innerHTML = `<span style="color:red">Error: ${data.error}</span>`;
+          }
+        } else {
+          statusElement.innerHTML = `<span style="color:red">Error setting fret count</span>`;
+        }
+      } catch (error) {
+        console.error('Error setting fret count:', error);
+        statusElement.innerHTML = `<span style="color:red">Error setting fret count</span>`;
+      }
+    }
+    
+    // Set API interval
+    async function setApiInterval() {
+      try {
+        const interval = parseFloat(apiIntervalSlider.value) / 1000; // Convert to seconds
+        statusElement.innerHTML = `<span style="color:orange">Setting API interval to ${interval.toFixed(2)}s...</span>`;
+        
+        const response = await fetch(`${API_URL}/set_api_interval`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ interval: interval })
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            statusElement.innerHTML = `<span style="color:green">API interval set to ${data.api_interval.toFixed(2)}s</span>`;
+          } else {
+            statusElement.innerHTML = `<span style="color:red">Error: ${data.error}</span>`;
+          }
+        } else {
+          statusElement.innerHTML = `<span style="color:red">Error setting API interval</span>`;
+        }
+      } catch (error) {
+        console.error('Error setting API interval:', error);
+        statusElement.innerHTML = `<span style="color:red">Error setting API interval</span>`;
+      }
+    }
+    
+    // Event listeners
+    startButton.addEventListener('click', startStream);
+    stopButton.addEventListener('click', stopStream);
+    toggleDebugButton.addEventListener('click', toggleDebug);
+    screenshotButton.addEventListener('click', takeScreenshot);
+    setFretCountButton.addEventListener('click', setFretCount);
+    document.getElementById('reinitializeButton').addEventListener('click', reinitializePipeline);
+    setApiIntervalButton.addEventListener('click', setApiInterval);
+    
+    // Check health periodically
+    setInterval(checkServerHealth, 5000);
+    
+    // Initial health check
+    checkServerHealth();
+  </script>
+</body>
+</html> 
