@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Guitar Fretboard Detector</title>
+  <style>
+    body { font-family: Arial; text-align: center; margin-top: 40px; }
+    canvas, img, video { max-width: 100%; border: 1px solid #ccc; margin: 10px 0; }
+    .control-section { margin: 20px 0; padding: 20px; border: 1px solid #eee; }
+    #scaleControls { margin: 20px 0; }
+    .scale-button { margin: 0 5px; padding: 5px 10px; }
+  </style>
+</head>
+<body>
+  <div class="control-section">
+    <h2>Use Webcam</h2>
+    <button id="startWebcam">Start Webcam</button>
+    <button id="stopWebcam" style="display:none;">Stop Webcam</button>
+    <button id="toggleProcessing" style="display:none;">Start Processing</button><br><br>
+    <video id="webcamVideo" autoplay playsinline style="display:none;"></video>
+  </div>
+
+  <div id="scaleControls">
+    <h3>Change Scale</h3>
+    <div>
+      <button class="scale-button" onclick="changeScale('C', 'major')">C Major</button>
+      <button class="scale-button" onclick="changeScale('A', 'minor')">A Minor</button>
+      <button class="scale-button" onclick="changeScale('G', 'major')">G Major</button>
+      <button class="scale-button" onclick="changeScale('E', 'minor')">E Minor</button>
+    </div>
+  </div>
+
+  <div class="control-section">
+    <h2>Upload Guitar Image</h2>
+    <input type="file" id="imageUpload" accept="image/*"><br><br>
+    <button onclick="sendImage()">Detect Frets</button>
+  </div>
+
+  <img id="uploadedImage" style="display:none;">
+  <canvas id="resultCanvas"></canvas>
+
+  <script>
+    let stream = null;
+    let isProcessing = false;
+    let processingInterval = null;
+    const BACKEND_URL = 'http://localhost:5000';
+
+    // Webcam handling functions
+    async function startWebcam() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const video = document.getElementById('webcamVideo');
+        video.srcObject = stream;
+        video.style.display = 'block';
+        document.getElementById('startWebcam').style.display = 'none';
+        document.getElementById('stopWebcam').style.display = 'inline';
+        document.getElementById('toggleProcessing').style.display = 'inline';
+      } catch (err) {
+        alert('Error accessing webcam: ' + err.message);
+      }
+    }
+
+    function stopWebcam() {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        document.getElementById('webcamVideo').style.display = 'none';
+        document.getElementById('startWebcam').style.display = 'inline';
+        document.getElementById('stopWebcam').style.display = 'none';
+        document.getElementById('toggleProcessing').style.display = 'none';
+        stopProcessing();
+      }
+    }
+
+    async function processWebcamFrame() {
+      const video = document.getElementById('webcamVideo');
+      const canvas = document.getElementById('resultCanvas');
+      const ctx = canvas.getContext('2d');
+
+      // Set canvas size to match video dimensions
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+
+      // Draw the current video frame
+      ctx.drawImage(video, 0, 0);
+
+      // Get the frame as base64
+      const imageData = canvas.toDataURL('image/jpeg');
+
+      try {
+        // Send to backend
+        const response = await fetch(`${BACKEND_URL}/detect`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ image: imageData })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+          // Display the processed image
+          const img = new Image();
+          img.onload = () => {
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.drawImage(img, 0, 0);
+          };
+          img.src = result.image;
+        }
+      } catch (error) {
+        console.error('Error processing frame:', error);
+      }
+    }
+
+    function startProcessing() {
+      if (!isProcessing) {
+        isProcessing = true;
+        document.getElementById('toggleProcessing').textContent = 'Stop Processing';
+        processingInterval = setInterval(processWebcamFrame, 1000); // Process every second
+      }
+    }
+
+    function stopProcessing() {
+      if (isProcessing) {
+        isProcessing = false;
+        document.getElementById('toggleProcessing').textContent = 'Start Processing';
+        clearInterval(processingInterval);
+      }
+    }
+
+    function toggleProcessing() {
+      if (isProcessing) {
+        stopProcessing();
+      } else {
+        startProcessing();
+      }
+    }
+
+    async function changeScale(root, scale) {
+      try {
+        const response = await fetch(`${BACKEND_URL}/change_scale`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ root, scale })
+        });
+
+        const result = await response.json();
+        if (!result.success) {
+          alert('Error changing scale: ' + result.error);
+        }
+      } catch (error) {
+        console.error('Error changing scale:', error);
+        alert('Error changing scale');
+      }
+    }
+
+    // Event listeners for webcam buttons
+    document.getElementById('startWebcam').addEventListener('click', startWebcam);
+    document.getElementById('stopWebcam').addEventListener('click', stopWebcam);
+    document.getElementById('toggleProcessing').addEventListener('click', toggleProcessing);
+
+    // Existing image upload function
+    async function sendImage() {
+      const fileInput = document.getElementById('imageUpload');
+      const file = fileInput.files[0];
+      if (!file) return alert("Please upload an image.");
+
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const response = await fetch(`${BACKEND_URL}/detect`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ image: reader.result })
+          });
+
+          const result = await response.json();
+          if (result.success) {
+            const canvas = document.getElementById('resultCanvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+            img.onload = () => {
+              canvas.width = img.width;
+              canvas.height = img.height;
+              ctx.drawImage(img, 0, 0);
+            };
+            img.src = result.image;
+          } else {
+            alert('Error processing image: ' + result.error);
+          }
+        } catch (error) {
+          console.error('Error sending image:', error);
+          alert('Error processing image');
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  </script>
+</body>
+</html>
