@@ -6,10 +6,10 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <title>GuitarStory</title>
+  <title>GuitarStory: Cosmic Edition</title>
 
-  <!-- Load the most recent inferencejs library -->
-  <script src="https://cdn.jsdelivr.net/npm/@roboflow/inference-js@1.0.9"></script>
+  <!-- Load the Roboflow library directly from CDN -->
+  <script src="https://cdn.roboflow.com/0.2.26/roboflow.js"></script>
 
   <link rel="stylesheet" href="./style.css" />
 
@@ -28,21 +28,76 @@
 
 <body>
   <main>
-    <h1>Welcome to GuitarStory🚀</h1>
-    <p>An interactive, all in one, 
-      guitar learning experience
+    <h1>Welcome to GuitarStory: Cosmic Edition 🚀</h1>
+    <p>An interstellar guitar learning experience across the galaxy</p>
 
-    <p id="loading">Loading...</p>
+    <p id="loading">Ready to start your cosmic journey</p>
 
+    <!-- Start button -->
+    <button id="start-button" class="action-button">Start Camera</button>
+    
     <!-- The canvas below is required -->
     <section class="infer-widget">
       <canvas width="640" height="480" id="video_canvas"></canvas>
     </section>
 
-    <section id="settings">
-      <label for="confidence">Prediction Confidence %</label><br>
-      <input type="range" min="10" max="90" value="50" class="slider" id="confidence">
-      <span id="confidence-value">50%</span>
+    <!-- Settings panel -->
+    <section id="settings" style="display: none;">
+      <div class="settings-row">
+        <div class="settings-column">
+          <label for="confidence">Prediction Confidence %</label><br>
+          <input type="range" min="10" max="90" value="50" class="slider" id="confidence">
+          <span id="confidence-value">50%</span>
+        </div>
+        
+        <div class="settings-column">
+          <label for="root-note">Root Note</label><br>
+          <select id="root-note" class="select-input">
+            <option value="C" selected>C</option>
+            <option value="C#">C#</option>
+            <option value="D">D</option>
+            <option value="D#">D#</option>
+            <option value="E">E</option>
+            <option value="F">F</option>
+            <option value="F#">F#</option>
+            <option value="G">G</option>
+            <option value="G#">G#</option>
+            <option value="A">A</option>
+            <option value="A#">A#</option>
+            <option value="B">B</option>
+          </select>
+        </div>
+        
+        <div class="settings-column">
+          <label for="scale-type">Scale Type</label><br>
+          <select id="scale-type" class="select-input">
+            <option value="major" selected>Major</option>
+            <option value="minor">Minor</option>
+            <option value="pentatonic">Pentatonic</option>
+            <option value="blues">Blues</option>
+            <option value="dorian">Dorian</option>
+            <option value="phrygian">Phrygian</option>
+            <option value="lydian">Lydian</option>
+            <option value="mixolydian">Mixolydian</option>
+          </select>
+        </div>
+        
+        <div class="settings-column">
+          <button id="apply-scale" class="action-button apply-button">Apply Scale</button>
+        </div>
+      </div>
+      
+      <div class="settings-row">
+        <div class="settings-column">
+          <label for="fret-count">Number of Frets</label><br>
+          <input type="range" min="6" max="24" value="12" class="slider" id="fret-count">
+          <span id="fret-count-value">12</span>
+        </div>
+        
+        <div class="settings-column">
+          <button id="take-screenshot" class="action-button screenshot-button">Take Screenshot</button>
+        </div>
+      </div>
     </section>
 
     <section class="links">
@@ -52,7 +107,7 @@
     </section>
 
     <!-- Load our application logic -->
-    <script src="./updated-script.js"></script>
+    <script src="./roboflow-script.js"></script>
   </main>
 </body>
 
