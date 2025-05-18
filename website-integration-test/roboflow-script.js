@@ -10,6 +10,8 @@ let model = null;
 let isRunningInference = false;
 let cameraActive = false;
 let videoStream = null; // Store the camera stream for stopping
+let errorCount = 0; // Track consecutive errors
+let usingFallbackMethod = false; // Track if we're using the fallback method
 
 // Scale control elements
 let rootNoteSelect = document.getElementById('root-note');
@@ -58,6 +60,9 @@ const colors = [
   "#FF8000", "#00B7EB", "#FFFF00", "#0E7AFE", "#FFABAB"
 ];
 const colorMap = {};
+
+// Global flag to track camera type (front or back)
+let isFrontFacing = true;
 
 // Initialize the application when the page loads
 document.addEventListener('DOMContentLoaded', function() {
@@ -296,77 +301,206 @@ function setupCamera() {
   const loading = document.getElementById('loading');
   loading.textContent = "Requesting camera access...";
   
-  navigator.mediaDevices.getUserMedia({ 
+  // Use more precise facingMode setting with fallbacks
+  const constraints = { 
     video: { 
-      facingMode: "environment",
+      facingMode: "user", // This is front-facing, more reliable than "environment"
       width: { ideal: 1280 },
       height: { ideal: 720 }
     } 
-  })
-  .then(function(stream) {
-    videoStream = stream; // Store stream for stopping later
-    video = document.createElement('video');
-    video.srcObject = stream;
-    video.setAttribute('playsinline', '');
-    video.muted = true;
-    
-    video.onloadedmetadata = function() {
-      video.play();
-      // Adjust canvas size to match video
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      loading.textContent = "Camera ready! Loading model...";
+  };
+  
+  navigator.mediaDevices.getUserMedia(constraints)
+    .then(function(stream) {
+      videoStream = stream; // Store stream for stopping later
       
-      // Now that video is set up, initialize the model
-      setupModel();
-      cameraActive = true;
+      // Check if we're using the front camera
+      const videoTrack = stream.getVideoTracks()[0];
+      if (videoTrack) {
+        const settings = videoTrack.getSettings();
+        // Some browsers support 'facingMode' in settings
+        if (settings.facingMode) {
+          isFrontFacing = settings.facingMode === 'user';
+        } else {
+          // Assume front camera if we can't determine
+          isFrontFacing = true;
+        }
+        console.log("Camera facing:", isFrontFacing ? "front" : "back");
+      }
       
-      // Change button text
-      startButton.textContent = "Stop Camera";
+      video = document.createElement('video');
+      video.srcObject = stream;
+      video.setAttribute('playsinline', '');
+      video.muted = true;
+      
+      video.onloadedmetadata = function() {
+        video.play();
+        // Adjust canvas size to match video
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        loading.textContent = "Camera ready! Loading model...";
+        
+        // Now that video is set up, initialize the model
+        setupModel();
+        cameraActive = true;
+        
+        // Change button text
+        startButton.textContent = "Stop Camera";
+        startButton.disabled = false;
+      };
+    })
+    .catch(function(error) {
+      console.error("Error accessing webcam:", error);
+      loading.textContent = "Error accessing camera: " + error.message;
       startButton.disabled = false;
-    };
-  })
-  .catch(function(error) {
-    console.error("Error accessing webcam:", error);
-    loading.textContent = "Error accessing camera: " + error.message;
-    startButton.disabled = false;
-  });
+    });
 }
 
 // Setup the Roboflow model
 function setupModel() {
   const loading = document.getElementById('loading');
+  loading.textContent = "Loading model...";
   
-  // Initialize Roboflow
-  roboflow
-    .auth({
-      publishable_key: API_KEY,
-    })
-    .load({
-      model: MODEL_NAME,
-      version: MODEL_VERSION,
-    })
-    .then(function(loadedModel) {
+  // Try multiple loading approaches
+  loadModelWithRetry()
+    .then(loadedModel => {
       model = loadedModel;
-      
-      // Configure model
-      model.configure({
-        threshold: userConfidence,
-        max_objects: 50,
-        overlap: 0.5
-      });
-      
       loading.textContent = "Model loaded! Starting detection...";
       loading.style.display = "none";
       
       // Start detection loop
       detectFrame();
     })
-    .catch(function(error) {
-      console.error("Error loading model:", error);
-      loading.textContent = "Error loading model: " + error.message;
+    .catch(error => {
+      console.error("All model loading approaches failed:", error);
+      loading.textContent = "Error loading model. Please try reloading the page.";
       startButton.disabled = false;
     });
+}
+
+// Try multiple approaches to load the model with retry logic
+async function loadModelWithRetry(retryCount = 0) {
+  const loading = document.getElementById('loading');
+  const maxRetries = 3;
+  
+  try {
+    // First attempt: standard loading
+    if (retryCount === 0) {
+      loading.textContent = "Loading model (approach 1/3)...";
+      return await loadModelStandard();
+    } 
+    // Second attempt: with different format options
+    else if (retryCount === 1) {
+      loading.textContent = "Trying alternative loading method (2/3)...";
+      return await loadModelAlternative();
+    } 
+    // Third attempt: with minimal configuration
+    else {
+      loading.textContent = "Trying simplified loading method (3/3)...";
+      return await loadModelMinimal();
+    }
+  } catch (error) {
+    console.warn(`Model loading attempt ${retryCount + 1} failed:`, error);
+    
+    // If we haven't exhausted retries, try next approach
+    if (retryCount < maxRetries - 1) {
+      return loadModelWithRetry(retryCount + 1);
+    }
+    
+    // All approaches failed
+    throw new Error(`Failed to load model after ${maxRetries} attempts: ${error.message}`);
+  }
+}
+
+// Standard model loading approach
+async function loadModelStandard() {
+  return new Promise((resolve, reject) => {
+    roboflow
+      .auth({
+        publishable_key: API_KEY,
+      })
+      .load({
+        model: MODEL_NAME,
+        version: MODEL_VERSION,
+        // No format specification - use defaults
+      })
+      .then(model => {
+        // Configure model with minimal settings
+        model.configure({
+          threshold: userConfidence
+        });
+        resolve(model);
+      })
+      .catch(reject);
+  });
+}
+
+// Alternative model loading approach
+async function loadModelAlternative() {
+  return new Promise((resolve, reject) => {
+    roboflow
+      .auth({
+        publishable_key: API_KEY,
+      })
+      .load({
+        model: MODEL_NAME,
+        version: MODEL_VERSION,
+        // Try without specifying format
+        options: {
+          imageSize: 320, // Try a different size
+          tinyYolo: true  // Try tiny YOLO variant
+        }
+      })
+      .then(model => {
+        // Configure model
+        model.configure({
+          threshold: userConfidence,
+          max_objects: 5,
+          overlap: 0.6,
+          input_size: 320
+        });
+        resolve(model);
+      })
+      .catch(reject);
+  });
+}
+
+// Minimal model loading approach
+async function loadModelMinimal() {
+  return new Promise((resolve, reject) => {
+    roboflow
+      .auth({
+        publishable_key: API_KEY,
+      })
+      .load({
+        model: MODEL_NAME,
+        version: MODEL_VERSION
+        // No extra options - use defaults
+      })
+      .then(model => {
+        // Minimal configuration
+        model.configure({
+          threshold: userConfidence
+        });
+        resolve(model);
+      })
+      .catch(reject);
+  });
+}
+
+// Try a completely different approach for inference
+function switchToFallbackMethod() {
+  const loading = document.getElementById('loading');
+  loading.textContent = "Switching to alternative detection method...";
+  loading.style.display = 'block';
+  
+  // Set flag to use fallback method
+  usingFallbackMethod = true;
+  
+  // Continue with modified approach
+  setTimeout(() => {
+    loading.style.display = 'none';
+  }, 2000);
 }
 
 // Main detection loop
@@ -380,50 +514,95 @@ function detectFrame() {
     isRunningInference = true;
     fretTracking.frameCount++;
     
-    model.detect(video)
-      .then(function(predictions) {
-        // Clear the canvas
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // Draw the video frame on the canvas
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
-        // Process fretboard detections
-        processFretboardDetections(predictions);
-        
-        // Draw predictions
-        drawPredictions(predictions);
-        
-        isRunningInference = false;
-      })
-      .catch(function(error) {
-        console.error("Error during inference:", error);
-        isRunningInference = false;
-        
-        // Handle the transpose error specifically
-        if (error.message && error.message.includes("transpose")) {
-          const loading = document.getElementById('loading');
-          loading.textContent = "Model compatibility issue detected. Attempting to reload...";
-          loading.style.display = 'block';
-          
-          // Reconfigure the model with different parameters that avoid the transpose op
-          if (model) {
-            model.configure({
-              threshold: userConfidence,
-              max_objects: 15, // Reduce max objects
-              overlap: 0.6,    // Increase overlap threshold
-              input_size: 416  // Try a different input size
-            });
+    try {
+      // COMPLETELY DIFFERENT APPROACH:
+      // Instead of using the model's detect directly on video or canvas,
+      // we'll take a snapshot, convert it to a blob, and use that for detection
+      
+      // 1. Create a snapshot canvas
+      const snapCanvas = document.createElement('canvas');
+      const snapCtx = snapCanvas.getContext('2d');
+      
+      // Set to standard dimensions that won't cause tensor errors
+      snapCanvas.width = 416;
+      snapCanvas.height = 416;
+      
+      // 2. Draw the video frame to the snapshot canvas
+      // Calculate aspect ratio-preserving dimensions
+      const videoRatio = video.videoWidth / video.videoHeight;
+      let drawWidth, drawHeight, offsetX = 0, offsetY = 0;
+      
+      if (videoRatio > 1) {
+        // Video is wider than tall
+        drawHeight = snapCanvas.height;
+        drawWidth = drawHeight * videoRatio;
+        offsetX = (snapCanvas.width - drawWidth) / 2;
+      } else {
+        // Video is taller than wide
+        drawWidth = snapCanvas.width;
+        drawHeight = drawWidth / videoRatio;
+        offsetY = (snapCanvas.height - drawHeight) / 2;
+      }
+      
+      // Clear the snapshot canvas
+      snapCtx.fillStyle = 'black';
+      snapCtx.fillRect(0, 0, snapCanvas.width, snapCanvas.height);
+      
+      // Draw the video onto the snapshot canvas
+      snapCtx.drawImage(video, offsetX, offsetY, drawWidth, drawHeight);
+      
+      // 3. Convert canvas to blob
+      snapCanvas.toBlob(function(blob) {
+        // 4. Use the blob for detection
+        model.detect(blob)
+          .then(function(predictions) {
+            // Clear the main canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            setTimeout(() => {
-              loading.style.display = 'none';
-            }, 2000);
-          }
-        }
-      });
+            // Draw the video frame onto the main canvas
+            // Properly mirror the video horizontally for selfie view
+            ctx.save();
+            if (isFrontFacing) {
+              // Flip horizontally if using front camera
+              ctx.translate(canvas.width, 0);
+              ctx.scale(-1, 1);
+            }
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            ctx.restore();
+            
+            // Process predictions
+            if (predictions && predictions.length > 0) {
+              processFretboardDetections(predictions);
+              drawPredictions(predictions);
+            }
+            
+            isRunningInference = false;
+          })
+          .catch(function(error) {
+            console.error("Error during inference:", error);
+            
+            // Still draw the video
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw with proper mirroring
+            ctx.save();
+            if (isFrontFacing) {
+              ctx.translate(canvas.width, 0);
+              ctx.scale(-1, 1);
+            }
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            ctx.restore();
+            
+            isRunningInference = false;
+          });
+      }, 'image/jpeg', 0.85); // Medium-high quality JPEG
+    } catch (error) {
+      console.error("Error in detection process:", error);
+      isRunningInference = false;
+    }
   }
   
-  // Continue the detection loop
+  // Continue detection loop
   requestAnimationFrame(detectFrame);
 }
 
@@ -521,6 +700,9 @@ function isNoteInScale(note) {
 
 // Draw bounding boxes and labels for detections
 function drawPredictions(predictions) {
+  // Apply mirroring transformation if needed
+  const flipTransform = isFrontFacing;
+  
   // Filter predictions based on user confidence if needed
   const filteredPredictions = predictions.filter(pred => 
     pred.confidence >= userConfidence
@@ -539,8 +721,16 @@ function drawPredictions(predictions) {
     const color = colorMap[className];
     
     // Calculate box coordinates
-    const boxX = x - width/2;
-    const boxY = y - height/2;
+    let boxX = x - width/2;
+    let boxY = y - height/2;
+    
+    // Adjust coordinates for flipped display if using front camera
+    if (flipTransform) {
+      boxX = canvas.width - boxX - width;
+    }
+    
+    // Save context state
+    ctx.save();
     
     // Draw the bounding box
     ctx.strokeStyle = color;
@@ -559,6 +749,9 @@ function drawPredictions(predictions) {
     // Draw label text
     ctx.fillStyle = '#FFFFFF';
     ctx.fillText(label, boxX + 5, boxY - 7);
+    
+    // Restore context state
+    ctx.restore();
   });
   
   // Draw fretboard visualization if we have stable frets
