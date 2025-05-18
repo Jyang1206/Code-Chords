@@ -31,156 +31,25 @@ def parse_args():
     parser.add_argument('--port', type=int, default=8000, help='Port to run the server on')
     parser.add_argument('--free-port', action='store_true', help='Free the port if it is in use')
     parser.add_argument('--camera', type=int, default=0, help='Camera index to use')
-    parser.add_argument('--api-interval', type=float, default=0.5, help='Interval between API calls in seconds')
     parser.add_argument('--debug', action='store_true', help='Enable debug mode')
     return parser.parse_args()
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
+# Global variables for processed frames
+latest_processed_frame = None
+frame_lock = threading.Lock()
+
+
+def custom_sink(predictions: dict, video_frame: VideoFrame, fretboard_notes: fdcm.FretboardNotes, fret_tracker: fdcm.FretTracker):
     """
-    Lifespan context manager for startup and shutdown events.
+    Custom sink function that processes frames from the pipeline.
+    This is called by the InferencePipeline when a frame is processed.
     """
-    # Initialize fretboard notes and tracker
-    global fretboard_notes, fret_tracker, pipeline
-    
-    print("Initializing fretboard notes and tracker...")
-    fretboard_notes = fdcm.FretboardNotes()
-    fretboard_notes.set_scale('C', 'major')
-    fret_tracker = fdcm.FretTracker(num_frets=12, stability_threshold=0.3)
-    
-    # Note: We don't initialize the pipeline since we're not using pipeline.process_frame
-    pipeline = None
+    global latest_processed_frame, frame_lock
     
     try:
-        yield
-    except asyncio.exceptions.CancelledError as error:
-        print(error.args)
-    finally:
-        camera.release()
-        print("Camera resource released.")
-
-
-app = FastAPI(lifespan=lifespan)
-
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
-    allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
-)
-
-# Global variables
-fretboard_notes = None
-fret_tracker = None
-pipeline = None
-pipeline_lock = threading.Lock()
-use_debug_mode = False
-last_api_call_time = 0
-api_call_interval = 0.5  # seconds between API calls
-
-# Create screenshots directory if it doesn't exist
-SCREENSHOTS_DIR = "screenshots"
-os.makedirs(SCREENSHOTS_DIR, exist_ok=True)
-
-# Initialize Roboflow client for direct API access
-roboflow_client = InferenceHTTPClient(
-    api_url="https://detect.roboflow.com",
-    api_key=fdcm.API_KEY
-)
-
-class Camera:
-    """
-    A class to handle video capture from a camera.
-    """
-
-    def __init__(self, url: Optional[Union[str, int]] = 0) -> None:
-        """
-        Initialize the camera.
-
-        :param url: Camera URL or index.
-        """
-        self.cap = cv2.VideoCapture(url)
-        self.lock = threading.Lock()
-        self.frame_count = 0
-        self.last_frame = None
-        self.last_processed_frame = None
-        self.frame_skip = 2  # Process every nth frame for better performance
-        
-        # Try to set camera resolution for better performance - lower resolution
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-
-    def get_frame(self) -> bytes:
-        """
-        Capture a frame from the camera.
-
-        :return: JPEG encoded image bytes.
-        """
-        with self.lock:
-            ret, frame = self.cap.read()
-            if not ret:
-                return b''
-                
-            self.frame_count += 1
-            self.last_frame = frame
-            return frame
-
-    def get_processed_frame(self) -> bytes:
-        """
-        Capture and process a frame from the camera.
-
-        :return: JPEG encoded processed image bytes.
-        """
-        frame = self.get_frame()
-        if isinstance(frame, bytes):
-            return frame  # Already encoded or empty
-            
-        try:
-            # Skip frames for better performance
-            if self.frame_count % self.frame_skip != 0 and self.last_processed_frame is not None:
-                # Return the last processed frame if we're skipping this frame
-                return self.last_processed_frame
-            
-            # Process the frame
-            processed_frame = process_frame(frame)
-            
-            # Encode to JPEG with lower quality for better performance
-            ret, jpeg = cv2.imencode('.jpg', processed_frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
-            if not ret:
-                return b''
-                
-            # Store the encoded frame
-            self.last_processed_frame = jpeg.tobytes()
-            return self.last_processed_frame
-        except Exception as e:
-            print(f"Error processing frame: {str(e)}")
-            # Return the original frame if processing fails
-            ret, jpeg = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
-            if not ret:
-                return b''
-            return jpeg.tobytes()
-
-    def release(self) -> None:
-        """
-        Release the camera resource.
-        """
-        with self.lock:
-            if self.cap.isOpened():
-                self.cap.release()
-
-
-def debug_custom_sink(predictions: dict, video_frame: VideoFrame, fretboard_notes, fret_tracker):
-    """A debug version of custom_sink that ensures visualization works."""
-    try:
-        # Get the frame
-        frame = video_frame.image
-        
-        # Create a copy of the original frame
-        h, w = frame.shape[:2]
-        new_frame = frame.copy()
+        # Get a copy of the frame
+        frame = video_frame.image.copy()
         
         # Draw raw detections from the model
         detections = predictions.get("predictions", [])
@@ -189,8 +58,8 @@ def debug_custom_sink(predictions: dict, video_frame: VideoFrame, fretboard_note
         # Only draw detection count - minimize text overlay
         if has_detections:
             # Create a small semi-transparent background for text
-            cv2.rectangle(new_frame, (5, 70), (200, 100), (0, 0, 0), -1)
-            cv2.putText(new_frame, f"Detections: {len(detections)}", 
+            cv2.rectangle(frame, (5, 70), (200, 100), (0, 0, 0), -1)
+            cv2.putText(frame, f"Detections: {len(detections)}", 
                       (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 1)
         
         # Process each detection - only draw outlines
@@ -203,9 +72,14 @@ def debug_custom_sink(predictions: dict, video_frame: VideoFrame, fretboard_note
             
             # Draw only the polygon outline - no labels for better performance
             if class_name == "Hand":
-                cv2.polylines(new_frame, [polygon], True, (0, 255, 255), 2)
+                cv2.polylines(frame, [polygon], True, (0, 255, 255), 2)
             elif class_name.startswith("Zone"):
-                cv2.polylines(new_frame, [polygon], True, (0, 255, 0), 2)
+                cv2.polylines(frame, [polygon], True, (0, 255, 0), 2)
+        
+        # Update fret tracker with the predictions
+        if has_detections:
+            fret_tracker.update(detections, frame.shape[0])
+            print(f"Got {len(detections)} predictions")
         
         # Get stable frets from the tracker
         stable_frets = fret_tracker.get_stable_frets()
@@ -214,7 +88,7 @@ def debug_custom_sink(predictions: dict, video_frame: VideoFrame, fretboard_note
         if stable_frets:
             # Determine the fretboard area from stable frets
             fret_positions = []
-            min_y = h
+            min_y = frame.shape[0]
             max_y = 0
             
             # Collect fret positions and determine vertical bounds
@@ -239,17 +113,17 @@ def debug_custom_sink(predictions: dict, video_frame: VideoFrame, fretboard_note
                 # Draw strings
                 for i in range(6):  # 6 strings
                     string_y = int(string_margin + i * string_height)
-                    cv2.line(new_frame, (left_x, string_y), (right_x, string_y), (255, 0, 0), 2)
+                    cv2.line(frame, (left_x, string_y), (right_x, string_y), (255, 0, 0), 2)
                     
                     # Label string number - minimal text
                     string_num = 6 - i  # Convert to standard numbering
-                    cv2.putText(new_frame, f"{string_num}", (left_x - 15, string_y + 5), 
+                    cv2.putText(frame, f"{string_num}", (left_x - 15, string_y + 5), 
                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
                 
                 # Draw fret numbers and highlight scale notes
                 for x_pos, fret_num in fret_positions:
                     # Draw fret number at top
-                    cv2.putText(new_frame, f"{fret_num}", (x_pos - 5, string_margin - 10), 
+                    cv2.putText(frame, f"{fret_num}", (x_pos - 5, string_margin - 10), 
                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
                     
                     # Highlight scale notes on each string
@@ -267,107 +141,204 @@ def debug_custom_sink(predictions: dict, video_frame: VideoFrame, fretboard_note
                             # Draw scale note dot
                             if note_name == fretboard_notes.selected_root:
                                 # Root note - yellow
-                                cv2.circle(new_frame, (x_pos, string_y), 10, (0, 255, 255), -1)
+                                cv2.circle(frame, (x_pos, string_y), 10, (0, 255, 255), -1)
                             else:
                                 # Other scale note - blue
-                                cv2.circle(new_frame, (x_pos, string_y), 10, (255, 0, 0), -1)
+                                cv2.circle(frame, (x_pos, string_y), 10, (255, 0, 0), -1)
                             
                             # Add note name with minimal background
                             text_size = cv2.getTextSize(note_name, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)[0]
-                            cv2.rectangle(new_frame, 
+                            cv2.rectangle(frame, 
                                         (x_pos - text_size[0]//2 - 1, string_y - text_size[1]//2 - 1),
                                         (x_pos + text_size[0]//2 + 1, string_y + text_size[1]//2 + 1),
                                         (0, 0, 0), -1)
-                            cv2.putText(new_frame, note_name, 
+                            cv2.putText(frame, note_name, 
                                       (x_pos - text_size[0]//2, string_y + text_size[1]//2), 
                                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
                 
                 # Add minimal scale info at bottom
                 scale_text = f"{fretboard_notes.selected_root} {fretboard_notes.selected_scale_name}"
-                cv2.rectangle(new_frame, (5, h - 25), (len(scale_text) * 10 + 10, h - 5), (0, 0, 0), -1)
-                cv2.putText(new_frame, scale_text, (10, h - 10), 
+                cv2.rectangle(frame, (5, frame.shape[0] - 25), 
+                             (len(scale_text) * 10 + 10, frame.shape[0] - 5), (0, 0, 0), -1)
+                cv2.putText(frame, scale_text, (10, frame.shape[0] - 10), 
                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
         
-        # Return the new frame
-        return new_frame
-        
-    except Exception as e:
-        print(f"Error in debug_custom_sink: {str(e)}")
-        return video_frame.image  # Return the original frame on error
-
-
-def process_frame(frame: np.ndarray) -> np.ndarray:
-    """Process a single frame using fretDetectorCMajorScale."""
-    global fretboard_notes, fret_tracker, pipeline, use_debug_mode, last_api_call_time, api_call_interval
-    
-    try:
-        # Create a VideoFrame object
-        video_frame = VideoFrame(
-            image=frame.copy(),
-            frame_id=int(time.time() * 1000),
-            frame_timestamp=time.time()
-        )
-        
-        # Call Roboflow API directly for predictions, but rate limit the calls
-        current_time = time.time()
-        predictions = {"predictions": []}
-        detection_status = "No detections"
-        
-        if current_time - last_api_call_time >= api_call_interval:
-            try:
-                # Resize to a smaller size for better performance
-                # Using a smaller image size significantly improves performance
-                scale_factor = 0.5  # Process at 50% resolution
-                width = int(frame.shape[1] * scale_factor)
-                height = int(frame.shape[0] * scale_factor)
-                resized_frame = cv2.resize(frame, (width, height))
-                
-                # Skip enhancement for better performance
-                # Simple resize is enough and much faster
-                
-                # Make the API call to get predictions with the resized image
-                result = roboflow_client.infer(resized_frame, model_id=fdcm.MODEL_ID)
-                predictions = {"predictions": result.get("predictions", [])}
-                
-                # Scale prediction coordinates back to original size
-                for pred in predictions["predictions"]:
-                    if "points" in pred:
-                        for point in pred["points"]:
-                            point["x"] = int(point["x"] / scale_factor)
-                            point["y"] = int(point["y"] / scale_factor)
-                
-                # Update fret tracker with the predictions
-                if predictions["predictions"]:
-                    fret_tracker.update(predictions["predictions"], frame.shape[0])
-                    detection_count = len(predictions["predictions"])
-                    print(f"Got {detection_count} predictions from Roboflow")
-                    detection_status = f"{detection_count} detections"
-                else:
-                    print("No predictions received from Roboflow")
-                    detection_status = "No detections"
-                
-                # Update the last API call time
-                last_api_call_time = current_time
-            except Exception as e:
-                print(f"Error calling Roboflow API: {str(e)}")
-                detection_status = f"API Error: {str(e)}"
-        
-        # Use the debug custom sink function - now it returns the processed frame
-        processed_frame = debug_custom_sink(predictions, video_frame, fretboard_notes, fret_tracker)
-        
-        # Add minimal status info
-        cv2.putText(processed_frame, detection_status, 
+        # Add detection status
+        detection_status = f"{len(detections)} detections"
+        cv2.putText(frame, detection_status, 
                    (10, 30), 
                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 1)
         
-        # Return the processed frame
-        return processed_frame
+        # Add timestamp
+        timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+        cv2.putText(frame, f"Time: {timestamp}", 
+                   (frame.shape[1] - 150, 30), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)
+        
+        # Update the latest processed frame
+        with frame_lock:
+            latest_processed_frame = frame
+        
+        # Return None as required by the sink function
+        return None
         
     except Exception as e:
-        print(f"Error in process_frame: {str(e)}")
-        # Add error message to frame
-        cv2.putText(frame, f"Error: {str(e)}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-        return frame
+        print(f"Error in custom_sink: {str(e)}")
+        # On error, just return None
+        return None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Lifespan context manager for startup and shutdown events.
+    """
+    # Initialize fretboard notes and tracker
+    global fretboard_notes, fret_tracker, pipeline, camera
+    
+    print("Initializing fretboard notes and tracker...")
+    fretboard_notes = fdcm.FretboardNotes()
+    fretboard_notes.set_scale('C', 'major')
+    fret_tracker = fdcm.FretTracker(num_frets=12, stability_threshold=0.3)
+    
+    # Initialize the camera
+    camera_index = args.camera if 'args' in globals() else 0
+    camera = Camera(camera_index)
+    
+    # Create a wrapper for the custom_sink function that includes fretboard_notes and fret_tracker
+    def sink_with_objects(predictions: dict, video_frame: VideoFrame):
+        return custom_sink(predictions, video_frame, fretboard_notes, fret_tracker)
+    
+    # Initialize the inference pipeline
+    print("Initializing inference pipeline...")
+    pipeline = InferencePipeline.init(
+        model_id=fdcm.MODEL_ID,
+        api_key=fdcm.API_KEY,
+        video_reference=camera_index,  # Use camera index directly
+        on_prediction=sink_with_objects,  # Use our wrapped sink function
+    )
+    
+    # Start the pipeline
+    print("Starting inference pipeline...")
+    pipeline.start()
+    
+    try:
+        yield
+    except asyncio.exceptions.CancelledError as error:
+        print(error.args)
+    finally:
+        camera.release()
+        if pipeline:
+            pipeline.stop()  # Use stop method as in fretDetectorCMajorScale.py
+        print("Camera and pipeline resources released.")
+
+
+app = FastAPI(lifespan=lifespan)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+)
+
+# Global variables
+fretboard_notes = None
+fret_tracker = None
+pipeline = None
+pipeline_lock = threading.Lock()
+use_debug_mode = False
+
+# Create screenshots directory if it doesn't exist
+SCREENSHOTS_DIR = "screenshots"
+os.makedirs(SCREENSHOTS_DIR, exist_ok=True)
+
+
+class Camera:
+    """
+    A class to handle video capture from a camera.
+    """
+
+    def __init__(self, url: Optional[Union[str, int]] = 0) -> None:
+        """
+        Initialize the camera.
+
+        :param url: Camera URL or index.
+        """
+        self.cap = cv2.VideoCapture(url)
+        self.lock = threading.Lock()
+        self.frame_count = 0
+        self.last_frame = None
+        self.frame_skip = 2  # Process every nth frame for better performance
+        
+        # Try to set camera resolution for better performance - lower resolution
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+
+    def get_frame(self) -> bytes:
+        """
+        Capture a frame from the camera.
+
+        :return: Frame as numpy array or empty bytes if capture failed.
+        """
+        with self.lock:
+            ret, frame = self.cap.read()
+            if not ret:
+                return b''
+                
+            self.frame_count += 1
+            self.last_frame = frame
+            return frame
+
+    def get_processed_frame(self) -> bytes:
+        """
+        Get the latest processed frame or capture and process a new frame.
+
+        :return: JPEG encoded processed image bytes.
+        """
+        global latest_processed_frame
+        
+        try:
+            # Get a new frame from the camera
+            frame = self.get_frame()
+            if isinstance(frame, bytes):
+                return frame  # Return empty bytes if capture failed
+            
+            # The pipeline processes frames automatically through the video_reference
+            # We just need to check if we have a processed frame available
+            with frame_lock:
+                if latest_processed_frame is not None:
+                    processed_frame = latest_processed_frame.copy()
+                else:
+                    # If no processed frame is available yet, use the raw frame
+                    processed_frame = frame
+            
+            # Encode to JPEG with lower quality for better performance
+            ret, jpeg = cv2.imencode('.jpg', processed_frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
+            if not ret:
+                return b''
+                
+            return jpeg.tobytes()
+            
+        except Exception as e:
+            print(f"Error in get_processed_frame: {str(e)}")
+            # Return the original frame if processing fails
+            if isinstance(frame, np.ndarray):
+                ret, jpeg = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
+                if not ret:
+                    return b''
+                return jpeg.tobytes()
+            return b''
+
+    def release(self) -> None:
+        """
+        Release the camera resource.
+        """
+        with self.lock:
+            if self.cap.isOpened():
+                self.cap.release()
 
 
 async def gen_frames() -> AsyncGenerator[bytes, None]:
@@ -485,7 +456,7 @@ async def health_check() -> Dict[str, Any]:
     
     :return: Server status information.
     """
-    global fretboard_notes, fret_tracker, api_call_interval
+    global fretboard_notes, fret_tracker
     
     return {
         'status': 'healthy',
@@ -493,8 +464,7 @@ async def health_check() -> Dict[str, Any]:
         'debug_mode': use_debug_mode,
         'frame_count': camera.frame_count,
         'scale': f"{fretboard_notes.selected_root} {fretboard_notes.selected_scale_name}",
-        'fret_count': fret_tracker.num_frets,
-        'api_interval': api_call_interval
+        'fret_count': fret_tracker.num_frets
     }
 
 
@@ -603,38 +573,6 @@ async def set_fret_count(request: Request) -> Dict[str, Any]:
         }
 
 
-@app.post("/set_api_interval")
-async def set_api_interval(request: Request) -> Dict[str, Any]:
-    """
-    Set the interval between API calls to Roboflow.
-    
-    :param request: Request object containing interval data.
-    :return: Success status and interval information.
-    """
-    global api_call_interval
-    
-    try:
-        data = await request.json()
-        interval = data.get('interval', 0.5)
-        
-        # Validate interval (between 0.05 and 5 seconds)
-        interval = max(0.05, min(5.0, interval))
-        
-        # Update API call interval
-        api_call_interval = interval
-        
-        return {
-            'success': True,
-            'api_interval': api_call_interval
-        }
-            
-    except Exception as e:
-        return {
-            'success': False,
-            'error': str(e)
-        }
-
-
 async def main():
     """
     Main entry point to run the Uvicorn server.
@@ -672,7 +610,6 @@ if __name__ == '__main__':
     args = parse_args()
     
     # Update global settings from command line
-    api_call_interval = args.api_interval
     use_debug_mode = args.debug
     
     # Check if the port is in use and free it if requested

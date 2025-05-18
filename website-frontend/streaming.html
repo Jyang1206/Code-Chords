@@ -170,11 +170,6 @@
         <input type="range" id="fretCount" min="1" max="24" value="12" class="slider">
         <button id="setFretCount" class="debug-button" style="background-color: #3F51B5;">Apply</button>
       </div>
-      <div class="fret-count-control">
-        <label for="apiInterval">API Interval: <span id="apiIntervalValue">0.5</span>s</label>
-        <input type="range" id="apiInterval" min="50" max="1000" step="50" value="500" class="slider">
-        <button id="setApiInterval" class="debug-button" style="background-color: #3F51B5;">Apply</button>
-      </div>
     </div>
     
     <div class="scale-controls">
@@ -229,9 +224,6 @@
     const serverPortInput = document.getElementById('serverPort');
     const connectButton = document.getElementById('connectButton');
     const portStatusDiv = document.getElementById('portStatus');
-    const apiIntervalSlider = document.getElementById('apiInterval');
-    const apiIntervalValue = document.getElementById('apiIntervalValue');
-    const setApiIntervalButton = document.getElementById('setApiInterval');
     
     // Update server URL when port is changed
     function updateServerURL() {
@@ -435,12 +427,6 @@
       fretCountValue.textContent = this.value;
     });
     
-    // Update API interval display
-    apiIntervalSlider.addEventListener('input', function() {
-      const value = this.value / 1000; // Convert to seconds
-      apiIntervalValue.textContent = value.toFixed(2);
-    });
-    
     // Set fret count
     async function setFretCount() {
       try {
@@ -471,36 +457,6 @@
       }
     }
     
-    // Set API interval
-    async function setApiInterval() {
-      try {
-        const interval = parseFloat(apiIntervalSlider.value) / 1000; // Convert to seconds
-        statusElement.innerHTML = `<span style="color:orange">Setting API interval to ${interval.toFixed(2)}s...</span>`;
-        
-        const response = await fetch(`${API_URL}/set_api_interval`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ interval: interval })
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success) {
-            statusElement.innerHTML = `<span style="color:green">API interval set to ${data.api_interval.toFixed(2)}s</span>`;
-          } else {
-            statusElement.innerHTML = `<span style="color:red">Error: ${data.error}</span>`;
-          }
-        } else {
-          statusElement.innerHTML = `<span style="color:red">Error setting API interval</span>`;
-        }
-      } catch (error) {
-        console.error('Error setting API interval:', error);
-        statusElement.innerHTML = `<span style="color:red">Error setting API interval</span>`;
-      }
-    }
-    
     // Event listeners
     startButton.addEventListener('click', startStream);
     stopButton.addEventListener('click', stopStream);
@@ -508,7 +464,6 @@
     screenshotButton.addEventListener('click', takeScreenshot);
     setFretCountButton.addEventListener('click', setFretCount);
     document.getElementById('reinitializeButton').addEventListener('click', reinitializePipeline);
-    setApiIntervalButton.addEventListener('click', setApiInterval);
     
     // Check health periodically
     setInterval(checkServerHealth, 5000);

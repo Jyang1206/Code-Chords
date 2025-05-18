@@ -1,0 +1,1215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guitar Fretboard Detector - Client-side Inference</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 20px;
+      background-color: #f5f5f5;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: white;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      color: #333;
+    }
+    .video-container {
+      margin: 20px 0;
+      position: relative;
+    }
+    video, canvas {
+      max-width: 100%;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+    .controls {
+      margin: 20px 0;
+    }
+    button {
+      background-color: #4CAF50;
+      border: none;
+      color: white;
+      padding: 10px 15px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 16px;
+      margin: 4px 2px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    button:disabled {
+      background-color: #cccccc;
+      cursor: not-allowed;
+    }
+    .scale-button {
+      background-color: #2196F3;
+      margin: 5px;
+      font-size: 14px;
+      padding: 8px 12px;
+    }
+    .scale-button:hover {
+      background-color: #0b7dda;
+    }
+    .debug-button {
+      background-color: #ff9800;
+    }
+    .debug-button:hover {
+      background-color: #e68a00;
+    }
+    .status {
+      margin: 10px 0;
+      padding: 10px;
+      background-color: #f1f1f1;
+      border-radius: 5px;
+    }
+    .loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.7);
+      color: white;
+      padding: 20px;
+      border-radius: 5px;
+      display: none;
+    }
+    .scale-controls {
+      margin: 20px 0;
+      border-top: 1px solid #eee;
+      padding-top: 15px;
+    }
+    .scale-group {
+      margin-bottom: 10px;
+    }
+    .scale-group h4 {
+      margin: 5px 0;
+      color: #555;
+    }
+    .fret-controls {
+      margin: 20px 0;
+      border-top: 1px solid #eee;
+      padding-top: 15px;
+    }
+    .fret-count-control {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 10px 0;
+    }
+    .slider {
+      width: 200px;
+      margin: 0 15px;
+    }
+    #loadingIndicator {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 15px 25px;
+      border-radius: 5px;
+      z-index: 100;
+    }
+    #detectionCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+  </style>
+  <!-- Import jQuery for easier HTTP requests -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/inferencejs"></script>
+  <link rel="icon" href="data:,">
+</head>
+<body>
+  <div class="container">
+    <h1>Guitar Fretboard Detector</h1>
+    <p>Client-side detection with InferenceJS</p>
+    
+    <div class="cors-notice" style="margin: 10px 0; padding: 10px; background-color: #fff3cd; border-radius: 5px; border: 1px solid #ffeeba; color: #856404;">
+      <strong>Note:</strong> To use the model with InferenceJS, you need to solve the CORS issue:
+      <ol style="text-align: left; margin-top: 5px;">
+        <li>Install a CORS browser extension like <a href="https://chrome.google.com/webstore/detail/cors-unblock/lfhmikememgdcahcdlaciloancbhjino" target="_blank">CORS Unblock</a> for Chrome</li>
+        <li>Enable the extension and reload this page</li>
+        <li>Or run this page from a proper web server instead of a local file</li>
+      </ol>
+    </div>
+    
+    <div class="status" id="status">
+      Status: Initializing...
+    </div>
+    
+    <div class="video-container">
+      <video id="video" width="640" height="480" autoplay muted></video>
+      <canvas id="detectionCanvas" width="640" height="480"></canvas>
+      <div id="loadingIndicator" class="loading">Loading model...</div>
+    </div>
+    
+    <div class="controls">
+      <button id="startButton">Start Camera</button>
+      <button id="stopButton" disabled>Stop Camera</button>
+      <button id="toggleDebug" class="debug-button">Toggle Debug Mode</button>
+      <button id="screenshotButton" class="debug-button" style="background-color: #E91E63;">Take Screenshot</button>
+      <button id="skipModelButton" class="debug-button" style="background-color: #9C27B0;">Skip Model & Use Manual Frets</button>
+    </div>
+    
+    <div class="manual-input" style="margin: 20px 0; padding: 15px; background-color: #f8f8f8; border-radius: 5px; border: 1px solid #ddd;">
+      <h3>Manual Fret Input (for testing)</h3>
+      <div style="margin-bottom: 10px;">
+        <label for="fretNumber">Fret Number (1-24):</label>
+        <input type="number" id="fretNumber" min="1" max="24" value="1" style="width: 60px; margin: 0 10px;">
+        <label for="fretPosition">X Position (0-640):</label>
+        <input type="number" id="fretPosition" min="0" max="640" value="100" style="width: 60px; margin: 0 10px;">
+        <button id="addFretButton" style="background-color: #673AB7;">Add Fret</button>
+      </div>
+      <div>
+        <button id="clearFretsButton" style="background-color: #F44336;">Clear Manual Frets</button>
+        <button id="addExampleFretsButton" style="background-color: #009688;">Add Example Frets</button>
+      </div>
+    </div>
+    
+    <div class="fret-controls">
+      <h3>Fretboard Settings</h3>
+      <div class="fret-count-control">
+        <label for="fretCount">Number of Frets: <span id="fretCountValue">12</span></label>
+        <input type="range" id="fretCount" min="1" max="24" value="12" class="slider">
+        <button id="setFretCount" class="debug-button" style="background-color: #3F51B5;">Apply</button>
+      </div>
+    </div>
+    
+    <div class="scale-controls">
+      <h3>Change Scale</h3>
+      
+      <div class="scale-group">
+        <h4>Major Scales</h4>
+        <button class="scale-button" data-root="C" data-scale="major">C Major</button>
+        <button class="scale-button" data-root="G" data-scale="major">G Major</button>
+        <button class="scale-button" data-root="D" data-scale="major">D Major</button>
+        <button class="scale-button" data-root="A" data-scale="major">A Major</button>
+        <button class="scale-button" data-root="E" data-scale="major">E Major</button>
+        <button class="scale-button" data-root="F" data-scale="major">F Major</button>
+      </div>
+      
+      <div class="scale-group">
+        <h4>Minor Scales</h4>
+        <button class="scale-button" data-root="A" data-scale="minor">A Minor</button>
+        <button class="scale-button" data-root="E" data-scale="minor">E Minor</button>
+        <button class="scale-button" data-root="B" data-scale="minor">B Minor</button>
+        <button class="scale-button" data-root="D" data-scale="minor">D Minor</button>
+        <button class="scale-button" data-root="G" data-scale="minor">G Minor</button>
+      </div>
+      
+      <div class="scale-group">
+        <h4>Pentatonic & Blues Scales</h4>
+        <button class="scale-button" data-root="E" data-scale="pentatonic_minor">E Pentatonic Minor</button>
+        <button class="scale-button" data-root="A" data-scale="pentatonic_minor">A Pentatonic Minor</button>
+        <button class="scale-button" data-root="G" data-scale="pentatonic_major">G Pentatonic Major</button>
+        <button class="scale-button" data-root="A" data-scale="blues">A Blues</button>
+        <button class="scale-button" data-root="E" data-scale="blues">E Blues</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Musical notes and scales
+    const ALL_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const OPEN_STRINGS = ['E', 'A', 'D', 'G', 'B', 'E']; // Standard tuning
+    const SCALES = {
+      'major': [0, 2, 4, 5, 7, 9, 11],          // Whole, Whole, Half, Whole, Whole, Whole, Half
+      'minor': [0, 2, 3, 5, 7, 8, 10],          // Whole, Half, Whole, Whole, Half, Whole, Whole
+      'pentatonic_major': [0, 2, 4, 7, 9],      // Major without 4th and 7th
+      'pentatonic_minor': [0, 3, 5, 7, 10],     // Minor without 2nd and 6th
+      'blues': [0, 3, 5, 6, 7, 10]              // Pentatonic minor with blue note
+    };
+
+    // Configuration
+    // Format model ID as workspace-name/model-name
+    const MODEL_ID = "code-chords/guitar-frets-segmenter";
+    const MODEL_VERSION = "1";
+    // Use a publishable key instead of API key for browser-based inference
+    const PUBLISHABLE_KEY = "rf_4thZIsN7GDaeTAh9u4gd7HSi1AP2";
+    let isProcessing = false;
+    let isRunning = false;
+    let debugMode = false;
+    let fretCount = 12;
+    let selectedRoot = 'C';
+    let selectedScale = 'major';
+    let scaleNotes = [];
+    let stableFrets = {};
+    let fretHistory = {};
+    let historyMaxSize = 10;
+    let stableFramesRequired = 5;
+    let lastProcessTime = 0;
+    let processInterval = 200; // Process every 200ms for better performance
+
+    // DOM elements
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('detectionCanvas');
+    const ctx = canvas.getContext('2d');
+    const startButton = document.getElementById('startButton');
+    const stopButton = document.getElementById('stopButton');
+    const toggleDebugButton = document.getElementById('toggleDebug');
+    const screenshotButton = document.getElementById('screenshotButton');
+    const statusElement = document.getElementById('status');
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    const fretCountSlider = document.getElementById('fretCount');
+    const fretCountValue = document.getElementById('fretCountValue');
+    const setFretCountButton = document.getElementById('setFretCount');
+    
+    // Initialize InferenceJS
+    let inferEngine = null;
+    let workerId = null;
+
+    // Initialize InferenceJS
+    async function initializeInferenceJS() {
+      try {
+        loadingIndicator.style.display = 'block';
+        loadingIndicator.textContent = 'Loading model...';
+        statusElement.innerHTML = 'Initializing InferenceJS...';
+        
+        // Initialize the inference engine according to documentation
+        const { InferenceEngine, CVImage } = inferencejs;
+        
+        // Create the inference engine with specific configuration for CORS
+        inferEngine = new InferenceEngine({
+          // Set CORS mode to no-cors to avoid CORS errors
+          corsMode: 'no-cors',
+          // Disable CORS checks
+          disableCORS: true
+        });
+        
+        console.log("Initializing model with:", {
+          modelId: MODEL_ID,
+          version: MODEL_VERSION,
+          key: PUBLISHABLE_KEY ? "Key provided" : "No key provided"
+        });
+        
+        // Configuration options for the model
+        const configuration = {
+          scoreThreshold: 0.3,  // Lower threshold to detect more frets
+          iouThreshold: 0.5,
+          maxNumBoxes: 50       // Allow more detections
+        };
+        
+        try {
+          // Try loading the model with the specified ID
+          workerId = await inferEngine.startWorker(
+            MODEL_ID, 
+            MODEL_VERSION, 
+            PUBLISHABLE_KEY,
+            configuration
+          );
+          
+          console.log("Model loaded successfully with ID:", MODEL_ID);
+          statusElement.innerHTML = 'Model loaded successfully!';
+        } catch (modelError) {
+          console.error("Error loading model with ID:", MODEL_ID, modelError);
+          
+          // Try with just the model name without workspace prefix
+          if (MODEL_ID.includes('/')) {
+            const modelName = MODEL_ID.split('/')[1];
+            try {
+              console.log("Trying with just model name:", modelName);
+              workerId = await inferEngine.startWorker(
+                modelName, 
+                MODEL_VERSION, 
+                PUBLISHABLE_KEY,
+                configuration
+              );
+              
+              console.log("Model loaded successfully with name:", modelName);
+              statusElement.innerHTML = 'Model loaded successfully!';
+            } catch (nameError) {
+              console.error("Error loading with model name:", nameError);
+              
+              // Try with the demo model as a last resort
+              try {
+                console.log("Trying with demo model...");
+                workerId = await inferEngine.startWorker(
+                  "egohands-public", 
+                  "9", 
+                  "rf_5w20VzQObTXjJhTjq6kad9ubrm33",  // Demo key
+                  configuration
+                );
+                
+                console.log("Demo model loaded successfully");
+                statusElement.innerHTML = 'Loaded demo model. Your model was not found.';
+              } catch (demoError) {
+                console.error("Demo model also failed:", demoError);
+                throw new Error(`Failed to load any model. Please check your model ID and key.`);
+              }
+            }
+          } else {
+            throw modelError;
+          }
+        }
+        
+        loadingIndicator.style.display = 'none';
+        return true;
+      } catch (error) {
+        console.error('Error initializing InferenceJS:', error);
+        statusElement.innerHTML = `Error loading model: ${error.message}<br>
+          <small>Please install a CORS browser extension and try again.</small>`;
+        loadingIndicator.style.display = 'none';
+        return false;
+      }
+    }
+
+    // Calculate scale notes based on root and scale type
+    function calculateScaleNotes() {
+      const rootIndex = ALL_NOTES.indexOf(selectedRoot);
+      const scaleIntervals = SCALES[selectedScale];
+      scaleNotes = scaleIntervals.map(interval => ALL_NOTES[(rootIndex + interval) % 12]);
+      
+      statusElement.innerHTML = `
+        Scale: ${selectedRoot} ${selectedScale}<br>
+        Notes: ${scaleNotes.join(', ')}
+      `;
+    }
+
+    // Check if a note is in the current scale
+    function isNoteInScale(note) {
+      return scaleNotes.includes(note);
+    }
+
+    // Get the note at a specific string and fret position
+    function getNoteAtPosition(stringIdx, fretNum) {
+      if (stringIdx < 0 || stringIdx >= OPEN_STRINGS.length) {
+        return '';
+      }
+      
+      const openNote = OPEN_STRINGS[stringIdx];
+      const openNoteIdx = ALL_NOTES.indexOf(openNote);
+      const noteIdx = (openNoteIdx + fretNum) % 12;
+      return ALL_NOTES[noteIdx];
+    }
+
+    // Get fret positions where notes in the scale appear on a specific string
+    function getStringNotePositions(stringIdx, maxFrets = 24) {
+      if (stringIdx < 0 || stringIdx >= OPEN_STRINGS.length) {
+        return [];
+      }
+      
+      const positions = [];
+      const openNote = OPEN_STRINGS[stringIdx];
+      const openNoteIdx = ALL_NOTES.indexOf(openNote);
+      
+      for (let fret = 0; fret <= maxFrets; fret++) {
+        const noteIdx = (openNoteIdx + fret) % 12;
+        const note = ALL_NOTES[noteIdx];
+        
+        if (isNoteInScale(note)) {
+          positions.push(fret);
+        }
+      }
+      
+      return positions;
+    }
+
+    // Extract fret number from class name
+    function getFretNumberFromClass(className) {
+      if (className.startsWith("Zone")) {
+        try {
+          return parseInt(className.substring(4));
+        } catch (e) {
+          return -1;
+        }
+      }
+      return -1;
+    }
+
+    // Process detections and update stable frets
+    function processDetections(detections) {
+      const currentFrets = {};
+      
+      // Process each detection
+      for (const det of detections) {
+        // Log detection data to help debug
+        if (debugMode) {
+          console.log("Processing detection:", det);
+        }
+        
+        // Check for valid detection data
+        const className = det.class || "";
+        
+        // Skip non-fret detections or invalid data
+        if (className === "Hand" || !className.startsWith("Zone")) continue;
+        
+        // Get fret number from class name
+        const fretNum = getFretNumberFromClass(className);
+        if (fretNum < 1 || fretNum > fretCount) continue;
+        
+        // Handle different formats of detection data
+        let polygon = [];
+        let xMin, xMax, yMin, yMax;
+        
+        if (det.points && det.points.length >= 3) {
+          // Format with points array
+          polygon = det.points.map(pt => [pt.x, pt.y]);
+          const xCoords = polygon.map(pt => pt[0]);
+          const yCoords = polygon.map(pt => pt[1]);
+          xMin = Math.min(...xCoords);
+          xMax = Math.max(...xCoords);
+          yMin = Math.min(...yCoords);
+          yMax = Math.max(...yCoords);
+        } else if (det.bbox) {
+          // Format with bounding box
+          const x = det.bbox.x;
+          const y = det.bbox.y;
+          const width = det.bbox.width;
+          const height = det.bbox.height;
+          
+          xMin = x - width/2;
+          xMax = x + width/2;
+          yMin = y - height/2;
+          yMax = y + height/2;
+          
+          polygon = [
+            [xMin, yMin],
+            [xMax, yMin],
+            [xMax, yMax],
+            [xMin, yMax]
+          ];
+        } else {
+          // Skip detections without valid geometry
+          continue;
+        }
+        
+        const fretWidth = xMax - xMin;
+        
+        if (fretWidth < 20) continue; // Skip very narrow frets
+        
+        const xCenter = Math.round((xMin + xMax) / 2);
+        const yCenter = Math.round((yMin + yMax) / 2);
+        
+        // Basic fret data
+        currentFrets[xCenter] = {
+          polygon: polygon,
+          x_center: xCenter,
+          y_center: yCenter,
+          y_min: yMin,
+          y_max: yMax,
+          width: fretWidth,
+          fret_num: fretNum,
+          confidence: det.confidence || 0
+        };
+      }
+      
+      // Update history and track stable frets
+      const fretsToRemove = [];
+      
+      // Update history for current frets
+      for (const xCenter in currentFrets) {
+        if (!fretHistory[xCenter]) {
+          fretHistory[xCenter] = [];
+        }
+        
+        fretHistory[xCenter].push(currentFrets[xCenter]);
+        if (fretHistory[xCenter].length > historyMaxSize) {
+          fretHistory[xCenter].shift();
+        }
+      }
+      
+      // Remove old frets that don't have enough history
+      for (const xCenter in fretHistory) {
+        if (!currentFrets[xCenter]) {
+          if (fretHistory[xCenter].length < stableFramesRequired) {
+            fretsToRemove.push(xCenter);
+          }
+        }
+      }
+      
+      // Remove old frets
+      for (const xCenter of fretsToRemove) {
+        delete fretHistory[xCenter];
+      }
+      
+      // Update stable frets
+      stableFrets = {};
+      for (const xCenter in fretHistory) {
+        if (fretHistory[xCenter].length >= stableFramesRequired) {
+          stableFrets[xCenter] = currentFrets[xCenter] || fretHistory[xCenter][fretHistory[xCenter].length - 1];
+        }
+      }
+      
+      return Object.keys(stableFrets).length;
+    }
+
+    // Draw fretboard visualization
+    function drawFretboardVisualization() {
+      // Clear the canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Get sorted fret positions
+      const sortedFrets = Object.values(stableFrets).sort((a, b) => a.fret_num - b.fret_num);
+      
+      // Draw debug info if enabled
+      if (debugMode) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(5, 5, 200, 30);
+        ctx.fillStyle = 'yellow';
+        ctx.font = '16px Arial';
+        ctx.fillText(`Active frets: ${sortedFrets.length}`, 10, 25);
+      }
+      
+      // Only proceed if we have actual fret detections
+      if (sortedFrets.length >= 2) {
+        // Determine the fretboard area from stable frets
+        let fretPositions = [];
+        let minY = canvas.height;
+        let maxY = 0;
+        
+        // Collect fret positions and determine vertical bounds
+        for (const fretData of sortedFrets) {
+          fretPositions.push([fretData.x_center, fretData.fret_num]);
+          minY = Math.min(minY, fretData.y_min);
+          maxY = Math.max(maxY, fretData.y_max);
+        }
+        
+        // Sort frets by position
+        fretPositions.sort((a, b) => a[0] - b[0]);
+        
+        // Calculate string positions
+        const stringMargin = Math.max(0, minY - 20);
+        const stringHeight = (maxY - minY) / 5; // For 6 strings
+        
+        // Draw strings only between detected frets
+        const leftX = fretPositions[0][0] - 20;
+        const rightX = fretPositions[fretPositions.length - 1][0] + 20;
+        
+        // Draw strings
+        ctx.strokeStyle = 'blue';
+        ctx.lineWidth = 2;
+        
+        for (let i = 0; i < 6; i++) { // 6 strings
+          const stringY = Math.round(stringMargin + i * stringHeight);
+          
+          // Draw string line
+          ctx.beginPath();
+          ctx.moveTo(leftX, stringY);
+          ctx.lineTo(rightX, stringY);
+          ctx.stroke();
+          
+          // Label string number
+          const stringNum = 6 - i; // Convert to standard numbering
+          ctx.fillStyle = 'blue';
+          ctx.font = '12px Arial';
+          ctx.fillText(`${stringNum}`, leftX - 15, stringY + 5);
+        }
+        
+        // Draw fret numbers and highlight scale notes
+        for (const [xPos, fretNum] of fretPositions) {
+          // Draw fret number at top
+          ctx.fillStyle = 'green';
+          ctx.font = '12px Arial';
+          ctx.fillText(`${fretNum}`, xPos - 5, stringMargin - 10);
+          
+          // Highlight scale notes on each string
+          for (let stringIdx = 0; stringIdx < 6; stringIdx++) {
+            const stringY = Math.round(stringMargin + stringIdx * stringHeight);
+            
+            // Get scale note positions for this string
+            const scalePositions = getStringNotePositions(stringIdx, 24);
+            
+            // Check if this fret position is in the scale
+            if (scalePositions.includes(fretNum)) {
+              // Calculate note name at this position
+              const noteName = getNoteAtPosition(stringIdx, fretNum);
+              
+              // Draw scale note dot
+              ctx.beginPath();
+              if (noteName === selectedRoot) {
+                // Root note - yellow
+                ctx.fillStyle = 'rgba(255, 255, 0, 0.8)';
+              } else {
+                // Other scale note - blue
+                ctx.fillStyle = 'rgba(0, 0, 255, 0.6)';
+              }
+              ctx.arc(xPos, stringY, 10, 0, Math.PI * 2);
+              ctx.fill();
+              
+              // Add note name with minimal background
+              ctx.font = '12px Arial';
+              const textWidth = ctx.measureText(noteName).width;
+              
+              // Draw text background
+              ctx.fillStyle = 'black';
+              ctx.fillRect(xPos - textWidth/2 - 2, stringY - 8, textWidth + 4, 16);
+              
+              // Draw text
+              ctx.fillStyle = 'white';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(noteName, xPos, stringY);
+              ctx.textAlign = 'left';
+              ctx.textBaseline = 'alphabetic';
+            }
+          }
+        }
+        
+        // Add minimal scale info at bottom
+        const scaleText = `${selectedRoot} ${selectedScale}`;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(5, canvas.height - 25, scaleText.length * 10 + 10, 20);
+        ctx.fillStyle = 'rgba(255, 255, 0, 0.9)';
+        ctx.font = '14px Arial';
+        ctx.fillText(scaleText, 10, canvas.height - 10);
+      }
+      
+      // Draw fret outlines for debugging
+      if (debugMode) {
+        for (const fretData of Object.values(stableFrets)) {
+          ctx.beginPath();
+          ctx.strokeStyle = 'lime';
+          ctx.lineWidth = 2;
+          
+          // Draw polygon
+          if (fretData.polygon && fretData.polygon.length > 0) {
+            ctx.moveTo(fretData.polygon[0][0], fretData.polygon[0][1]);
+            for (let i = 1; i < fretData.polygon.length; i++) {
+              ctx.lineTo(fretData.polygon[i][0], fretData.polygon[i][1]);
+            }
+            ctx.closePath();
+            ctx.stroke();
+            
+            // Draw fret number
+            ctx.fillStyle = 'lime';
+            ctx.font = '12px Arial';
+            ctx.fillText(`Fret ${fretData.fret_num}`, fretData.x_center, fretData.y_min - 5);
+          }
+        }
+      }
+    }
+
+    // Process video frame
+    async function processVideoFrame() {
+      if (!isRunning || isProcessing || !inferEngine || !workerId) return;
+      
+      const currentTime = Date.now();
+      if (currentTime - lastProcessTime < processInterval) {
+        requestAnimationFrame(processVideoFrame);
+        return;
+      }
+      
+      lastProcessTime = currentTime;
+      isProcessing = true;
+      
+      try {
+        // Create a CVImage from the video element as shown in documentation
+        const { CVImage } = inferencejs;
+        const image = new CVImage(video);
+        
+        // Configuration for this specific inference call
+        const inferenceConfig = {
+          scoreThreshold: 0.3,
+          iouThreshold: 0.5,
+          maxNumBoxes: 50,
+          // Add CORS options
+          corsMode: 'no-cors',
+          disableCORS: true
+        };
+        
+        // Run inference on the current frame
+        let predictions;
+        try {
+          predictions = await inferEngine.infer(workerId, image, inferenceConfig);
+          console.log("Inference successful, got predictions:", predictions);
+        } catch (inferError) {
+          console.error("Error during inference:", inferError);
+          
+          // Try one more time with different options
+          try {
+            console.log("Retrying inference with different options...");
+            predictions = await inferEngine.infer(workerId, image, {
+              ...inferenceConfig,
+              useCache: true,
+              timeout: 10000 // Longer timeout
+            });
+          } catch (retryError) {
+            console.error("Retry also failed:", retryError);
+            throw retryError;
+          }
+        }
+        
+        if (predictions && predictions.length > 0) {
+          if (debugMode) {
+            console.log("Predictions:", predictions);
+          }
+          
+          // Convert predictions to our format
+          const formattedPredictions = predictions.map(pred => ({
+            class: pred.class,
+            confidence: pred.confidence,
+            bbox: pred.bbox,
+            // Create points from bbox for polygon drawing
+            points: [
+              { x: pred.bbox.x - pred.bbox.width/2, y: pred.bbox.y - pred.bbox.height/2 },
+              { x: pred.bbox.x + pred.bbox.width/2, y: pred.bbox.y - pred.bbox.height/2 },
+              { x: pred.bbox.x + pred.bbox.width/2, y: pred.bbox.y + pred.bbox.height/2 },
+              { x: pred.bbox.x - pred.bbox.width/2, y: pred.bbox.y + pred.bbox.height/2 }
+            ]
+          }));
+          
+          const detectionCount = processDetections(formattedPredictions);
+          
+          // Draw the visualization
+          drawFretboardVisualization();
+          
+          // Update status
+          if (debugMode) {
+            const classNames = predictions.map(p => p.class).filter((v, i, a) => a.indexOf(v) === i).join(', ');
+            statusElement.innerHTML = `
+              Scale: ${selectedRoot} ${selectedScale}<br>
+              Notes: ${scaleNotes.join(', ')}<br>
+              Detections: ${predictions.length}<br>
+              Classes: ${classNames || 'None'}<br>
+              Stable frets: ${detectionCount}
+            `;
+          }
+        } else {
+          if (debugMode) {
+            console.log("No predictions found");
+            statusElement.innerHTML = `
+              Scale: ${selectedRoot} ${selectedScale}<br>
+              Notes: ${scaleNotes.join(', ')}<br>
+              Detections: 0<br>
+              No frets detected
+            `;
+          }
+        }
+      } catch (error) {
+        console.error('Error processing frame:', error);
+        statusElement.innerHTML = `Error: ${error.message}`;
+      } finally {
+        isProcessing = false;
+        
+        // Request next frame if still running
+        if (isRunning) {
+          requestAnimationFrame(processVideoFrame);
+        }
+      }
+    }
+
+    // Start camera
+    async function startCamera() {
+      try {
+        loadingIndicator.style.display = 'block';
+        loadingIndicator.textContent = 'Starting camera...';
+        
+        // Initialize InferenceJS if not already done
+        if (!inferEngine || !workerId) {
+          const initialized = await initializeInferenceJS();
+          if (!initialized) {
+            // If model initialization fails, suggest using manual input
+            loadingIndicator.style.display = 'none';
+            statusElement.innerHTML += '<br>Using camera without model inference. Use manual fret input below.';
+            
+            // Add example frets for convenience
+            document.getElementById('addExampleFretsButton').click();
+            
+            // Still continue with camera setup for video display
+          }
+        }
+        
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            facingMode: 'environment'
+          } 
+        });
+        
+        video.srcObject = stream;
+        
+        // Wait for video to be ready
+        await new Promise(resolve => {
+          video.onloadedmetadata = () => {
+            resolve();
+          };
+        });
+        
+        // Set canvas dimensions to match video
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        
+        // Start video
+        await video.play();
+        
+        // Start processing frames
+        isRunning = true;
+        startButton.disabled = true;
+        stopButton.disabled = false;
+        loadingIndicator.style.display = 'none';
+        
+        if (!statusElement.innerHTML.includes('Using camera without model')) {
+          statusElement.innerHTML = `Camera started. Processing frames...`;
+        }
+        
+        // Start processing frames
+        calculateScaleNotes();
+        if (inferEngine && workerId) {
+          processVideoFrame();
+        } else {
+          // Just draw the existing visualization if no model
+          drawFretboardVisualization();
+        }
+        
+      } catch (error) {
+        console.error('Error starting camera:', error);
+        statusElement.innerHTML = `Error: ${error.message}`;
+        loadingIndicator.style.display = 'none';
+      }
+    }
+
+    // Stop camera
+    function stopCamera() {
+      if (!isRunning) return;
+      
+      isRunning = false;
+      
+      // Stop all video tracks
+      if (video.srcObject) {
+        const tracks = video.srcObject.getTracks();
+        tracks.forEach(track => track.stop());
+        video.srcObject = null;
+      }
+      
+      // Clear canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Update buttons
+      startButton.disabled = false;
+      stopButton.disabled = true;
+      
+      // Reset detection state
+      stableFrets = {};
+      fretHistory = {};
+    }
+
+    // Toggle debug mode
+    function toggleDebug() {
+      debugMode = !debugMode;
+      toggleDebugButton.textContent = debugMode ? 'Hide Debug Info' : 'Show Debug Info';
+      
+      // Update status display
+      if (!debugMode) {
+        statusElement.innerHTML = `Scale: ${selectedRoot} ${selectedScale}`;
+      }
+    }
+
+    // Take screenshot
+    function takeScreenshot() {
+      if (!isRunning) {
+        alert('Please start the camera first');
+        return;
+      }
+      
+      try {
+        // Create a new canvas with both video and overlay
+        const screenshotCanvas = document.createElement('canvas');
+        screenshotCanvas.width = video.videoWidth;
+        screenshotCanvas.height = video.videoHeight;
+        const screenshotCtx = screenshotCanvas.getContext('2d');
+        
+        // Draw video frame
+        screenshotCtx.drawImage(video, 0, 0, screenshotCanvas.width, screenshotCanvas.height);
+        
+        // Draw visualization overlay
+        screenshotCtx.drawImage(canvas, 0, 0);
+        
+        // Create download link
+        const link = document.createElement('a');
+        link.download = `fretboard_${selectedRoot}_${selectedScale}_${new Date().toISOString().replace(/[:.]/g, '-')}.png`;
+        link.href = screenshotCanvas.toDataURL('image/png');
+        link.click();
+        
+        // Show notification
+        const notification = document.createElement('div');
+        notification.style.position = 'fixed';
+        notification.style.top = '20px';
+        notification.style.left = '50%';
+        notification.style.transform = 'translateX(-50%)';
+        notification.style.backgroundColor = 'rgba(0, 128, 0, 0.8)';
+        notification.style.color = 'white';
+        notification.style.padding = '10px 20px';
+        notification.style.borderRadius = '5px';
+        notification.style.zIndex = '1000';
+        notification.textContent = 'Screenshot saved!';
+        
+        document.body.appendChild(notification);
+        
+        // Fade out and remove after 3 seconds
+        setTimeout(() => {
+          notification.style.transition = 'opacity 1s';
+          notification.style.opacity = '0';
+          setTimeout(() => {
+            document.body.removeChild(notification);
+          }, 1000);
+        }, 2000);
+        
+      } catch (error) {
+        console.error('Error taking screenshot:', error);
+        alert('Error taking screenshot: ' + error.message);
+      }
+    }
+
+    // Change scale
+    function changeScale(root, scale) {
+      selectedRoot = root;
+      selectedScale = scale;
+      calculateScaleNotes();
+    }
+
+    // Set fret count
+    function setFretCount() {
+      fretCount = parseInt(fretCountSlider.value);
+      fretCountValue.textContent = fretCount;
+      
+      // Reset detection state when changing fret count
+      stableFrets = {};
+      fretHistory = {};
+    }
+
+    // Event listeners
+    startButton.addEventListener('click', startCamera);
+    stopButton.addEventListener('click', stopCamera);
+    toggleDebugButton.addEventListener('click', toggleDebug);
+    screenshotButton.addEventListener('click', takeScreenshot);
+    
+    // Skip model button - just use manual frets
+    document.getElementById('skipModelButton').addEventListener('click', async function() {
+      try {
+        loadingIndicator.style.display = 'block';
+        loadingIndicator.textContent = 'Starting camera...';
+        
+        // Skip model initialization
+        inferEngine = null;
+        workerId = null;
+        
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            facingMode: 'environment'
+          } 
+        });
+        
+        video.srcObject = stream;
+        
+        // Wait for video to be ready
+        await new Promise(resolve => {
+          video.onloadedmetadata = () => {
+            resolve();
+          };
+        });
+        
+        // Set canvas dimensions to match video
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        
+        // Start video
+        await video.play();
+        
+        // Start processing frames
+        isRunning = true;
+        startButton.disabled = true;
+        stopButton.disabled = false;
+        loadingIndicator.style.display = 'none';
+        
+        statusElement.innerHTML = 'Using camera without model. Add frets manually below.';
+        
+        // Add example frets for convenience
+        document.getElementById('addExampleFretsButton').click();
+        
+        // Calculate scale notes
+        calculateScaleNotes();
+        
+      } catch (error) {
+        console.error('Error starting camera:', error);
+        statusElement.innerHTML = `Error: ${error.message}`;
+        loadingIndicator.style.display = 'none';
+      }
+    });
+    
+    setFretCountButton.addEventListener('click', function() {
+      fretCount = parseInt(fretCountSlider.value);
+      fretCountValue.textContent = fretCount;
+    });
+    
+    // Update fret count display
+    fretCountSlider.addEventListener('input', function() {
+      fretCountValue.textContent = this.value;
+    });
+    
+    // Add event listeners to scale buttons
+    document.querySelectorAll('.scale-button').forEach(button => {
+      button.addEventListener('click', function() {
+        const root = this.getAttribute('data-root');
+        const scale = this.getAttribute('data-scale');
+        changeScale(root, scale);
+      });
+    });
+
+    // Manual fret input functions
+    document.getElementById('addFretButton').addEventListener('click', function() {
+      const fretNum = parseInt(document.getElementById('fretNumber').value);
+      const xPos = parseInt(document.getElementById('fretPosition').value);
+      
+      if (fretNum >= 1 && fretNum <= fretCount && xPos >= 0 && xPos <= canvas.width) {
+        // Create a simple fret object
+        const fretData = {
+          polygon: [[xPos-20, 100], [xPos+20, 100], [xPos+20, 380], [xPos-20, 380]],
+          x_center: xPos,
+          y_center: 240,
+          y_min: 100,
+          y_max: 380,
+          width: 40,
+          fret_num: fretNum,
+          confidence: 1.0
+        };
+        
+        // Add to stable frets
+        stableFrets[xPos] = fretData;
+        
+        // Draw visualization
+        drawFretboardVisualization();
+        
+        // Update status
+        statusElement.innerHTML = `Manual fret ${fretNum} added at position ${xPos}`;
+      }
+    });
+    
+    document.getElementById('clearFretsButton').addEventListener('click', function() {
+      stableFrets = {};
+      fretHistory = {};
+      drawFretboardVisualization();
+      statusElement.innerHTML = `All manual frets cleared`;
+    });
+    
+    document.getElementById('addExampleFretsButton').addEventListener('click', function() {
+      // Clear existing frets
+      stableFrets = {};
+      
+      // Add example frets (positions are approximate)
+      const exampleFrets = [
+        { num: 1, pos: 100 },
+        { num: 2, pos: 180 },
+        { num: 3, pos: 250 },
+        { num: 4, pos: 310 },
+        { num: 5, pos: 370 },
+        { num: 6, pos: 420 },
+        { num: 7, pos: 470 },
+        { num: 8, pos: 510 },
+        { num: 9, pos: 550 }
+      ];
+      
+      for (const fret of exampleFrets) {
+        stableFrets[fret.pos] = {
+          polygon: [[fret.pos-15, 100], [fret.pos+15, 100], [fret.pos+15, 380], [fret.pos-15, 380]],
+          x_center: fret.pos,
+          y_center: 240,
+          y_min: 100,
+          y_max: 380,
+          width: 30,
+          fret_num: fret.num,
+          confidence: 1.0
+        };
+      }
+      
+      // Draw visualization
+      drawFretboardVisualization();
+      
+      // Update status
+      statusElement.innerHTML = `Example frets added`;
+    });
+
+    // Helper function to create a CORS proxy
+    function createCorsProxy() {
+      // Add a button to try different CORS proxies
+      const proxyButton = document.createElement('button');
+      proxyButton.textContent = 'Try CORS Proxy';
+      proxyButton.style.backgroundColor = '#FF5722';
+      proxyButton.style.marginLeft = '10px';
+      
+      // Insert after start button
+      document.getElementById('startButton').parentNode.insertBefore(
+        proxyButton,
+        document.getElementById('startButton').nextSibling
+      );
+      
+      // Available CORS proxies
+      const corsProxies = [
+        'https://cors-anywhere.herokuapp.com/',
+        'https://api.allorigins.win/raw?url=',
+        'https://corsproxy.io/?',
+        'https://cors-proxy.htmldriven.com/?url='
+      ];
+      
+      let currentProxyIndex = 0;
+      
+      // Add event listener
+      proxyButton.addEventListener('click', async function() {
+        loadingIndicator.style.display = 'block';
+        loadingIndicator.textContent = 'Trying CORS proxy...';
+        
+        const proxy = corsProxies[currentProxyIndex];
+        currentProxyIndex = (currentProxyIndex + 1) % corsProxies.length;
+        
+        statusElement.innerHTML = `Trying CORS proxy: ${proxy}`;
+        
+        try {
+          // Initialize the inference engine with CORS proxy
+          const { InferenceEngine } = inferencejs;
+          inferEngine = new InferenceEngine({
+            apiBaseUrl: `${proxy}https://api.roboflow.com`,
+            corsProxy: proxy,
+            corsMode: 'no-cors',
+            disableCORS: true
+          });
+          
+          // Try to load the model
+          workerId = await inferEngine.startWorker(
+            MODEL_ID, 
+            MODEL_VERSION, 
+            PUBLISHABLE_KEY
+          );
+          
+          loadingIndicator.style.display = 'none';
+          statusElement.innerHTML = `Success! Model loaded with proxy: ${proxy}`;
+          
+          // Enable start camera
+          startButton.disabled = false;
+          
+        } catch (error) {
+          console.error(`Error with proxy ${proxy}:`, error);
+          loadingIndicator.style.display = 'none';
+          statusElement.innerHTML = `Failed with proxy ${proxy}: ${error.message}<br>Click again to try next proxy.`;
+        }
+      });
+      
+      return proxyButton;
+    }
+    
+    // Create the CORS proxy button
+    createCorsProxy();
+    
+    // Initialize
+    calculateScaleNotes();
+  </script>
+</body>
+</html> 
