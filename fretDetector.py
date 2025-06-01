@@ -21,7 +21,12 @@ SCALES = {
     'minor': [0, 2, 3, 5, 7, 8, 10],          # Whole, Half, Whole, Whole, Half, Whole, Whole
     'pentatonic_major': [0, 2, 4, 7, 9],      # Major without 4th and 7th
     'pentatonic_minor': [0, 3, 5, 7, 10],     # Minor without 2nd and 6th
-    'blues': [0, 3, 5, 6, 7, 10]              # Pentatonic minor with blue note
+    'blues': [0, 3, 5, 6, 7, 10],             # Pentatonic minor with blue note
+    'dorian': [0, 2, 3, 5, 7, 9, 10],         # Minor scale with major 6th
+    'mixolydian': [0, 2, 4, 5, 7, 9, 10],     # Major scale with minor 7th
+    'harmonic_minor': [0, 2, 3, 5, 7, 8, 11], # Natural minor with raised 7th
+    'melodic_minor': [0, 2, 3, 5, 7, 9, 11],  # Minor with raised 6th and 7th
+    'phrygian': [0, 1, 3, 5, 7, 8, 10]        # Spanish/Flamenco flavor
 }
 
 class FretboardNotes:
@@ -109,377 +114,9 @@ class FretTracker:
         self.frame_height = 0
         self.debug_mode = True
         self.min_fret_width = 20
-        self.smoothing_factor = 0.95  # Increased smoothing factor
-        self.position_history = {}
-        self.fret_numbers = {}  # Store stable fret numbers
-        self.fret_number_history = {}  # Track fret number history
-        self.fret_number_counts = {}  # Count frequency of fret numbers at positions
-        self.stable_frames_required = 55  # Decreased from 60
-        self.max_history_frames = 150  # Increased from 120
-        self.min_spacing = 45  # Minimum pixels between fret centers
-        self.last_valid_fretboard = None  # Store last valid fretboard boundaries
-        self.last_stable_positions = {}  # Store last stable positions for each fret
-        self.position_change_threshold = 25  # Reduced for less jumping
-        self.consecutive_changes_required = 40  # Decreased from 45
-        self.fret_probation = {}  # Track potential fret changes during probation
-        self.probation_frames = 55  # Decreased from 60
-        self.last_stable_time = {}  # Track when each fret was last stable
-        self.min_stable_time = 1.8  # Decreased from 2.0
-        self.stability_scores = {}  # Track stability scores for each fret
-        self.confidence_decay = 0.993  # Decreased from 0.995
-        self.min_confidence_for_change = 0.93  # Decreased from 0.95
-        self.stability_threshold_for_change = 0.88  # Decreased from 0.90
-        self.super_stable_frets = {}  # Track frets that have been stable for a long time
-        self.super_stable_time = 2.8  # Decreased from 3.0
-        self.super_stable_confidence = 0.97  # Decreased from 0.98
-        self.critical_fret_pairs = {5: 7, 7: 5}  # Pairs of frets that often get confused
-        self.critical_fret_spacing = 60  # Minimum pixels between critical frets
-        self.velocity_history = {}  # Track position change velocity
-        self.max_velocity = 10  # Reduced from 15
-        
-    def get_fret_number_from_class(self, class_name):
-        """Extract fret number from zone class name."""
-        if class_name.startswith("Zone"):
-            try:
-                return int(class_name[4:])  # Extract number after "Zone"
-            except ValueError:
-                return -1
-        return -1
-        
-    def update_stability_score(self, x_center, fret_num, confidence):
-        """Update stability score for a fret based on consistency and confidence."""
-        if x_center not in self.stability_scores:
-            self.stability_scores[x_center] = {'score': 0.2, 'last_fret': fret_num}  # Start with lower initial score
-            
-        stability_data = self.stability_scores[x_center]
-        
-        # Apply slower confidence decay
-        stability_data['score'] *= self.confidence_decay
-        
-        # Increase score if same fret, decrease if different
-        if fret_num == stability_data['last_fret']:
-            # Even smaller increases for more conservative scoring
-            increase = 0.03 * confidence  # Reduced from 0.05
-            stability_data['score'] = min(1.0, stability_data['score'] + increase)
-        else:
-            # Larger decreases for changes
-            decrease = 0.4 * (1 - confidence)  # Increased from 0.3
-            stability_data['score'] = max(0.0, stability_data['score'] - decrease)
-            
-        stability_data['last_fret'] = fret_num
-        return stability_data['score']
-        
-    def validate_critical_frets(self, x_center, fret_num, current_frets):
-        """Special validation for frets that often get confused (like 5th and 7th)."""
-        if fret_num not in self.critical_fret_pairs:
-            return True
-            
-        paired_fret = self.critical_fret_pairs[fret_num]
-        
-        # Check all current detections
-        for other_x, other_data in current_frets.items():
-            if other_data['fret_num'] == paired_fret:
-                # If we find the paired fret, ensure they're far enough apart
-                if abs(x_center - other_x) < self.critical_fret_spacing:
-                    # If too close, keep the one with higher confidence
-                    if other_data.get('confidence', 0) > other_data.get('confidence', 0):
-                        return False
-                    
-        return True
-        
-    def update_velocity(self, x_center, new_x):
-        """Track and limit position change velocity."""
-        if x_center not in self.velocity_history:
-            self.velocity_history[x_center] = {'last_pos': new_x, 'velocity': 0}
-            return new_x
-            
-        hist = self.velocity_history[x_center]
-        current_velocity = abs(new_x - hist['last_pos'])
-        
-        # Smooth velocity calculation
-        hist['velocity'] = hist['velocity'] * 0.8 + current_velocity * 0.2
-        
-        # If velocity is too high, limit the position change
-        if hist['velocity'] > self.max_velocity:
-            if new_x > hist['last_pos']:
-                new_x = hist['last_pos'] + self.max_velocity
-            else:
-                new_x = hist['last_pos'] - self.max_velocity
-                
-        hist['last_pos'] = new_x
-        return new_x
-        
-    def smooth_position(self, x_center, fret_data):
-        """Apply exponential smoothing to fret positions with enhanced stability."""
-        if x_center not in self.position_history:
-            self.position_history[x_center] = {
-                'x': x_center,
-                'y': fret_data['y_center'],
-                'y_min': fret_data['y_min'],
-                'y_max': fret_data['y_max'],
-                'width': fret_data['width']
-            }
-            return fret_data
-            
-        # Use stronger smoothing for more stability
-        alpha = 0.02  # Reduced further for even smoother transitions
-        hist = self.position_history[x_center]
-        
-        # Apply velocity-based position limiting
-        new_x = self.update_velocity(x_center, fret_data['x_center'])
-        
-        # Apply stricter position change limits
-        max_change = self.position_change_threshold * 0.5  # Half the threshold for smoother movement
-        new_x = max(min(new_x, hist['x'] + max_change), hist['x'] - max_change)
-        
-        # Smooth all position components with change limits
-        smoothed_x = alpha * new_x + (1 - alpha) * hist['x']
-        smoothed_y = alpha * fret_data['y_center'] + (1 - alpha) * hist['y']
-        smoothed_y_min = alpha * fret_data['y_min'] + (1 - alpha) * hist['y_min']
-        smoothed_y_max = alpha * fret_data['y_max'] + (1 - alpha) * hist['y_max']
-        smoothed_width = alpha * fret_data['width'] + (1 - alpha) * hist['width']
-        
-        # Update history
-        self.position_history[x_center] = {
-            'x': smoothed_x,
-            'y': smoothed_y,
-            'y_min': smoothed_y_min,
-            'y_max': smoothed_y_max,
-            'width': smoothed_width
-        }
-        
-        # Create smoothed data with rounding for extra stability
-        smoothed_data = fret_data.copy()
-        smoothed_data['x_center'] = round(smoothed_x)
-        smoothed_data['y_center'] = round(smoothed_y)
-        smoothed_data['y_min'] = round(smoothed_y_min)
-        smoothed_data['y_max'] = round(smoothed_y_max)
-        smoothed_data['width'] = round(smoothed_width)
-        
-        return smoothed_data
-        
-    def validate_fret_number(self, x_center, fret_num, confidence):
-        """Validate fret number using historical data and physical constraints with enhanced stability."""
-        current_time = time.time()
-        
-        # Initialize history if needed
-        if x_center not in self.fret_number_history:
-            self.fret_number_history[x_center] = []
-            self.fret_number_counts[x_center] = {}
-            self.last_stable_time[x_center] = current_time
-            
-        # Special handling for critical fret pairs (like 5th and 7th)
-        if fret_num in self.critical_fret_pairs:
-            paired_fret = self.critical_fret_pairs[fret_num]
-            
-            # If we're changing from one critical fret to its pair, require even higher confidence
-            if x_center in self.fret_numbers:
-                current_fret = self.fret_numbers[x_center]
-                if current_fret == paired_fret and confidence < (self.super_stable_confidence + 0.01):
-                    return current_fret
-                    
-            # Check spacing with other critical frets
-            if not self.validate_critical_frets(x_center, fret_num, self.frets):
-                return self.fret_numbers.get(x_center, fret_num)
-                
-        # Check super-stable state with stricter requirements
-        if x_center in self.super_stable_frets:
-            super_stable_fret = self.super_stable_frets[x_center]
-            if fret_num != super_stable_fret:
-                # Even higher confidence requirement for super-stable changes
-                if confidence < (self.super_stable_confidence + 0.01):
-                    return super_stable_fret
-                # Reset super-stable state if very high confidence different detection
-                else:
-                    del self.super_stable_frets[x_center]
-            
-        # Update stability score with more weight on history
-        stability_score = self.update_stability_score(x_center, fret_num, confidence)
-            
-        # Check minimum stable time requirement with dynamic threshold
-        if x_center in self.fret_numbers:
-            time_since_stable = current_time - self.last_stable_time.get(x_center, 0)
-            
-            # Check for super-stable qualification with stricter requirements
-            if (time_since_stable > self.super_stable_time and 
-                stability_score > 0.97 and  # Increased from 0.95
-                x_center not in self.super_stable_frets):
-                self.super_stable_frets[x_center] = self.fret_numbers[x_center]
-            
-            # Increased minimum time for lower stability scores
-            min_time_required = self.min_stable_time * (1 + (1 - stability_score) * 4)  # Increased multiplier
-            if time_since_stable < min_time_required:
-                return self.fret_numbers[x_center]
-            
-        # Check for physically impossible position changes
-        if x_center in self.last_stable_positions:
-            last_pos = self.last_stable_positions[x_center]
-            # More restrictive position changes based on stability
-            max_allowed_change = self.position_change_threshold * (stability_score ** 3)  # More aggressive scaling
-            if abs(x_center - last_pos) > max_allowed_change:
-                return self.fret_numbers.get(x_center, fret_num)
-            
-        # Update history with more weight on confidence
-        self.fret_number_history[x_center].append((fret_num, confidence))
-        if len(self.fret_number_history[x_center]) > self.max_history_frames:
-            self.fret_number_history[x_center].pop(0)
-            
-        # If we have a stable fret number, require very strong evidence to change it
-        if x_center in self.fret_numbers:
-            current_stable = self.fret_numbers[x_center]
-            if fret_num != current_stable:
-                # Require higher stability for changes
-                if stability_score < self.stability_threshold_for_change:
-                    return current_stable
-                    
-                # Check if this potential change is already in probation
-                if x_center not in self.fret_probation:
-                    self.fret_probation[x_center] = {
-                        'fret': fret_num,
-                        'frames': 0,
-                        'high_conf_frames': 0,
-                        'total_confidence': 0,
-                        'avg_confidence': 0,
-                        'consecutive_high_conf': 0
-                    }
-                elif self.fret_probation[x_center]['fret'] != fret_num:
-                    # Reset probation if the proposed change is different
-                    self.fret_probation[x_center] = {
-                        'fret': fret_num,
-                        'frames': 0,
-                        'high_conf_frames': 0,
-                        'total_confidence': 0,
-                        'avg_confidence': 0,
-                        'consecutive_high_conf': 0
-                    }
-                
-                # Update probation counters with enhanced tracking
-                prob_data = self.fret_probation[x_center]
-                prob_data['frames'] += 1
-                prob_data['total_confidence'] += confidence
-                prob_data['avg_confidence'] = prob_data['total_confidence'] / prob_data['frames']
-                
-                # Track consecutive high confidence detections with higher threshold
-                if confidence > self.min_confidence_for_change:
-                    prob_data['high_conf_frames'] += 1
-                    prob_data['consecutive_high_conf'] += 1
-                else:
-                    prob_data['consecutive_high_conf'] = 0  # Reset consecutive counter
-                
-                # Check if change meets enhanced probation requirements
-                if (prob_data['frames'] >= self.probation_frames and 
-                    prob_data['high_conf_frames'] >= self.consecutive_changes_required and
-                    prob_data['avg_confidence'] > self.min_confidence_for_change and
-                    prob_data['consecutive_high_conf'] >= 15):  # Increased from 10
-                    # Probation passed, allow the change
-                    del self.fret_probation[x_center]
-                else:
-                    # Still in probation, maintain current number
-                    return current_stable
-                
-        # Get high confidence history with dynamic threshold
-        conf_threshold = max(0.85, self.min_confidence_for_change * (1 - stability_score * 0.3))  # Increased base threshold
-        high_conf_history = [(num, conf) for num, conf in self.fret_number_history[x_center] 
-                           if conf > conf_threshold]
-        
-        if high_conf_history:
-            counts = {}
-            total_confidence = {}
-            
-            # Weight counts by confidence and recency with stronger recency bias
-            for idx, (num, conf) in enumerate(high_conf_history):
-                # Stronger recency weight
-                recency_weight = ((idx + 1) / len(high_conf_history)) ** 2
-                weighted_conf = conf * (0.2 + 0.8 * recency_weight)  # More weight on recency
-                
-                counts[num] = counts.get(num, 0) + 1
-                total_confidence[num] = total_confidence.get(num, 0) + weighted_conf
-                
-            # Find the number with highest confidence-weighted count
-            weighted_counts = {num: count * (total_confidence[num] / count) 
-                             for num, count in counts.items()}
-            
-            most_common = max(weighted_counts.items(), key=lambda x: x[1])
-            
-            # Require stronger agreement for changes based on stability
-            agreement_threshold = 0.90 * (1 + (1 - stability_score) * 0.4)  # Higher threshold
-            if most_common[1] >= len(high_conf_history) * agreement_threshold:
-                validated_num = most_common[0]
-                # Update stable position and time
-                self.last_stable_positions[x_center] = x_center
-                self.last_stable_time[x_center] = current_time
-                return validated_num
-                
-        return self.fret_numbers.get(x_center, fret_num)
-        
-    def validate_fretboard_bounds(self, detections):
-        """Calculate and validate fretboard boundaries."""
-        if not detections:
-            return self.last_valid_fretboard if self.last_valid_fretboard else None
-            
-        # Get all valid zone detections
-        valid_zones = [det for det in detections 
-                      if det.get("points") and 
-                      det.get("class", "").startswith("Zone") and
-                      len(det["points"]) >= 3]
-        
-        if not valid_zones:
-            return self.last_valid_fretboard if self.last_valid_fretboard else None
-            
-        # Calculate overall bounds
-        all_points = np.array([[pt["x"], pt["y"]] for det in valid_zones for pt in det["points"]])
-        x_min, y_min = np.min(all_points, axis=0)
-        x_max, y_max = np.max(all_points, axis=0)
-        
-        # Add margins
-        margin = self.min_fret_width
-        bounds = {
-            'x_min': max(0, x_min - margin),
-            'x_max': x_max + margin,
-            'y_min': max(0, y_min - margin),
-            'y_max': min(self.frame_height, y_max + margin)
-        }
-        
-        # Validate bounds
-        if bounds['x_max'] - bounds['x_min'] > 50 and bounds['y_max'] - bounds['y_min'] > 50:
-            self.last_valid_fretboard = bounds
-            return bounds
-            
-        return self.last_valid_fretboard if self.last_valid_fretboard else None
-        
-    def remove_overlapping_frets(self, current_frets):
-        """Remove overlapping fret detections with special handling for critical pairs."""
-        if not current_frets:
-            return {}
-            
-        # Sort frets by confidence
-        sorted_centers = sorted(current_frets.items(), 
-                              key=lambda x: (-x[1]['confidence'], x[1]['fret_num']))
-        
-        # Keep track of valid frets
-        valid_frets = {}
-        used_positions = set()
-        
-        for x_center, fret_data in sorted_centers:
-            # Check if this fret overlaps with any existing fret
-            is_valid = True
-            fret_x = fret_data['x_center']
-            fret_num = fret_data['fret_num']
-            
-            for existing_x in used_positions:
-                min_spacing = (self.critical_fret_spacing 
-                             if fret_num in self.critical_fret_pairs 
-                             else self.min_spacing)
-                if abs(existing_x - fret_x) < min_spacing:
-                    is_valid = False
-                    break
-            
-            if is_valid:
-                valid_frets[x_center] = fret_data
-                used_positions.add(fret_x)
-        
-        return valid_frets
-        
+        self.min_fret_spacing = 40  # Minimum pixels between adjacent frets
+        self.max_fret_spacing = 120  # Maximum pixels between adjacent frets
+
     def update(self, detections, frame_height):
         """Update fret tracking with new detections."""
         self.frame_height = frame_height
@@ -490,14 +127,10 @@ class FretTracker:
             
         self.last_update_time = current_time
         
-        # Validate fretboard boundaries
-        fretboard_bounds = self.validate_fretboard_bounds(detections)
-        if not fretboard_bounds:
-            return
-        
         # Process each detection
         current_frets = {}
         
+        # First pass: collect all detections
         for det in detections:
             if not det.get("points"):
                 continue
@@ -507,12 +140,20 @@ class FretTracker:
                 continue
                 
             # Get fret number from class name
-            fret_num = self.get_fret_number_from_class(class_name)
+            try:
+                fret_num = int(class_name[4:])  # Extract number after "Zone"
+            except ValueError:
+                continue
+                
             if fret_num < 1 or fret_num > self.num_frets:
                 continue
                 
+            # Check confidence threshold
+            confidence = det.get("confidence", 0)
+            if confidence < self.stability_threshold:
+                continue
+                
             polygon = np.array([[pt["x"], pt["y"]] for pt in det["points"]], dtype=np.int32)
-            
             if len(polygon) < 3:
                 continue
                 
@@ -521,134 +162,66 @@ class FretTracker:
             x_center = int(np.mean(x_coords))
             y_center = int(np.mean(y_coords))
             
-            # Check if detection is within fretboard bounds with more tolerance
-            margin = self.min_fret_width * 1.5
-            if (x_center < fretboard_bounds['x_min'] - margin or 
-                x_center > fretboard_bounds['x_max'] + margin or
-                y_center < fretboard_bounds['y_min'] - margin or
-                y_center > fretboard_bounds['y_max'] + margin):
-                continue
-                
+            # Basic width validation
             fret_width = np.max(x_coords) - np.min(x_coords)
             if fret_width < self.min_fret_width:
                 continue
                 
-            confidence = det.get("confidence", 0)
-            
-            # Validate fret number using history and physical constraints
-            validated_fret_num = self.validate_fret_number(x_center, fret_num, confidence)
-            
-            # Store validated fret number if confidence is high
-            if confidence > 0.5:
-                self.fret_numbers[x_center] = validated_fret_num
-            
-            # Basic fret data with validated number
-            fret_data = {
-                'polygon': polygon,
+            # Store basic fret data
+            current_frets[x_center] = {
                 'x_center': x_center,
                 'y_center': y_center,
                 'y_min': np.min(y_coords),
                 'y_max': np.max(y_coords),
                 'width': fret_width,
-                'fret_num': validated_fret_num,
-                'confidence': confidence,
-                'interpolated': False
+                'fret_num': fret_num,
+                'confidence': confidence
             }
+        
+        # Second pass: validate spacing between frets
+        sorted_frets = sorted(current_frets.items(), key=lambda x: x[1]['x_center'])
+        valid_frets = {}
+        
+        for i, (x_center, fret_data) in enumerate(sorted_frets):
+            is_valid = True
             
-            # Apply smoothing
-            smoothed_data = self.smooth_position(x_center, fret_data)
-            current_frets[x_center] = smoothed_data
+            # Check spacing with previous fret
+            if i > 0:
+                prev_x = sorted_frets[i-1][1]['x_center']
+                spacing = x_center - prev_x
+                if spacing < self.min_fret_spacing or spacing > self.max_fret_spacing:
+                    is_valid = False
+            
+            if is_valid:
+                valid_frets[x_center] = fret_data
         
-        # Remove overlapping detections
-        current_frets = self.remove_overlapping_frets(current_frets)
-        
-        # Clean up old history
-        current_positions = set(current_frets.keys())
-        for x_center in list(self.fret_number_history.keys()):
-            if x_center not in current_positions:
-                if len(self.fret_number_history[x_center]) < self.stable_frames_required:
-                    del self.fret_number_history[x_center]
-                    if x_center in self.fret_number_counts:
-                        del self.fret_number_counts[x_center]
-                    if x_center in self.fret_numbers:
-                        del self.fret_numbers[x_center]
-                    if x_center in self.position_history:
-                        del self.position_history[x_center]
-        
-        # Update frets and sort
-        self.frets = current_frets
-        self.sorted_frets = sorted(
-            self.frets.items(),
-            key=lambda x: x[1]['x_center']  # Sort by x position for consistent display
-        )
-    
-    def get_fret_number(self, x_center):
-        """Get the fret number for a position."""
-        if x_center in self.frets:
-            return self.frets[x_center]['fret_num']
-        return -1
-    
-    def get_stable_frets(self):
-        """Return frets that have been detected consistently."""
-        stable_frets = {}
-        
-        for x_center, fret_data in self.frets.items():
-            # Only include frets that have sufficient history
-            if len(self.fret_history.get(x_center, [])) >= self.stable_frames_required:
-                stable_frets[x_center] = fret_data
-                
-        return stable_frets
+        self.frets = valid_frets
+        self.sorted_frets = sorted(self.frets.items(), key=lambda x: x[1]['x_center'])
 
     def get_string_positions(self, fret_data):
-        """Calculate positions of strings on this fret with improved stability."""
+        """Calculate positions of strings on this fret."""
         y_min = fret_data['y_min']
         y_max = fret_data['y_max']
-        fret_height = y_max - y_min
-        
-        # Use frame height to estimate string spacing if fret area is too small
-        if fret_height < 50 and self.frame_height > 0:
-            # Expand the detection area while maintaining center
-            center_y = (y_min + y_max) / 2
-            desired_height = max(100, fret_height * 1.5)  # At least 100 pixels or 1.5x current height
-            y_min = center_y - desired_height / 2
-            y_max = center_y + desired_height / 2
-            
-            # Ensure bounds are within frame
-            y_min = max(0, y_min)
-            y_max = min(self.frame_height, y_max)
-            
-        # Calculate string spacing with padding
         total_height = y_max - y_min
-        string_padding = total_height * 0.1  # 10% padding
-        usable_height = total_height - 2 * string_padding
         
-        # Calculate 6 string positions with padding (6th string to 1st string, top to bottom)
+        # Calculate 6 evenly spaced string positions
         string_positions = []
         for i in range(6):
-            pos = y_min + string_padding + (i * usable_height / 5)
+            pos = y_min + (i * total_height / 5)
             string_positions.append(int(pos))
             
         return string_positions
 
+    def get_stable_frets(self):
+        """Return all valid frets."""
+        return self.frets
+
 def draw_scale_notes(frame, fret_tracker, fretboard_notes):
-    """Draw dots for scale notes on detected frets using tracking for stability."""
+    """Draw dots for scale notes on detected frets."""
     stable_frets = fret_tracker.get_stable_frets()
     
-    # Draw debug info
-    if fret_tracker.debug_mode:
-        cv2.putText(frame, f"Active frets: {len(stable_frets)}", 
-                   (10, frame.shape[0] - 30), cv2.FONT_HERSHEY_SIMPLEX, 
-                   0.5, (255, 255, 255), 1, cv2.LINE_AA)
-    
-    # Get highest confidence fret for reference
-    max_confidence = max((fret['confidence'] for fret in stable_frets.values()), default=0)
-    confidence_threshold = max_confidence * 0.3
-    
-    # Process frets in order of confidence (highest to lowest)
+    # Process frets in order
     for x_center, fret_data in fret_tracker.sorted_frets:
-        if fret_data['confidence'] < confidence_threshold:
-            continue
-            
         fret_num = fret_data['fret_num']
         if fret_num < 1:
             continue
@@ -657,10 +230,9 @@ def draw_scale_notes(frame, fret_tracker, fretboard_notes):
         string_positions = fret_tracker.get_string_positions(fret_data)
         
         # Draw fret number label at the top
-        label_color = (255, 255, 255) if not fret_data.get('interpolated', False) else (128, 128, 255)
         cv2.putText(frame, f"Fret {fret_num}", 
                    (fret_data['x_center'] - 20, int(string_positions[0]) - 20),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, label_color, 1, cv2.LINE_AA)
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
         
         # Draw dots for each string if the note is in the scale
         for string_idx, y_pos in enumerate(string_positions):
@@ -669,37 +241,25 @@ def draw_scale_notes(frame, fret_tracker, fretboard_notes):
             
             if fret_num in scale_positions:
                 if note_name == fretboard_notes.selected_root:
-                    cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 10, (0, 128, 255), -1)
-                    cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 8, (0, 255, 255), -1)
-                else:
-                    cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 10, (0, 0, 128), -1)
+                    # Root note - red
                     cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 8, (0, 0, 255), -1)
+                else:
+                    # Scale note - blue
+                    cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 8, (255, 0, 0), -1)
                 
-                # Display note name with consistent positioning
-                (text_w, text_h), _ = cv2.getTextSize(note_name, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-                text_x = fret_data['x_center'] + 12  # Consistent offset
-                text_y = int(y_pos) + text_h//2
-                
-                # Background rectangle for better visibility
-                cv2.rectangle(frame,
-                            (text_x - 2, text_y - text_h - 2),
-                            (text_x + text_w + 2, text_y + 2),
-                            (0, 0, 0), -1)
-                            
-                cv2.putText(frame, note_name,
-                           (text_x, text_y),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, 
-                           (255, 255, 255),
-                           1, cv2.LINE_AA)
+                # Display note name
+                text_x = fret_data['x_center'] + 12
+                text_y = int(y_pos) + 5
+                cv2.putText(frame, note_name, (text_x, text_y),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
             else:
+                # Non-scale note - small grey dot
                 cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 4, (128, 128, 128), -1)
-                
-    # Display debug info
-    if fret_tracker.debug_mode and len(stable_frets) > 0:
-        if fret_tracker.fret_numbers:
-            cv2.putText(frame, f"Stable: {len(fret_tracker.fret_numbers)}", 
-                       (10, frame.shape[0] - 50), cv2.FONT_HERSHEY_SIMPLEX, 
-                       0.5, (128, 128, 255), 1, cv2.LINE_AA)
+
+    # Draw scale info
+    scale_text = f"{fretboard_notes.selected_root} {fretboard_notes.selected_scale_name}"
+    cv2.putText(frame, scale_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 
+                0.7, (255, 255, 255), 2, cv2.LINE_AA)
 
 def custom_sink(predictions: dict, video_frame: VideoFrame, fretboard_notes: FretboardNotes, fret_tracker: FretTracker):
     frame = video_frame.image.copy()
@@ -743,11 +303,11 @@ def main():
         ('G', 'major'),
         ('E', 'minor'),
         ('F', 'major'),
-        ('D', 'minor'),
         ('D', 'major'),
-        ('E', 'pentatonic_minor'),
         ('A', 'pentatonic_minor'),
-        ('G', 'pentatonic_major'),
+        ('E', 'blues'),
+        ('D', 'dorian'),
+        ('G', 'mixolydian')
     ]
     current_scale_idx = 0
     

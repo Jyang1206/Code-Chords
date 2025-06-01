@@ -20,6 +20,7 @@
             justify-content: center;
             align-items: center;
             z-index: 1000;
+            transition: opacity 0.3s ease;
         }
         .loading-spinner {
             width: 50px;
@@ -44,9 +45,75 @@
         #video-feed {
             opacity: 0;
             transition: opacity 0.5s ease;
+            max-width: 100%;
+            height: auto;
         }
         #video-feed.loaded {
             opacity: 1;
+        }
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: white;
+        }
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+            position: relative;
+        }
+        #videoElement {
+            width: 100%;
+            border-radius: 8px;
+        }
+        .controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 8px;
+            z-index: 100;
+        }
+        select {
+            padding: 8px;
+            border-radius: 4px;
+            background: #333;
+            color: white;
+            border: 1px solid #555;
+            margin-bottom: 10px;
+            width: 200px;
+        }
+        .scale-info {
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        .setting-item {
+            margin: 15px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        input[type="range"] {
+            width: 150px;
+            -webkit-appearance: none;
+            background: #555;
+            height: 8px;
+            border-radius: 4px;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #3498db;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        #confidence-value {
+            margin-left: 10px;
+            color: #3498db;
+            font-weight: bold;
         }
     </style>
 </head>
@@ -61,7 +128,7 @@
 
     <div class="container">
         <header>
-            <h1>Code-Chords <span class="icon">🎸</span></h1>
+            <h1>Guitar Story <span class="icon">🎸</span></h1>
             <p class="subtitle">Real-time Guitar Learning Assistant</p>
         </header>
 
@@ -83,25 +150,27 @@
                     </select>
                 </div>
 
-                <div class="detection-controls">
-                    <button id="start-detection" class="btn primary">▶ Start</button>
-                    <button id="stop-detection" class="btn danger">⬛ Stop</button>
-                </div>
-
                 <div class="settings">
                     <div class="setting-item">
-                        <label for="bpm">🎯 BPM:</label>
-                        <input type="number" id="bpm" min="60" max="200" value="120">
+                        <label for="confidence-threshold">Confidence Threshold:</label>
+                        <input type="range" id="confidence-threshold" 
+                               min="0" max="100" value="30" 
+                               oninput="updateConfidence(this.value)">
+                        <span id="confidence-value">30%</span>
                     </div>
                     <div class="setting-item">
                         <label for="scale-select">🎼 Scale:</label>
-                        <select id="scale-select">
-                            <option value="c_major">C Major</option>
-                            <option value="a_minor">A Minor</option>
-                            <option value="g_major">G Major</option>
-                            <option value="e_minor">E Minor</option>
-                            <option value="f_major">F Major</option>
-                            <option value="d_major">D Major</option>
+                        <select id="scale-select" onchange="changeScale()">
+                            <option value="C_major">C Major</option>
+                            <option value="A_minor">A Minor</option>
+                            <option value="G_major">G Major</option>
+                            <option value="E_minor">E Minor</option>
+                            <option value="F_major">F Major</option>
+                            <option value="D_major">D Major</option>
+                            <option value="A_pentatonic_minor">A Pentatonic Minor</option>
+                            <option value="E_blues">E Blues</option>
+                            <option value="D_dorian">D Dorian</option>
+                            <option value="G_mixolydian">G Mixolydian</option>
                         </select>
                     </div>
                 </div>
@@ -126,5 +195,57 @@
 
     <!-- Load scripts with proper attributes -->
     <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+    <script>
+        function changeScale() {
+            const select = document.getElementById('scale-select');
+            const [root, scale_type] = select.value.split('_');
+            
+            fetch('/change_scale', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    root: root,
+                    scale_type: scale_type
+                })
+            });
+        }
+
+        // Function to hide loading overlay
+        function hideLoadingOverlay() {
+            document.getElementById('loading-overlay').style.display = 'none';
+            document.getElementById('video-feed').classList.add('loaded');
+        }
+
+        // Function to check if video feed is working
+        function checkVideoFeed() {
+            const videoFeed = document.getElementById('video-feed');
+            if (videoFeed.naturalWidth > 0 && videoFeed.naturalHeight > 0) {
+                hideLoadingOverlay();
+            } else {
+                setTimeout(checkVideoFeed, 500);
+            }
+        }
+
+        // Start checking video feed when image starts loading
+        document.getElementById('video-feed').onload = checkVideoFeed;
+
+        function updateConfidence(value) {
+            document.getElementById('confidence-value').textContent = value + '%';
+            fetch('/update_confidence', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    threshold: value / 100
+                })
+            });
+        }
+
+        // Start checking video feed immediately
+        checkVideoFeed();
+    </script>
 </body>
 </html> 

@@ -18,8 +18,8 @@ MODEL_ID = os.getenv('MODEL_ID', "guitar-frets-segmenter/1")
 PORT = int(os.getenv('FLASK_PORT', 8000))
 
 # Performance settings
-MAX_INIT_RETRIES = 3
-INIT_RETRY_DELAY = 1.0  # seconds
+MAX_INIT_RETRIES = 2  # Reduced from 3
+INIT_RETRY_DELAY = 0.5  # Reduced from 1.0 second
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 CORS(app)
@@ -35,32 +35,34 @@ frame_buffer = None
 # Set initial scale
 fretboard_notes.set_scale('C', 'major')
 
+# Global confidence threshold
+confidence_threshold = 0.3
+
 def get_camera():
     """Initialize camera with retries."""
     global camera
     if camera is None:
-        for _ in range(MAX_INIT_RETRIES):
-            try:
-                camera = cv2.VideoCapture(0)
-                if not camera.isOpened():
-                    raise Exception("Failed to open camera")
+        try:
+            camera = cv2.VideoCapture(0)
+            if not camera.isOpened():
+                raise Exception("Failed to open camera")
+            
+            # Set camera properties
+            camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+            camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+            
+            # Test read to ensure camera is working
+            ret, _ = camera.read()
+            if not ret:
+                raise Exception("Failed to read from camera")
                 
-                camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-                camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-                
-                # Test read to ensure camera is working
-                ret, _ = camera.read()
-                if not ret:
-                    raise Exception("Failed to read from camera")
-                    
-                return camera
-            except Exception as e:
-                print(f"Camera initialization attempt failed: {str(e)}")
-                if camera is not None:
-                    camera.release()
-                    camera = None
-                time.sleep(INIT_RETRY_DELAY)
-        raise Exception("Failed to initialize camera after multiple attempts")
+            return camera
+        except Exception as e:
+            print(f"Camera initialization failed: {str(e)}")
+            if camera is not None:
+                camera.release()
+                camera = None
+            raise
     return camera
 
 def release_camera():
@@ -73,30 +75,28 @@ def release_camera():
         pipeline = None
 
 def initialize_pipeline():
-    """Initialize pipeline with retries."""
+    """Initialize pipeline."""
     global pipeline
     if pipeline is None:
-        for _ in range(MAX_INIT_RETRIES):
-            try:
-                pipeline = InferencePipeline.init(
-                    model_id=MODEL_ID,
-                    api_key=API_KEY,
-                    video_reference=0,
-                    on_prediction=custom_sink
-                )
-                pipeline.start()
-                return True
-            except Exception as e:
-                print(f"Pipeline initialization attempt failed: {str(e)}")
-                if pipeline is not None:
-                    try:
-                        pipeline.stop()
-                    except:
-                        pass
-                    pipeline = None
-                time.sleep(INIT_RETRY_DELAY)
-        print("Failed to initialize pipeline after multiple attempts")
-        return False
+        try:
+            # Ensure camera is initialized first
+            if get_camera() is None:
+                raise Exception("Camera must be initialized before pipeline")
+                
+            pipeline = InferencePipeline.init(
+                model_id=MODEL_ID,
+                api_key=API_KEY,
+                video_reference=0,
+                on_prediction=custom_sink
+            )
+            pipeline.start()
+            return True
+        except Exception as e:
+            print(f"Pipeline initialization failed: {str(e)}")
+            if pipeline is not None:
+                pipeline.stop()
+                pipeline = None
+            return False
     return True
 
 def ensure_initialized():
@@ -150,23 +150,25 @@ def draw_scale_notes(frame, fret_tracker, fretboard_notes):
                 if fret_num in scale_positions:
                     if note_name == fretboard_notes.selected_root:
                         # Root note - red with larger radius
-                        cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 6, (0, 0, 255), -1)
+                        cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 8, (0, 0, 255), -1)
+                        cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 9, (255, 255, 255), 1)
                         # Add note name
-                        text_x = fret_data['x_center'] + 8
+                        text_x = fret_data['x_center'] + 10
                         text_y = int(y_pos) + 4
                         cv2.putText(frame, note_name, (text_x, text_y),
-                                  cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1, cv2.LINE_AA)
+                                  cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2, cv2.LINE_AA)
                     else:
                         # Scale note - blue
-                        cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 4, (255, 0, 0), -1)
+                        cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 6, (255, 0, 0), -1)
+                        cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 7, (255, 255, 255), 1)
                         # Add note name
-                        text_x = fret_data['x_center'] + 8
+                        text_x = fret_data['x_center'] + 10
                         text_y = int(y_pos) + 4
                         cv2.putText(frame, note_name, (text_x, text_y),
-                                  cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1, cv2.LINE_AA)
+                                  cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv2.LINE_AA)
                 else:
                     # Note not in scale - grey and smaller
-                    cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 3, (128, 128, 128), -1)
+                    cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 4, (128, 128, 128), -1)
                 
     except Exception as e:
         print(f"Error drawing scale notes: {str(e)}")
@@ -214,10 +216,7 @@ def custom_sink(predictions: dict, video_frame: VideoFrame):
         return 0
 
 def generate_frames():
-    """Generate video frames with initialization check."""
-    if not ensure_initialized():
-        return
-
+    """Generate video frames."""
     while True:
         try:
             # Always get the raw camera frame first
@@ -245,12 +244,31 @@ def generate_frames():
 
 @app.route('/')
 def index():
+    # Initialize camera first
+    try:
+        get_camera()
+    except Exception as e:
+        print(f"Failed to initialize camera: {str(e)}")
+        return render_template('index.html', error="Camera initialization failed")
+        
     return render_template('index.html')
 
 @app.route('/video_feed')
 def video_feed():
-    return Response(generate_frames(),
-                   mimetype='multipart/x-mixed-replace; boundary=frame')
+    # Ensure camera is initialized before starting video feed
+    try:
+        if get_camera() is None:
+            return "Camera not available", 503
+            
+        # Initialize pipeline only after camera is confirmed working
+        if not initialize_pipeline():
+            return "Failed to initialize detection system", 503
+            
+        return Response(generate_frames(),
+                       mimetype='multipart/x-mixed-replace; boundary=frame')
+    except Exception as e:
+        print(f"Error in video feed: {str(e)}")
+        return str(e), 503
 
 @app.route('/get_frets')
 def get_frets():
@@ -298,6 +316,18 @@ def change_scale():
     except Exception as e:
         print(f"Error changing scale: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+@app.route('/update_confidence', methods=['POST'])
+def update_confidence():
+    try:
+        data = request.get_json()
+        threshold = data.get('threshold')
+        if threshold is not None:
+            fret_tracker.stability_threshold = float(threshold)
+            return jsonify({'status': 'success'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    return jsonify({'error': 'Invalid request'}), 400
 
 if __name__ == '__main__':
     try:
