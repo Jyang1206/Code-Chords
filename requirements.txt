@@ -69,13 +69,13 @@ MarkupSafe==3.0.2
 marshmallow==3.26.1
 matplotlib==3.10.3
 mdurl==0.1.2
-mediapipe==0.10.21
+mediapipe
 ml_dtypes==0.5.1
 mpmath==1.3.0
 multidict==6.4.4
 mypy_extensions==1.1.0
 networkx==3.4.2
-numpy==1.26.4
+numpy
 nvidia-ml-py==12.575.51
 onnxruntime==1.21.1
 openai==1.82.1
