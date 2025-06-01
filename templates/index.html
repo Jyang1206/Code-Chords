@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Code-Chords - Guitar Learning Assistant</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -124,8 +124,8 @@
             <div class="loading-spinner"></div>
             <div class="loading-text">Initializing camera and detection system...</div>
         </div>
-    </div>
-
+        </div>
+        
     <div class="container">
         <header>
             <h1>Guitar Story <span class="icon">🎸</span></h1>
@@ -138,8 +138,8 @@
                     <img id="video-feed" src="{{ url_for('video_feed') }}" alt="Video Feed">
                     <canvas id="fretboard-overlay"></canvas>
                 </div>
-            </div>
-
+        </div>
+        
             <div class="controls-panel">
                 <div class="mode-selector">
                     <h3>Learning Mode</h3>
@@ -147,9 +147,9 @@
                         <option value="scales">🎵 Scales Practice</option>
                         <option value="chords">🎸 Chord Learning</option>
                         <option value="songs">🎼 Song Practice</option>
-                    </select>
-                </div>
-
+          </select>
+        </div>
+        
                 <div class="settings">
                     <div class="setting-item">
                         <label for="confidence-threshold">Confidence Threshold:</label>
@@ -172,11 +172,11 @@
                             <option value="D_dorian">D Dorian</option>
                             <option value="G_mixolydian">G Mixolydian</option>
                         </select>
-                    </div>
-                </div>
+        </div>
+      </div>
             </div>
         </div>
-
+        
         <div class="status-panel">
             <div class="status-item">
                 <span class="status-label">🔍 Detection Status:</span>
@@ -191,7 +191,7 @@
                 <span id="accuracy" class="status-value">-</span>
             </div>
         </div>
-    </div>
+      </div>
 
     <!-- Load scripts with proper attributes -->
     <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
@@ -248,4 +248,4 @@
         checkVideoFeed();
     </script>
 </body>
-</html> 
+</html>
