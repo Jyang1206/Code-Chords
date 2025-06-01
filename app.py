@@ -3,6 +3,7 @@ from flask_cors import CORS
 import cv2
 import json
 import os
+import time
 from dotenv import load_dotenv
 from fretDetector import FretTracker, FretboardNotes
 from inference import InferencePipeline
@@ -15,6 +16,10 @@ load_dotenv()
 API_KEY = os.getenv('API_KEY', "PXAqQENZCRpDPtJ8rd4w")
 MODEL_ID = os.getenv('MODEL_ID', "guitar-frets-segmenter/1")
 PORT = int(os.getenv('FLASK_PORT', 8000))
+
+# Performance settings
+MAX_INIT_RETRIES = 3
+INIT_RETRY_DELAY = 1.0  # seconds
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 CORS(app)
@@ -31,11 +36,31 @@ frame_buffer = None
 fretboard_notes.set_scale('C', 'major')
 
 def get_camera():
+    """Initialize camera with retries."""
     global camera
     if camera is None:
-        camera = cv2.VideoCapture(0)
-        camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-        camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+        for _ in range(MAX_INIT_RETRIES):
+            try:
+                camera = cv2.VideoCapture(0)
+                if not camera.isOpened():
+                    raise Exception("Failed to open camera")
+                
+                camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+                camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+                
+                # Test read to ensure camera is working
+                ret, _ = camera.read()
+                if not ret:
+                    raise Exception("Failed to read from camera")
+                    
+                return camera
+            except Exception as e:
+                print(f"Camera initialization attempt failed: {str(e)}")
+                if camera is not None:
+                    camera.release()
+                    camera = None
+                time.sleep(INIT_RETRY_DELAY)
+        raise Exception("Failed to initialize camera after multiple attempts")
     return camera
 
 def release_camera():
@@ -45,23 +70,47 @@ def release_camera():
         camera = None
     if pipeline is not None:
         pipeline.stop()
+        pipeline = None
 
 def initialize_pipeline():
+    """Initialize pipeline with retries."""
     global pipeline
     if pipeline is None:
-        try:
-            pipeline = InferencePipeline.init(
-                model_id=MODEL_ID,
-                api_key=API_KEY,
-                video_reference=0,
-                on_prediction=custom_sink
-            )
-            pipeline.start()
-            return True
-        except Exception as e:
-            print(f"Error initializing pipeline: {str(e)}")
-            return False
+        for _ in range(MAX_INIT_RETRIES):
+            try:
+                pipeline = InferencePipeline.init(
+                    model_id=MODEL_ID,
+                    api_key=API_KEY,
+                    video_reference=0,
+                    on_prediction=custom_sink
+                )
+                pipeline.start()
+                return True
+            except Exception as e:
+                print(f"Pipeline initialization attempt failed: {str(e)}")
+                if pipeline is not None:
+                    try:
+                        pipeline.stop()
+                    except:
+                        pass
+                    pipeline = None
+                time.sleep(INIT_RETRY_DELAY)
+        print("Failed to initialize pipeline after multiple attempts")
+        return False
     return True
+
+def ensure_initialized():
+    """Ensure both camera and pipeline are initialized."""
+    try:
+        camera = get_camera()
+        if not initialize_pipeline():
+            release_camera()
+            return False
+        return True
+    except Exception as e:
+        print(f"Initialization error: {str(e)}")
+        release_camera()
+        return False
 
 def draw_scale_notes(frame, fret_tracker, fretboard_notes):
     """Draw dots for scale notes on detected frets."""
@@ -71,7 +120,7 @@ def draw_scale_notes(frame, fret_tracker, fretboard_notes):
         # Display scale information
         scale_text = f"Scale: {fretboard_notes.selected_root} {fretboard_notes.selected_scale_name}"
         notes_text = f"Notes: {', '.join(fretboard_notes.scale_notes)}"
-        controls_text = "Press 'c' for C major, 'd' for D major, 'g' for G major"
+        controls_text = "Press 'c' for C major, 'a' for A minor, 'g' for G major, 'e' for E minor, 'f' for F major, 'd' for D major"
         
         cv2.putText(frame, scale_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2, cv2.LINE_AA)
         cv2.putText(frame, notes_text, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2, cv2.LINE_AA)
@@ -142,12 +191,21 @@ def custom_sink(predictions: dict, video_frame: VideoFrame):
         if key == ord('c'):
             fretboard_notes.set_scale('C', 'major')
             print("Switched to C major scale")
-        elif key == ord('d'):
-            fretboard_notes.set_scale('D', 'major')
-            print("Switched to D major scale")
+        elif key == ord('a'):
+            fretboard_notes.set_scale('A', 'minor')
+            print("Switched to A minor scale")
         elif key == ord('g'):
             fretboard_notes.set_scale('G', 'major')
             print("Switched to G major scale")
+        elif key == ord('e'):
+            fretboard_notes.set_scale('E', 'minor')
+            print("Switched to E minor scale")
+        elif key == ord('f'):
+            fretboard_notes.set_scale('F', 'major')
+            print("Switched to F major scale")
+        elif key == ord('d'):
+            fretboard_notes.set_scale('D', 'major')
+            print("Switched to D major scale")
         
         # Return 0 to continue processing
         return 0
@@ -156,7 +214,8 @@ def custom_sink(predictions: dict, video_frame: VideoFrame):
         return 0
 
 def generate_frames():
-    if not initialize_pipeline():
+    """Generate video frames with initialization check."""
+    if not ensure_initialized():
         return
 
     while True:

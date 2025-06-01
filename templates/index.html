@@ -8,8 +8,57 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .loading-text {
+            color: white;
+            margin-top: 20px;
+            font-family: 'Roboto', sans-serif;
+        }
+        .loading-container {
+            text-align: center;
+        }
+        #video-feed {
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+        #video-feed.loaded {
+            opacity: 1;
+        }
+    </style>
 </head>
 <body>
+    <!-- Loading overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="loading-container">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Initializing camera and detection system...</div>
+        </div>
+    </div>
+
     <div class="container">
         <header>
             <h1>Code-Chords <span class="icon">🎸</span></h1>
@@ -48,8 +97,11 @@
                         <label for="scale-select">🎼 Scale:</label>
                         <select id="scale-select">
                             <option value="c_major">C Major</option>
-                            <option value="d_major">D Major</option>
+                            <option value="a_minor">A Minor</option>
                             <option value="g_major">G Major</option>
+                            <option value="e_minor">E Minor</option>
+                            <option value="f_major">F Major</option>
+                            <option value="d_major">D Major</option>
                         </select>
                     </div>
                 </div>
@@ -59,7 +111,7 @@
         <div class="status-panel">
             <div class="status-item">
                 <span class="status-label">🔍 Detection Status:</span>
-                <span id="detection-status" class="status-value">Waiting to start</span>
+                <span id="detection-status" class="status-value">Initializing...</span>
             </div>
             <div class="status-item">
                 <span class="status-label">🎵 Current Note:</span>
@@ -72,6 +124,7 @@
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <!-- Load scripts with proper attributes -->
+    <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
 </body>
 </html> 

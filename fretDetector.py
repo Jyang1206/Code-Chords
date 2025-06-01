@@ -257,7 +257,7 @@ class FretTracker:
         smoothed_data['width'] = round(smoothed_width)
         
         return smoothed_data
-
+        
     def validate_fret_number(self, x_center, fret_num, confidence):
         """Validate fret number using historical data and physical constraints with enhanced stability."""
         current_time = time.time()

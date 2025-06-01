@@ -10,18 +10,71 @@ document.addEventListener('DOMContentLoaded', () => {
     const detectionStatus = document.getElementById('detection-status');
     const currentNote = document.getElementById('current-note');
     const accuracy = document.getElementById('accuracy');
+    const loadingOverlay = document.getElementById('loading-overlay');
 
     // State
     let isDetecting = false;
     let detectionInterval = null;
     let frameCount = 0;
     let correctDetections = 0;
+    let isVideoLoaded = false;
+    let initializationTimeout = null;
 
     // Initialize canvas
     function initializeCanvas() {
+        if (!videoFeed.complete) return;
         const videoRect = videoFeed.getBoundingClientRect();
         fretboardOverlay.width = videoRect.width;
         fretboardOverlay.height = videoRect.height;
+    }
+
+    // Handle video feed loading
+    function handleVideoLoad() {
+        console.log('Video feed loaded');
+        isVideoLoaded = true;
+        videoFeed.classList.add('loaded');
+        initializeCanvas();
+        detectionStatus.textContent = 'Camera Ready';
+        detectionStatus.style.color = '#27ae60';
+        startButton.disabled = false;
+        loadingOverlay.style.display = 'none';
+        
+        // Clear any pending timeout
+        if (initializationTimeout) {
+            clearTimeout(initializationTimeout);
+            initializationTimeout = null;
+        }
+    }
+
+    function handleVideoError() {
+        console.error('Video feed failed to load');
+        detectionStatus.textContent = 'Camera Error';
+        detectionStatus.style.color = '#e74c3c';
+        startButton.disabled = true;
+        loadingOverlay.style.display = 'none';
+        
+        // Clear any pending timeout
+        if (initializationTimeout) {
+            clearTimeout(initializationTimeout);
+            initializationTimeout = null;
+        }
+    }
+
+    // Set a timeout to handle initialization failures
+    initializationTimeout = setTimeout(() => {
+        if (!isVideoLoaded) {
+            console.log('Initialization timeout - reloading video feed');
+            videoFeed.src = videoFeed.src + '?' + new Date().getTime(); // Force reload
+        }
+    }, 5000); // 5 second timeout
+
+    // Initialize video feed
+    videoFeed.addEventListener('load', handleVideoLoad);
+    videoFeed.addEventListener('error', handleVideoError);
+    
+    // If the video is already loaded (cached), trigger load handler
+    if (videoFeed.complete) {
+        handleVideoLoad();
     }
 
     // Scale patterns (fret positions for different scales)
@@ -35,14 +88,14 @@ document.addEventListener('DOMContentLoaded', () => {
             { fret: 8, string: 1, note: 'A' },
             { fret: 10, string: 1, note: 'B' }
         ],
-        d_major: [
-            { fret: 2, string: 1, note: 'D' },
-            { fret: 4, string: 1, note: 'E' },
-            { fret: 5, string: 1, note: 'F#' },
-            { fret: 7, string: 1, note: 'G' },
-            { fret: 9, string: 1, note: 'A' },
-            { fret: 10, string: 1, note: 'B' },
-            { fret: 0, string: 1, note: 'C#' }
+        a_minor: [
+            { fret: 0, string: 1, note: 'A' },
+            { fret: 2, string: 1, note: 'B' },
+            { fret: 3, string: 1, note: 'C' },
+            { fret: 5, string: 1, note: 'D' },
+            { fret: 7, string: 1, note: 'E' },
+            { fret: 8, string: 1, note: 'F' },
+            { fret: 10, string: 1, note: 'G' }
         ],
         g_major: [
             { fret: 7, string: 1, note: 'G' },
@@ -52,6 +105,33 @@ document.addEventListener('DOMContentLoaded', () => {
             { fret: 2, string: 1, note: 'D' },
             { fret: 3, string: 1, note: 'E' },
             { fret: 5, string: 1, note: 'F#' }
+        ],
+        e_minor: [
+            { fret: 0, string: 1, note: 'E' },
+            { fret: 2, string: 1, note: 'F#' },
+            { fret: 3, string: 1, note: 'G' },
+            { fret: 5, string: 1, note: 'A' },
+            { fret: 7, string: 1, note: 'B' },
+            { fret: 8, string: 1, note: 'C' },
+            { fret: 10, string: 1, note: 'D' }
+        ],
+        f_major: [
+            { fret: 5, string: 1, note: 'F' },
+            { fret: 7, string: 1, note: 'G' },
+            { fret: 8, string: 1, note: 'A' },
+            { fret: 10, string: 1, note: 'Bb' },
+            { fret: 0, string: 1, note: 'C' },
+            { fret: 1, string: 1, note: 'D' },
+            { fret: 3, string: 1, note: 'E' }
+        ],
+        d_major: [
+            { fret: 2, string: 1, note: 'D' },
+            { fret: 4, string: 1, note: 'E' },
+            { fret: 5, string: 1, note: 'F#' },
+            { fret: 7, string: 1, note: 'G' },
+            { fret: 9, string: 1, note: 'A' },
+            { fret: 10, string: 1, note: 'B' },
+            { fret: 0, string: 1, note: 'C#' }
         ]
     };
 
@@ -98,48 +178,45 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Start detection
     function startDetection() {
+        if (!isVideoLoaded) {
+            console.warn('Video feed not ready');
+            return;
+        }
+
         if (isDetecting) return;
         
         isDetecting = true;
         detectionStatus.textContent = 'Detection Active';
-        detectionStatus.style.color = '#2ecc71';
+        detectionStatus.style.color = '#27ae60';
+        
+        // Reset metrics
         frameCount = 0;
         correctDetections = 0;
-
-        // Poll for fret positions
-        detectionInterval = setInterval(async () => {
-            try {
-                const response = await fetch('/get_frets');
-                const data = await response.json();
-                
-                if (data.frets && data.fretboard) {
-                    drawFretboardOverlay(data.frets, data.fretboard);
-                    
-                    // Update metrics
-                    frameCount++;
-                    if (data.frets.length > 0) {
-                        correctDetections++;
+        
+        // Start detection loop
+        detectionInterval = setInterval(() => {
+            if (!isDetecting) return;
+            
+            // Get current fret data
+            fetch('/get_frets')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        updateOverlay(data.frets);
+                        frameCount++;
+                        if (data.frets && data.frets.length > 0) {
+                            correctDetections++;
+                        }
+                        // Update accuracy
+                        const accuracyValue = frameCount > 0 ? 
+                            Math.round((correctDetections / frameCount) * 100) : 0;
+                        accuracy.textContent = `${accuracyValue}%`;
                     }
-                    
-                    // Update accuracy
-                    const accuracyValue = ((correctDetections / frameCount) * 100).toFixed(1);
-                    accuracy.textContent = `${accuracyValue}%`;
-                    
-                    // Update current note (simplified)
-                    if (data.frets.length > 0) {
-                        const selectedScale = scalePatterns[scaleSelect.value];
-                        const noteIndex = Math.floor(Math.random() * selectedScale.length);
-                        currentNote.textContent = selectedScale[noteIndex].note;
-                    } else {
-                        currentNote.textContent = '-';
-                    }
-                }
-            } catch (error) {
-                console.error('Error fetching fret data:', error);
-                detectionStatus.textContent = 'Error';
-                detectionStatus.style.color = '#e74c3c';
-            }
-        }, 100);
+                })
+                .catch(error => {
+                    console.error('Error fetching fret data:', error);
+                });
+        }, 1000 / 30); // 30 FPS
     }
 
     // Stop detection
@@ -167,8 +244,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Event listeners
     startButton.addEventListener('click', startDetection);
     stopButton.addEventListener('click', stopDetection);
-    videoFeed.addEventListener('load', initializeCanvas);
     window.addEventListener('resize', initializeCanvas);
+
+    // Disable start button initially
+    startButton.disabled = true;
+    detectionStatus.textContent = 'Initializing Camera...';
+    detectionStatus.style.color = '#f39c12';
 
     // Mode change handler
     learningMode.addEventListener('change', () => {
@@ -179,7 +260,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Scale change handler
     scaleSelect.addEventListener('change', async () => {
         const selectedScale = scaleSelect.value;
-        const root = selectedScale.split('_')[0].toUpperCase();
+        const [root, scaleType] = selectedScale.split('_');
         
         try {
             // Send scale change to backend
@@ -189,8 +270,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    root: root,
-                    scale_type: 'major'
+                    root: root.toUpperCase(),
+                    scale_type: scaleType
                 })
             });
 
@@ -201,8 +282,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // Update the overlay if detection is active
             if (isDetecting) {
                 const fretData = await fetch('/get_frets').then(res => res.json());
-                if (fretData.frets && fretData.fretboard) {
-                    drawFretboardOverlay(fretData.frets, fretData.fretboard);
+                if (fretData.status === 'success') {
+                    updateOverlay(fretData.frets);
                 }
             }
         } catch (error) {
@@ -218,21 +299,47 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('BPM changed:', bpmInput.value);
     });
 
-    // Check backend health on load
-    fetch('/health')
-        .then(response => response.json())
-        .then(data => {
+    // Modify the health check to be more robust
+    async function checkBackendHealth() {
+        try {
+            const response = await fetch('/health');
+            const data = await response.json();
+            
             if (data.status === 'healthy') {
                 detectionStatus.textContent = 'Ready to Start';
                 startButton.disabled = false;
                 stopButton.disabled = false;
+                return true;
             }
-        })
-        .catch(error => {
+            throw new Error('Backend not healthy');
+        } catch (error) {
             console.error('Backend health check failed:', error);
             detectionStatus.textContent = 'Backend Error';
             detectionStatus.style.color = '#e74c3c';
             startButton.disabled = true;
             stopButton.disabled = true;
-        });
+            return false;
+        }
+    }
+
+    // Initial health check with retry
+    async function initializeBackend() {
+        let retries = 3;
+        while (retries > 0) {
+            if (await checkBackendHealth()) {
+                return true;
+            }
+            retries--;
+            if (retries > 0) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        }
+        return false;
+    }
+
+    // Start the initialization process
+    initializeBackend().catch(error => {
+        console.error('Failed to initialize backend:', error);
+        handleVideoError();
+    });
 }); 
