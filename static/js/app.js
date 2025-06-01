@@ -35,21 +35,23 @@ document.addEventListener('DOMContentLoaded', () => {
             { fret: 8, string: 1, note: 'A' },
             { fret: 10, string: 1, note: 'B' }
         ],
-        a_minor: [
-            { fret: 0, string: 1, note: 'A' },
-            { fret: 2, string: 1, note: 'B' },
-            { fret: 3, string: 1, note: 'C' },
-            { fret: 5, string: 1, note: 'D' },
-            { fret: 7, string: 1, note: 'E' },
-            { fret: 8, string: 1, note: 'F' },
-            { fret: 10, string: 1, note: 'G' }
+        d_major: [
+            { fret: 2, string: 1, note: 'D' },
+            { fret: 4, string: 1, note: 'E' },
+            { fret: 5, string: 1, note: 'F#' },
+            { fret: 7, string: 1, note: 'G' },
+            { fret: 9, string: 1, note: 'A' },
+            { fret: 10, string: 1, note: 'B' },
+            { fret: 0, string: 1, note: 'C#' }
         ],
-        pentatonic: [
-            { fret: 0, string: 1, note: 'A' },
-            { fret: 3, string: 1, note: 'C' },
-            { fret: 5, string: 1, note: 'D' },
-            { fret: 7, string: 1, note: 'E' },
-            { fret: 10, string: 1, note: 'G' }
+        g_major: [
+            { fret: 7, string: 1, note: 'G' },
+            { fret: 9, string: 1, note: 'A' },
+            { fret: 10, string: 1, note: 'B' },
+            { fret: 0, string: 1, note: 'C' },
+            { fret: 2, string: 1, note: 'D' },
+            { fret: 3, string: 1, note: 'E' },
+            { fret: 5, string: 1, note: 'F#' }
         ]
     };
 
@@ -175,16 +177,38 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Scale change handler
-    scaleSelect.addEventListener('change', () => {
-        if (isDetecting) {
-            // Refresh the overlay with new scale
-            fetch('/get_frets')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.frets && data.fretboard) {
-                        drawFretboardOverlay(data.frets, data.fretboard);
-                    }
-                });
+    scaleSelect.addEventListener('change', async () => {
+        const selectedScale = scaleSelect.value;
+        const root = selectedScale.split('_')[0].toUpperCase();
+        
+        try {
+            // Send scale change to backend
+            const response = await fetch('/change_scale', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    root: root,
+                    scale_type: 'major'
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to change scale');
+            }
+
+            // Update the overlay if detection is active
+            if (isDetecting) {
+                const fretData = await fetch('/get_frets').then(res => res.json());
+                if (fretData.frets && fretData.fretboard) {
+                    drawFretboardOverlay(fretData.frets, fretData.fretboard);
+                }
+            }
+        } catch (error) {
+            console.error('Error changing scale:', error);
+            detectionStatus.textContent = 'Scale Change Error';
+            detectionStatus.style.color = '#e74c3c';
         }
     });
 

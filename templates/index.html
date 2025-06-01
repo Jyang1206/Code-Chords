@@ -4,12 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Code-Chords - Guitar Learning Assistant</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>Code-Chords 🎸</h1>
+            <h1>Code-Chords <span class="icon">🎸</span></h1>
             <p class="subtitle">Real-time Guitar Learning Assistant</p>
         </header>
 
@@ -25,28 +28,28 @@
                 <div class="mode-selector">
                     <h3>Learning Mode</h3>
                     <select id="learning-mode">
-                        <option value="scales">Scales Practice</option>
-                        <option value="chords">Chord Learning</option>
-                        <option value="songs">Song Practice</option>
+                        <option value="scales">🎵 Scales Practice</option>
+                        <option value="chords">🎸 Chord Learning</option>
+                        <option value="songs">🎼 Song Practice</option>
                     </select>
                 </div>
 
                 <div class="detection-controls">
-                    <button id="start-detection" class="btn primary">Start Detection</button>
-                    <button id="stop-detection" class="btn danger">Stop Detection</button>
+                    <button id="start-detection" class="btn primary">▶ Start</button>
+                    <button id="stop-detection" class="btn danger">⬛ Stop</button>
                 </div>
 
                 <div class="settings">
                     <div class="setting-item">
-                        <label for="bpm">BPM:</label>
+                        <label for="bpm">🎯 BPM:</label>
                         <input type="number" id="bpm" min="60" max="200" value="120">
                     </div>
                     <div class="setting-item">
-                        <label for="scale-select">Scale:</label>
+                        <label for="scale-select">🎼 Scale:</label>
                         <select id="scale-select">
                             <option value="c_major">C Major</option>
-                            <option value="a_minor">A Minor</option>
-                            <option value="pentatonic">Pentatonic</option>
+                            <option value="d_major">D Major</option>
+                            <option value="g_major">G Major</option>
                         </select>
                     </div>
                 </div>
@@ -55,15 +58,15 @@
 
         <div class="status-panel">
             <div class="status-item">
-                <span class="status-label">Detection Status:</span>
+                <span class="status-label">🔍 Detection Status:</span>
                 <span id="detection-status" class="status-value">Waiting to start</span>
             </div>
             <div class="status-item">
-                <span class="status-label">Current Note:</span>
+                <span class="status-label">🎵 Current Note:</span>
                 <span id="current-note" class="status-value">-</span>
             </div>
             <div class="status-item">
-                <span class="status-label">Accuracy:</span>
+                <span class="status-label">📊 Accuracy:</span>
                 <span id="accuracy" class="status-value">-</span>
             </div>
         </div>

@@ -1,4 +1,4 @@
-from flask import Flask, Response, render_template, jsonify
+from flask import Flask, Response, render_template, jsonify, request
 from flask_cors import CORS
 import cv2
 import json
@@ -7,7 +7,6 @@ from dotenv import load_dotenv
 from fretDetector import FretTracker, FretboardNotes
 from inference import InferencePipeline
 from inference.core.interfaces.camera.entities import VideoFrame
-import numpy as np
 
 # Load environment variables
 load_dotenv()
@@ -28,26 +27,8 @@ fretboard_notes = FretboardNotes()
 pipeline = None
 frame_buffer = None
 
-def custom_sink(predictions: dict, video_frame: VideoFrame):
-    """Custom sink function for the inference pipeline."""
-    global frame_buffer
-    try:
-        frame = video_frame.image.copy()
-        
-        # Update fret tracking with new detections
-        fret_tracker.update(predictions.get("predictions", []), frame.shape[0])
-        
-        # Draw scale notes
-        draw_scale_notes(frame, fret_tracker, fretboard_notes)
-        
-        # Store the processed frame in the buffer
-        frame_buffer = frame
-        
-        # Return 0 to continue processing
-        return 0
-    except Exception as e:
-        print(f"Error in custom_sink: {str(e)}")
-        return 0  # Continue processing even if we have an error
+# Set initial scale
+fretboard_notes.set_scale('C', 'major')
 
 def get_camera():
     global camera
@@ -82,37 +63,20 @@ def initialize_pipeline():
             return False
     return True
 
-def process_frame(frame):
-    try:
-        # Create a VideoFrame object
-        video_frame = VideoFrame(frame)
-        
-        # Run inference
-        predictions = pipeline.model.infer(video_frame.image)
-        
-        # Get stable frets
-        stable_frets = fret_tracker.get_stable_frets()
-        
-        # Convert fret data to serializable format
-        fret_data = []
-        for x_center, fret in stable_frets.items():
-            fret_info = {
-                'x_center': int(fret['x_center']),
-                'y_center': int(fret['y_center']),
-                'fret_num': int(fret['fret_num']),
-                'confidence': float(fret['confidence'])
-            }
-            fret_data.append(fret_info)
-        
-        return fret_data
-    except Exception as e:
-        print(f"Error processing frame: {str(e)}")
-        return []
-
 def draw_scale_notes(frame, fret_tracker, fretboard_notes):
     """Draw dots for scale notes on detected frets."""
     try:
         stable_frets = fret_tracker.get_stable_frets()
+        
+        # Display scale information
+        scale_text = f"Scale: {fretboard_notes.selected_root} {fretboard_notes.selected_scale_name}"
+        notes_text = f"Notes: {', '.join(fretboard_notes.scale_notes)}"
+        controls_text = "Press 'c' for C major, 'd' for D major, 'g' for G major"
+        
+        cv2.putText(frame, scale_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2, cv2.LINE_AA)
+        cv2.putText(frame, notes_text, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2, cv2.LINE_AA)
+        cv2.putText(frame, controls_text, (10, frame.shape[0] - 10), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
         
         # Process frets in order
         for x_center, fret_data in fret_tracker.sorted_frets:
@@ -130,9 +94,66 @@ def draw_scale_notes(frame, fret_tracker, fretboard_notes):
             
             # Draw dots for each string
             for string_idx, y_pos in enumerate(string_positions):
-                cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 4, (0, 255, 0), -1)
+                # Get the note at this position and check if it's in the scale
+                scale_positions = fretboard_notes.get_string_note_positions(string_idx)
+                note_name = fretboard_notes.get_note_at_position(string_idx, fret_num)
+                
+                if fret_num in scale_positions:
+                    if note_name == fretboard_notes.selected_root:
+                        # Root note - red with larger radius
+                        cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 6, (0, 0, 255), -1)
+                        # Add note name
+                        text_x = fret_data['x_center'] + 8
+                        text_y = int(y_pos) + 4
+                        cv2.putText(frame, note_name, (text_x, text_y),
+                                  cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1, cv2.LINE_AA)
+                    else:
+                        # Scale note - blue
+                        cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 4, (255, 0, 0), -1)
+                        # Add note name
+                        text_x = fret_data['x_center'] + 8
+                        text_y = int(y_pos) + 4
+                        cv2.putText(frame, note_name, (text_x, text_y),
+                                  cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1, cv2.LINE_AA)
+                else:
+                    # Note not in scale - grey and smaller
+                    cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 3, (128, 128, 128), -1)
+                
     except Exception as e:
         print(f"Error drawing scale notes: {str(e)}")
+
+def custom_sink(predictions: dict, video_frame: VideoFrame):
+    """Custom sink function for the inference pipeline."""
+    global frame_buffer
+    try:
+        frame = video_frame.image.copy()
+        
+        # Update fret tracking with new detections
+        fret_tracker.update(predictions.get("predictions", []), frame.shape[0])
+        
+        # Draw scale notes
+        draw_scale_notes(frame, fret_tracker, fretboard_notes)
+        
+        # Store the processed frame in the buffer
+        frame_buffer = frame
+        
+        # Handle keyboard input for scale switching
+        key = cv2.waitKey(1) & 0xFF
+        if key == ord('c'):
+            fretboard_notes.set_scale('C', 'major')
+            print("Switched to C major scale")
+        elif key == ord('d'):
+            fretboard_notes.set_scale('D', 'major')
+            print("Switched to D major scale")
+        elif key == ord('g'):
+            fretboard_notes.set_scale('G', 'major')
+            print("Switched to G major scale")
+        
+        # Return 0 to continue processing
+        return 0
+    except Exception as e:
+        print(f"Error in custom_sink: {str(e)}")
+        return 0
 
 def generate_frames():
     if not initialize_pipeline():
@@ -149,10 +170,6 @@ def generate_frames():
 
             # If we have a processed frame, use it, otherwise use the raw frame
             display_frame = frame_buffer if frame_buffer is not None else raw_frame.copy()
-            
-            # Always draw the current scale information
-            cv2.putText(display_frame, "Processing...", (10, 30), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2, cv2.LINE_AA)
 
             # Convert frame to jpg
             ret, buffer = cv2.imencode('.jpg', display_frame)
@@ -163,10 +180,9 @@ def generate_frames():
             frame_bytes = buffer.tobytes()
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-
         except Exception as e:
             print(f"Error in generate_frames: {str(e)}")
-            continue  # Continue instead of break to keep trying
+            continue
 
 @app.route('/')
 def index():
@@ -180,9 +196,6 @@ def video_feed():
 @app.route('/get_frets')
 def get_frets():
     try:
-        if not initialize_pipeline():
-            return jsonify({'error': 'Failed to initialize detection pipeline'}), 500
-
         # Get the latest fret data from the tracker
         stable_frets = fret_tracker.get_stable_frets()
         
@@ -208,6 +221,24 @@ def get_frets():
 @app.route('/health')
 def health():
     return jsonify({'status': 'healthy'})
+
+@app.route('/change_scale', methods=['POST'])
+def change_scale():
+    try:
+        data = request.get_json()
+        root = data.get('root')
+        scale_type = data.get('scale_type')
+        
+        if not root or not scale_type:
+            return jsonify({'error': 'Missing root or scale type'}), 400
+            
+        # Update the scale in the fretboard notes
+        fretboard_notes.set_scale(root, scale_type)
+        
+        return jsonify({'status': 'success', 'message': f'Changed scale to {root} {scale_type}'})
+    except Exception as e:
+        print(f"Error changing scale: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     try:
