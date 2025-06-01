@@ -1,17 +1,53 @@
-from flask import Flask, Response, render_template, jsonify, request
+from flask import Flask, Response, render_template, jsonify
 from flask_cors import CORS
 import cv2
-import numpy as np
-import mediapipe as mp
 import json
-import torch
-from ultralytics import YOLO
+import os
+from dotenv import load_dotenv
+from fretDetector import FretTracker, FretboardNotes
+from inference import InferencePipeline
+from inference.core.interfaces.camera.entities import VideoFrame
+import numpy as np
+
+# Load environment variables
+load_dotenv()
+
+# Get configuration from environment variables with defaults
+API_KEY = os.getenv('API_KEY', "PXAqQENZCRpDPtJ8rd4w")
+MODEL_ID = os.getenv('MODEL_ID', "guitar-frets-segmenter/1")
+PORT = int(os.getenv('FLASK_PORT', 8000))
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 CORS(app)
 
 # Initialize video capture
 camera = None
+# Initialize fret tracking objects
+fret_tracker = FretTracker(num_frets=12, stability_threshold=0.3)
+fretboard_notes = FretboardNotes()
+pipeline = None
+frame_buffer = None
+
+def custom_sink(predictions: dict, video_frame: VideoFrame):
+    """Custom sink function for the inference pipeline."""
+    global frame_buffer
+    try:
+        frame = video_frame.image.copy()
+        
+        # Update fret tracking with new detections
+        fret_tracker.update(predictions.get("predictions", []), frame.shape[0])
+        
+        # Draw scale notes
+        draw_scale_notes(frame, fret_tracker, fretboard_notes)
+        
+        # Store the processed frame in the buffer
+        frame_buffer = frame
+        
+        # Return 0 to continue processing
+        return 0
+    except Exception as e:
+        print(f"Error in custom_sink: {str(e)}")
+        return 0  # Continue processing even if we have an error
 
 def get_camera():
     global camera
@@ -22,116 +58,115 @@ def get_camera():
     return camera
 
 def release_camera():
-    global camera
+    global camera, pipeline
     if camera is not None:
         camera.release()
         camera = None
+    if pipeline is not None:
+        pipeline.stop()
 
-class FretDetector:
-    def __init__(self):
-        # Initialize MediaPipe Hands
-        self.mp_hands = mp.solutions.hands
-        self.hands = self.mp_hands.Hands(
-            static_image_mode=False,
-            max_num_hands=1,
-            min_detection_confidence=0.7,
-            min_tracking_confidence=0.7
-        )
-        
-        # Initialize tracking variables
-        self.previous_frets = []
-        self.smoothing_factor = 0.3
-        self.frame_buffer = []
-        self.buffer_size = 5
-        
-        # Load YOLO model for fretboard detection
+def initialize_pipeline():
+    global pipeline
+    if pipeline is None:
         try:
-            self.fretboard_model = YOLO('best.pt')  # Load your trained YOLO model
+            pipeline = InferencePipeline.init(
+                model_id=MODEL_ID,
+                api_key=API_KEY,
+                video_reference=0,
+                on_prediction=custom_sink
+            )
+            pipeline.start()
+            return True
         except Exception as e:
-            print(f"Error loading YOLO model: {e}")
-            self.fretboard_model = None
+            print(f"Error initializing pipeline: {str(e)}")
+            return False
+    return True
 
-    def detect_fretboard(self, frame):
-        if self.fretboard_model is None:
-            return None
+def process_frame(frame):
+    try:
+        # Create a VideoFrame object
+        video_frame = VideoFrame(frame)
         
-        results = self.fretboard_model(frame)
-        if len(results) > 0 and len(results[0].boxes) > 0:
-            box = results[0].boxes[0]  # Get the first detected fretboard
-            return box.xyxy[0].cpu().numpy()  # Convert to numpy array
-        return None
+        # Run inference
+        predictions = pipeline.model.infer(video_frame.image)
+        
+        # Get stable frets
+        stable_frets = fret_tracker.get_stable_frets()
+        
+        # Convert fret data to serializable format
+        fret_data = []
+        for x_center, fret in stable_frets.items():
+            fret_info = {
+                'x_center': int(fret['x_center']),
+                'y_center': int(fret['y_center']),
+                'fret_num': int(fret['fret_num']),
+                'confidence': float(fret['confidence'])
+            }
+            fret_data.append(fret_info)
+        
+        return fret_data
+    except Exception as e:
+        print(f"Error processing frame: {str(e)}")
+        return []
 
-    def process_frame(self, frame):
-        # Convert the BGR image to RGB
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+def draw_scale_notes(frame, fret_tracker, fretboard_notes):
+    """Draw dots for scale notes on detected frets."""
+    try:
+        stable_frets = fret_tracker.get_stable_frets()
         
-        # Detect fretboard
-        fretboard_box = self.detect_fretboard(rgb_frame)
-        
-        # Process hands
-        results = self.hands.process(rgb_frame)
-        
-        detected_frets = []
-        if results.multi_hand_landmarks and fretboard_box is not None:
-            hand_landmarks = results.multi_hand_landmarks[0]
+        # Process frets in order
+        for x_center, fret_data in fret_tracker.sorted_frets:
+            fret_num = fret_data['fret_num']
+            if fret_num < 1:
+                continue
             
-            # Extract finger positions relative to fretboard
-            for finger_tip in [4, 8, 12, 16, 20]:  # Index for each fingertip
-                x = int(hand_landmarks.landmark[finger_tip].x * frame.shape[1])
-                y = int(hand_landmarks.landmark[finger_tip].y * frame.shape[0])
-                
-                # Check if finger is within fretboard bounds
-                if (fretboard_box[0] <= x <= fretboard_box[2] and 
-                    fretboard_box[1] <= y <= fretboard_box[3]):
-                    detected_frets.append((x, y))
-        
-        # Apply smoothing using frame buffer
-        self.frame_buffer.append(detected_frets)
-        if len(self.frame_buffer) > self.buffer_size:
-            self.frame_buffer.pop(0)
-        
-        # Average the positions over the buffer
-        smoothed_frets = []
-        if self.frame_buffer:
-            # Only process if we have valid detections
-            valid_frames = [frame for frame in self.frame_buffer if frame]
-            if valid_frames:
-                for i in range(min(len(f) for f in valid_frames)):
-                    x_avg = sum(frame[i][0] for frame in valid_frames) / len(valid_frames)
-                    y_avg = sum(frame[i][1] for frame in valid_frames) / len(valid_frames)
-                    smoothed_frets.append((int(x_avg), int(y_avg)))
-        
-        return smoothed_frets, fretboard_box
-
-# Initialize fret detector
-fret_detector = FretDetector()
+            # Draw fret number
+            cv2.putText(frame, f"Fret {fret_num}", 
+                       (fret_data['x_center'] - 20, fret_data['y_min'] - 10),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
+            
+            # Calculate string positions
+            string_positions = fret_tracker.get_string_positions(fret_data)
+            
+            # Draw dots for each string
+            for string_idx, y_pos in enumerate(string_positions):
+                cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 4, (0, 255, 0), -1)
+    except Exception as e:
+        print(f"Error drawing scale notes: {str(e)}")
 
 def generate_frames():
+    if not initialize_pipeline():
+        return
+
     while True:
-        camera = get_camera()
-        success, frame = camera.read()
-        if not success:
-            break
-        
-        # Process frame
-        frets, fretboard = fret_detector.process_frame(frame)
-        
-        # Draw detections
-        if fretboard is not None:
-            cv2.rectangle(frame, 
-                         (int(fretboard[0]), int(fretboard[1])), 
-                         (int(fretboard[2]), int(fretboard[3])), 
-                         (0, 255, 0), 2)
-        
-        for fret in frets:
-            cv2.circle(frame, fret, 5, (0, 0, 255), -1)
-        
-        # Convert frame to jpg
-        ret, buffer = cv2.imencode('.jpg', frame)
-        frame = buffer.tobytes()
-        
-        yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+        try:
+            # Always get the raw camera frame first
+            camera = get_camera()
+            success, raw_frame = camera.read()
+            if not success:
+                print("Failed to read camera frame")
+                continue
+
+            # If we have a processed frame, use it, otherwise use the raw frame
+            display_frame = frame_buffer if frame_buffer is not None else raw_frame.copy()
+            
+            # Always draw the current scale information
+            cv2.putText(display_frame, "Processing...", (10, 30), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2, cv2.LINE_AA)
+
+            # Convert frame to jpg
+            ret, buffer = cv2.imencode('.jpg', display_frame)
+            if not ret:
+                print("Failed to encode frame")
+                continue
+                
+            frame_bytes = buffer.tobytes()
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+
+        except Exception as e:
+            print(f"Error in generate_frames: {str(e)}")
+            continue  # Continue instead of break to keep trying
 
 @app.route('/')
 def index():
@@ -144,16 +179,31 @@ def video_feed():
 
 @app.route('/get_frets')
 def get_frets():
-    camera = get_camera()
-    success, frame = camera.read()
-    if not success:
-        return jsonify({'error': 'Failed to capture frame'})
-    
-    frets, fretboard = fret_detector.process_frame(frame)
-    return jsonify({
-        'frets': frets,
-        'fretboard': fretboard.tolist() if fretboard is not None else None
-    })
+    try:
+        if not initialize_pipeline():
+            return jsonify({'error': 'Failed to initialize detection pipeline'}), 500
+
+        # Get the latest fret data from the tracker
+        stable_frets = fret_tracker.get_stable_frets()
+        
+        # Convert to serializable format
+        fret_data = []
+        for x_center, fret in stable_frets.items():
+            fret_info = {
+                'x_center': int(fret['x_center']),
+                'y_center': int(fret['y_center']),
+                'fret_num': int(fret['fret_num']),
+                'confidence': float(fret['confidence'])
+            }
+            fret_data.append(fret_info)
+        
+        return jsonify({
+            'frets': fret_data,
+            'status': 'success'
+        })
+    except Exception as e:
+        print(f"Error in get_frets: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/health')
 def health():
@@ -161,6 +211,7 @@ def health():
 
 if __name__ == '__main__':
     try:
-        app.run(debug=True, host='0.0.0.0', port=5000)
+        print(f"Starting server on port {PORT}")
+        app.run(debug=True, host='0.0.0.0', port=PORT)
     finally:
         release_camera()
