@@ -4,6 +4,7 @@ import cv2
 import json
 import os
 import time
+import platform
 from dotenv import load_dotenv
 from fretDetector import FretTracker, FretboardNotes
 from inference import InferencePipeline
@@ -38,18 +39,21 @@ fretboard_notes.set_scale('C', 'major')
 # global confidence threshold
 confidence_threshold = 0.3
 
-def get_camera():
+'''def get_camera():
     """Initialize camera with retries."""
     global camera
     if camera is None:
         try:
-            camera = cv2.VideoCapture(0)
+            if platform.system() == "Windows":
+                camera = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+            else:
+                camera = cv2.VideoCapture(0)
             if not camera.isOpened():
                 raise Exception("Failed to open camera")
             
             # Set camera properties
-            camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-            camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+            camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+            camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
             
             # test read to ensure camera is working
             ret, _ = camera.read()
@@ -72,7 +76,7 @@ def release_camera():
         camera = None
     if pipeline is not None:
         pipeline.stop()
-        pipeline = None
+        pipeline = None'''
 
 def initialize_pipeline():
     """Initialize pipeline."""
@@ -80,8 +84,8 @@ def initialize_pipeline():
     if pipeline is None:
         try:
             # Ensure camera is initialized first
-            if get_camera() is None:
-                raise Exception("Camera must be initialized before pipeline")
+            '''if get_camera() is None:
+                raise Exception("Camera must be initialized before pipeline")'''
                 
             pipeline = InferencePipeline.init(
                 model_id=MODEL_ID,
@@ -102,14 +106,14 @@ def initialize_pipeline():
 def ensure_initialized():
     """Ensure both camera and pipeline are initialized."""
     try:
-        camera = get_camera()
+        #camera = get_camera()
         if not initialize_pipeline():
-            release_camera()
+            #release_camera()
             return False
         return True
     except Exception as e:
         print(f"Initialization error: {str(e)}")
-        release_camera()
+        #release_camera()
         return False
 
 def draw_scale_notes(frame, fret_tracker, fretboard_notes):
@@ -120,12 +124,12 @@ def draw_scale_notes(frame, fret_tracker, fretboard_notes):
         # display scale information
         scale_text = f"Scale: {fretboard_notes.selected_root} {fretboard_notes.selected_scale_name}"
         notes_text = f"Notes: {', '.join(fretboard_notes.scale_notes)}"
-        controls_text = "Press 'c' for C major, 'a' for A minor, 'g' for G major, 'e' for E minor, 'f' for F major, 'd' for D major"
+        #controls_text = "Press 'c' for C major, 'a' for A minor, 'g' for G major, 'e' for E minor, 'f' for F major, 'd' for D major"
         
         cv2.putText(frame, scale_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2, cv2.LINE_AA)
         cv2.putText(frame, notes_text, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2, cv2.LINE_AA)
-        cv2.putText(frame, controls_text, (10, frame.shape[0] - 10), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
+        #cv2.putText(frame, controls_text, (10, frame.shape[0] - 10), 
+                   #cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
         
         # process frets in order
         for x_center, fret_data in fret_tracker.sorted_frets:
@@ -220,14 +224,21 @@ def generate_frames():
     while True:
         try:
             # get the raw camera frame first
-            camera = get_camera()
-            success, raw_frame = camera.read()
-            if not success:
-                print("Failed to read camera frame")
-                continue
+            #camera = get_camera()
+            #success, raw_frame = camera.read()
+            #if not success:
+                #print("Failed to read camera frame")
+                #continue
 
             # use processed frame, but otherwise use the raw frame
-            display_frame = frame_buffer if frame_buffer is not None else raw_frame.copy()
+            #display_frame = frame_buffer #if frame_buffer is not None #else raw_frame.copy()
+
+            if frame_buffer is None:
+                print("Loading frames...")
+                time.sleep(0.5)
+                continue
+
+            display_frame = frame_buffer.copy()
 
             # convert frame to jpg
             ret, buffer = cv2.imencode('.jpg', display_frame)
@@ -245,11 +256,11 @@ def generate_frames():
 @app.route('/')
 def index():
     # Initialize camera first
-    try:
+    '''try:
         get_camera()
     except Exception as e:
         print(f"Failed to initialize camera: {str(e)}")
-        return render_template('index.html', error="Camera initialization failed")
+        return render_template('index.html', error="Camera initialization failed")'''
         
     return render_template('index.html')
 
@@ -257,8 +268,8 @@ def index():
 def video_feed():
     # ensure camera is initialized before starting video feed
     try:
-        if get_camera() is None:
-            return "Camera not available", 503
+        '''if get_camera() is None:
+            return "Camera not available", 503'''
             
         # Initialize pipeline only after camera is confirmed working
         if not initialize_pipeline():
@@ -330,8 +341,8 @@ def update_confidence():
     return jsonify({'error': 'Invalid request'}), 400
 
 if __name__ == '__main__':
-    try:
+    #try:
         print(f"Starting server on port {PORT}")
         app.run(debug=True, host='0.0.0.0', port=PORT)
-    finally:
-        release_camera()
+    #finally:
+        #release_camera()

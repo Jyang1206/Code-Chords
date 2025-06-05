@@ -324,7 +324,7 @@ def main():
     
     pipeline.start()
     
-    main loop to handle keyboard input
+    #main loop to handle keyboard input
     try:
         while True:
             # Check for keyboard input returned from custom_sink
