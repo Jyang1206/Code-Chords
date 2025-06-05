@@ -116,7 +116,8 @@ def ensure_initialized():
         #release_camera()
         return False
 
-def draw_scale_notes(frame, fret_tracker, fretboard_notes):
+#main logic for drawing scale notes on the fretboard
+def draw_scale_notes(frame, fret_tracker, fretboard_notes): 
     """Draw dots for scale notes on detected frets."""
     try:
         stable_frets = fret_tracker.get_stable_frets()
