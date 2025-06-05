@@ -9,29 +9,29 @@ import time
 API_KEY = "PXAqQENZCRpDPtJ8rd4w"
 MODEL_ID = "guitar-frets-segmenter/1"
 
-# Define musical notes and intervals
+# def all musical notes
 ALL_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 
-# Define the open string notes for a standard tuning guitar (from 6th string to 1st string)
-OPEN_STRINGS = ['E', 'A', 'D', 'G', 'B', 'E']  # Order matches standard guitar string numbering
+# open strings of guitar
+OPEN_STRINGS = ['E', 'A', 'D', 'G', 'B', 'E']  # from 6th string(top) to 1st string(bottom)
 
-# Scale definitions (intervals from the root note)
+# scale defns & intervals
 SCALES = {
-    'major': [0, 2, 4, 5, 7, 9, 11],          # Whole, Whole, Half, Whole, Whole, Whole, Half
-    'minor': [0, 2, 3, 5, 7, 8, 10],          # Whole, Half, Whole, Whole, Half, Whole, Whole
-    'pentatonic_major': [0, 2, 4, 7, 9],      # Major without 4th and 7th
-    'pentatonic_minor': [0, 3, 5, 7, 10],     # Minor without 2nd and 6th
-    'blues': [0, 3, 5, 6, 7, 10],             # Pentatonic minor with blue note
-    'dorian': [0, 2, 3, 5, 7, 9, 10],         # Minor scale with major 6th
-    'mixolydian': [0, 2, 4, 5, 7, 9, 10],     # Major scale with minor 7th
-    'harmonic_minor': [0, 2, 3, 5, 7, 8, 11], # Natural minor with raised 7th
-    'melodic_minor': [0, 2, 3, 5, 7, 9, 11],  # Minor with raised 6th and 7th
-    'phrygian': [0, 1, 3, 5, 7, 8, 10]        # Spanish/Flamenco flavor
+    'major': [0, 2, 4, 5, 7, 9, 11],          
+    'minor': [0, 2, 3, 5, 7, 8, 10],          
+    'pentatonic_major': [0, 2, 4, 7, 9],      
+    'pentatonic_minor': [0, 3, 5, 7, 10],     
+    'blues': [0, 3, 5, 6, 7, 10],             
+    'dorian': [0, 2, 3, 5, 7, 9, 10],         
+    'mixolydian': [0, 2, 4, 5, 7, 9, 10],     
+    'harmonic_minor': [0, 2, 3, 5, 7, 8, 11], 
+    'melodic_minor': [0, 2, 3, 5, 7, 9, 11],  
+    'phrygian': [0, 1, 3, 5, 7, 8, 10]        
 }
 
 class FretboardNotes:
     def __init__(self):
-        self.selected_scale_name = 'major'  # Default scale
+        self.selected_scale_name = 'major'  # default scale
         self.selected_root = 'C'            # Default root note
         self.scale_notes = self._calculate_scale_notes()
         
@@ -102,20 +102,20 @@ class FretboardNotes:
 
 class FretTracker:
     def __init__(self, num_frets=12, stability_threshold=0.3):
-        self.frets = {}  # Dictionary to store fret positions
-        self.fret_history = {}  # Store past positions for stability
-        self.confidence_history = {}  # Store confidence scores history
-        self.history_max_size = 45  # Increased from 30
+        self.frets = {}  # dict to store fret positions
+        self.fret_history = {}  # store past positions for stability
+        self.confidence_history = {}  # store confidence scores history
+        self.history_max_size = 45  
         self.num_frets = num_frets
         self.stability_threshold = stability_threshold
         self.last_update_time = time.time()
         self.update_interval = 0.033  # 30fps
-        self.sorted_frets = []  # Sorted list of fret positions
+        self.sorted_frets = []  # sorted list of fret positions
         self.frame_height = 0
         self.debug_mode = True
         self.min_fret_width = 20
-        self.min_fret_spacing = 40  # Minimum pixels between adjacent frets
-        self.max_fret_spacing = 120  # Maximum pixels between adjacent frets
+        self.min_fret_spacing = 40  # minimum pixels between adjacent frets
+        self.max_fret_spacing = 120  # maximum pixels between adjacent frets
 
     def update(self, detections, frame_height):
         """Update fret tracking with new detections."""
@@ -127,10 +127,9 @@ class FretTracker:
             
         self.last_update_time = current_time
         
-        # Process each detection
         current_frets = {}
         
-        # First pass: collect all detections
+        # 1st pass: collect all detections
         for det in detections:
             if not det.get("points"):
                 continue
@@ -139,7 +138,7 @@ class FretTracker:
             if class_name == "Hand" or not class_name.startswith("Zone"):
                 continue
                 
-            # Get fret number from class name
+            # get fret number
             try:
                 fret_num = int(class_name[4:])  # Extract number after "Zone"
             except ValueError:
@@ -148,7 +147,7 @@ class FretTracker:
             if fret_num < 1 or fret_num > self.num_frets:
                 continue
                 
-            # Check confidence threshold
+            # check confidence threshold
             confidence = det.get("confidence", 0)
             if confidence < self.stability_threshold:
                 continue
@@ -162,7 +161,7 @@ class FretTracker:
             x_center = int(np.mean(x_coords))
             y_center = int(np.mean(y_coords))
             
-            # Basic width validation
+            # basic width validation
             fret_width = np.max(x_coords) - np.min(x_coords)
             if fret_width < self.min_fret_width:
                 continue
@@ -178,7 +177,7 @@ class FretTracker:
                 'confidence': confidence
             }
         
-        # Second pass: validate spacing between frets
+        # 2nd pass: validate spacing between frets (for optimisation purposes)
         sorted_frets = sorted(current_frets.items(), key=lambda x: x[1]['x_center'])
         valid_frets = {}
         
@@ -204,7 +203,7 @@ class FretTracker:
         y_max = fret_data['y_max']
         total_height = y_max - y_min
         
-        # Calculate 6 evenly spaced string positions
+        # calc 6 evenly spaced string positions
         string_positions = []
         for i in range(6):
             pos = y_min + (i * total_height / 5)
@@ -220,21 +219,21 @@ def draw_scale_notes(frame, fret_tracker, fretboard_notes):
     """Draw dots for scale notes on detected frets."""
     stable_frets = fret_tracker.get_stable_frets()
     
-    # Process frets in order
+    # process frets in order
     for x_center, fret_data in fret_tracker.sorted_frets:
         fret_num = fret_data['fret_num']
         if fret_num < 1:
             continue
         
-        # Calculate string positions (6th string to 1st string)
+        # calc string positions (6th string to 1st string)
         string_positions = fret_tracker.get_string_positions(fret_data)
         
-        # Draw fret number label at the top
+        # draw fret number label at the top
         cv2.putText(frame, f"Fret {fret_num}", 
                    (fret_data['x_center'] - 20, int(string_positions[0]) - 20),
                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
         
-        # Draw dots for each string if the note is in the scale
+        # draw dots for each string if the note is in the scale
         for string_idx, y_pos in enumerate(string_positions):
             scale_positions = fretboard_notes.get_string_note_positions(string_idx)
             note_name = fretboard_notes.get_note_at_position(string_idx, fret_num)
@@ -247,7 +246,7 @@ def draw_scale_notes(frame, fret_tracker, fretboard_notes):
                     # Scale note - blue
                     cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 8, (255, 0, 0), -1)
                 
-                # Display note name
+                # display note name
                 text_x = fret_data['x_center'] + 12
                 text_y = int(y_pos) + 5
                 cv2.putText(frame, note_name, (text_x, text_y),
@@ -256,7 +255,7 @@ def draw_scale_notes(frame, fret_tracker, fretboard_notes):
                 # Non-scale note - small grey dot
                 cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 4, (128, 128, 128), -1)
 
-    # Draw scale info
+    # draw scale info
     scale_text = f"{fretboard_notes.selected_root} {fretboard_notes.selected_scale_name}"
     cv2.putText(frame, scale_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 
                 0.7, (255, 255, 255), 2, cv2.LINE_AA)
@@ -265,20 +264,20 @@ def custom_sink(predictions: dict, video_frame: VideoFrame, fretboard_notes: Fre
     frame = video_frame.image.copy()
     detections = predictions.get("predictions", [])
     
-    # Update fret tracking with new detections
+    # update fret tracking with new detections
     fret_tracker.update(detections, frame.shape[0])
     
-    # Draw scale notes on the stable frets
+    # draw scale notes on the stable frets
     draw_scale_notes(frame, fret_tracker, fretboard_notes)
 
-    # Display scale information
+    # display scale information
     scale_text = f"Scale: {fretboard_notes.selected_root} {fretboard_notes.selected_scale_name}"
     notes_text = f"Notes: {', '.join(fretboard_notes.scale_notes)}"
     
     cv2.putText(frame, scale_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2, cv2.LINE_AA)
     cv2.putText(frame, notes_text, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2, cv2.LINE_AA)
     
-    # Display keyboard controls
+    # display keyboard controls (curr not working)
     cv2.putText(frame, "Press 'q' to quit, 's' to change scale", (10, frame.shape[0] - 10), 
                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
     
@@ -289,14 +288,14 @@ def custom_sink(predictions: dict, video_frame: VideoFrame, fretboard_notes: Fre
     return key
 
 def main():
-    # Initialize the fretboard notes with C major scale
+    # initialize the fretboard notes with C major scale
     fretboard_notes = FretboardNotes()
     fretboard_notes.set_scale('C', 'major')
     
-    # Initialize fret tracker with more permissive settings
+    # initialize fret tracker with more permissive settings
     fret_tracker = FretTracker(num_frets=12, stability_threshold=0.3)
     
-    # Available scales for cycling
+    # available scales for cycling
     available_scales = [
         ('C', 'major'),
         ('A', 'minor'),
@@ -311,7 +310,7 @@ def main():
     ]
     current_scale_idx = 0
     
-    # Create a custom sink function with the fretboard_notes object
+    # create a custom sink function with the fretboard_notes object
     def sink_with_objects(predictions: dict, video_frame: VideoFrame):
         return custom_sink(predictions, video_frame, fretboard_notes, fret_tracker)
     
@@ -323,10 +322,9 @@ def main():
         on_prediction=sink_with_objects,
     )
     
-    # Start the pipeline
     pipeline.start()
     
-    # Main loop to handle keyboard input
+    main loop to handle keyboard input
     try:
         while True:
             # Check for keyboard input returned from custom_sink
