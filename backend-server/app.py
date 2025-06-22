@@ -23,7 +23,7 @@ MAX_INIT_RETRIES = 2
 INIT_RETRY_DELAY = 0.5 
 
 app = Flask(__name__, static_folder='static', template_folder='templates') #init using Python flask
-CORS(app)
+cors = CORS(app, origins=["*"], supports_credentials=True) #enable CORS for all origins
 
 # init video capture
 camera = None
