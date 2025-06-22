@@ -4,27 +4,28 @@ import cv2
 import json
 import os
 import time
+import platform
 from dotenv import load_dotenv
 from fretDetector import FretTracker, FretboardNotes
 from inference import InferencePipeline
 from inference.core.interfaces.camera.entities import VideoFrame
 
-# Load environment variables
+# load environment variables
 load_dotenv()
 
-# Get configuration from environment variables with defaults
+# get config from env variables
 API_KEY = os.getenv('API_KEY', "PXAqQENZCRpDPtJ8rd4w")
 MODEL_ID = os.getenv('MODEL_ID', "guitar-frets-segmenter/1")
 PORT = int(os.getenv('FLASK_PORT', 8000))
 
-# Performance settings
-MAX_INIT_RETRIES = 2  # Reduced from 3
-INIT_RETRY_DELAY = 0.5  # Reduced from 1.0 second
+# performance settings - for optimising
+MAX_INIT_RETRIES = 2  
+INIT_RETRY_DELAY = 0.5 
 
-app = Flask(__name__, static_folder='static', template_folder='templates')
+app = Flask(__name__, static_folder='static', template_folder='templates') #init using Python flask
 CORS(app)
 
-# Initialize video capture
+# init video capture
 camera = None
 # Initialize fret tracking objects
 fret_tracker = FretTracker(num_frets=12, stability_threshold=0.3)
@@ -32,26 +33,29 @@ fretboard_notes = FretboardNotes()
 pipeline = None
 frame_buffer = None
 
-# Set initial scale
+# set initial scale
 fretboard_notes.set_scale('C', 'major')
 
-# Global confidence threshold
+# global confidence threshold
 confidence_threshold = 0.3
 
-def get_camera():
+'''def get_camera():
     """Initialize camera with retries."""
     global camera
     if camera is None:
         try:
-            camera = cv2.VideoCapture(0)
+            if platform.system() == "Windows":
+                camera = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+            else:
+                camera = cv2.VideoCapture(0)
             if not camera.isOpened():
                 raise Exception("Failed to open camera")
             
             # Set camera properties
-            camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-            camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+            camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+            camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
             
-            # Test read to ensure camera is working
+            # test read to ensure camera is working
             ret, _ = camera.read()
             if not ret:
                 raise Exception("Failed to read from camera")
@@ -72,7 +76,7 @@ def release_camera():
         camera = None
     if pipeline is not None:
         pipeline.stop()
-        pipeline = None
+        pipeline = None'''
 
 def initialize_pipeline():
     """Initialize pipeline."""
@@ -80,8 +84,8 @@ def initialize_pipeline():
     if pipeline is None:
         try:
             # Ensure camera is initialized first
-            if get_camera() is None:
-                raise Exception("Camera must be initialized before pipeline")
+            '''if get_camera() is None:
+                raise Exception("Camera must be initialized before pipeline")'''
                 
             pipeline = InferencePipeline.init(
                 model_id=MODEL_ID,
@@ -102,54 +106,55 @@ def initialize_pipeline():
 def ensure_initialized():
     """Ensure both camera and pipeline are initialized."""
     try:
-        camera = get_camera()
+        #camera = get_camera()
         if not initialize_pipeline():
-            release_camera()
+            #release_camera()
             return False
         return True
     except Exception as e:
         print(f"Initialization error: {str(e)}")
-        release_camera()
+        #release_camera()
         return False
 
-def draw_scale_notes(frame, fret_tracker, fretboard_notes):
+#main logic for drawing scale notes on the fretboard
+def draw_scale_notes(frame, fret_tracker, fretboard_notes): 
     """Draw dots for scale notes on detected frets."""
     try:
         stable_frets = fret_tracker.get_stable_frets()
         
-        # Display scale information
+        # display scale information
         scale_text = f"Scale: {fretboard_notes.selected_root} {fretboard_notes.selected_scale_name}"
         notes_text = f"Notes: {', '.join(fretboard_notes.scale_notes)}"
-        controls_text = "Press 'c' for C major, 'a' for A minor, 'g' for G major, 'e' for E minor, 'f' for F major, 'd' for D major"
+        #controls_text = "Press 'c' for C major, 'a' for A minor, 'g' for G major, 'e' for E minor, 'f' for F major, 'd' for D major"
         
         cv2.putText(frame, scale_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2, cv2.LINE_AA)
         cv2.putText(frame, notes_text, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2, cv2.LINE_AA)
-        cv2.putText(frame, controls_text, (10, frame.shape[0] - 10), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
+        #cv2.putText(frame, controls_text, (10, frame.shape[0] - 10), 
+                   #cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
         
-        # Process frets in order
+        # process frets in order
         for x_center, fret_data in fret_tracker.sorted_frets:
             fret_num = fret_data['fret_num']
             if fret_num < 1:
                 continue
             
-            # Draw fret number
+            # draw fret number
             cv2.putText(frame, f"Fret {fret_num}", 
                        (fret_data['x_center'] - 20, fret_data['y_min'] - 10),
                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
             
-            # Calculate string positions
+            # calc string positions
             string_positions = fret_tracker.get_string_positions(fret_data)
             
-            # Draw dots for each string
+            # draw dots for each string
             for string_idx, y_pos in enumerate(string_positions):
-                # Get the note at this position and check if it's in the scale
+                # get the note at this pos and check if it's in the scale
                 scale_positions = fretboard_notes.get_string_note_positions(string_idx)
                 note_name = fretboard_notes.get_note_at_position(string_idx, fret_num)
                 
                 if fret_num in scale_positions:
                     if note_name == fretboard_notes.selected_root:
-                        # Root note - red with larger radius
+                        # root note - red
                         cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 8, (0, 0, 255), -1)
                         cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 9, (255, 255, 255), 1)
                         # Add note name
@@ -158,7 +163,7 @@ def draw_scale_notes(frame, fret_tracker, fretboard_notes):
                         cv2.putText(frame, note_name, (text_x, text_y),
                                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2, cv2.LINE_AA)
                     else:
-                        # Scale note - blue
+                        # scale note - blue
                         cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 6, (255, 0, 0), -1)
                         cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 7, (255, 255, 255), 1)
                         # Add note name
@@ -167,7 +172,7 @@ def draw_scale_notes(frame, fret_tracker, fretboard_notes):
                         cv2.putText(frame, note_name, (text_x, text_y),
                                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv2.LINE_AA)
                 else:
-                    # Note not in scale - grey and smaller
+                    # note not in scale - greyed out
                     cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 4, (128, 128, 128), -1)
                 
     except Exception as e:
@@ -182,16 +187,16 @@ def custom_sink(predictions: dict, video_frame: VideoFrame):
     try:
         frame = video_frame.image.copy()
         
-        # Update fret tracking with new detections
+        # update fret tracking with new detections
         fret_tracker.update(predictions.get("predictions", []), frame.shape[0])
         
-        # Draw scale notes
+        # draw scale notes
         draw_scale_notes(frame, fret_tracker, fretboard_notes)
         
-        # Store the processed frame in the buffer
+        # store the processed frame in the buffer
         frame_buffer = frame
         
-        # Handle keyboard input for scale switching
+        # handle keyboard input for scale switching
         key = cv2.waitKey(1) & 0xFF
         if key == ord('c'):
             fretboard_notes.set_scale('C', 'major')
@@ -222,17 +227,24 @@ def generate_frames():
     """Generate video frames."""
     while True:
         try:
-            # Always get the raw camera frame first
-            camera = get_camera()
-            success, raw_frame = camera.read()
-            if not success:
-                print("Failed to read camera frame")
+            # get the raw camera frame first
+            #camera = get_camera()
+            #success, raw_frame = camera.read()
+            #if not success:
+                #print("Failed to read camera frame")
+                #continue
+
+            # use processed frame, but otherwise use the raw frame
+            #display_frame = frame_buffer #if frame_buffer is not None #else raw_frame.copy()
+
+            if frame_buffer is None:
+                print("Loading frames...")
+                time.sleep(0.5)
                 continue
 
-            # If we have a processed frame, use it, otherwise use the raw frame
-            display_frame = frame_buffer if frame_buffer is not None else raw_frame.copy()
+            display_frame = frame_buffer.copy()
 
-            # Convert frame to jpg
+            # convert frame to jpg
             ret, buffer = cv2.imencode('.jpg', display_frame)
             if not ret:
                 print("Failed to encode frame")
@@ -248,20 +260,20 @@ def generate_frames():
 @app.route('/')
 def index():
     # Initialize camera first
-    try:
+    '''try:
         get_camera()
     except Exception as e:
         print(f"Failed to initialize camera: {str(e)}")
-        return render_template('index.html', error="Camera initialization failed")
+        return render_template('index.html', error="Camera initialization failed")'''
         
     return render_template('index.html')
 
 @app.route('/video_feed')
 def video_feed():
-    # Ensure camera is initialized before starting video feed
+    # ensure camera is initialized before starting video feed
     try:
-        if get_camera() is None:
-            return "Camera not available", 503
+        '''if get_camera() is None:
+            return "Camera not available", 503'''
             
         # Initialize pipeline only after camera is confirmed working
         if not initialize_pipeline():
@@ -312,7 +324,7 @@ def change_scale():
         if not root or not scale_type:
             return jsonify({'error': 'Missing root or scale type'}), 400
             
-        # Update the scale in the fretboard notes
+        # update the scale in the fretboard notes
         fretboard_notes.set_scale(root, scale_type)
         
         return jsonify({'status': 'success', 'message': f'Changed scale to {root} {scale_type}'})
@@ -333,8 +345,8 @@ def update_confidence():
     return jsonify({'error': 'Invalid request'}), 400
 
 if __name__ == '__main__':
-    try:
+    #try:
         print(f"Starting server on port {PORT}")
         app.run(debug=True, host='0.0.0.0', port=PORT)
-    finally:
-        release_camera()
+    #finally:
+        #release_camera()
