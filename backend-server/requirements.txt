@@ -112,7 +112,7 @@ pytest==8.3.5
 python-dateutil==2.9.0.post0
 python-dotenv==1.0.1
 pytz==2025.2
-PyYAML==6.0.2
+PyYAML
 redis==5.0.8
 requests==2.32.3
 requests-file==2.1.0
