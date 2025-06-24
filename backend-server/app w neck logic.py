@@ -6,16 +6,17 @@ import os
 import time
 import platform
 from dotenv import load_dotenv
-from fretDetector import FretTracker, FretboardNotes
+from fretDetector import FretboardNotes, NeckTracker
 from inference import InferencePipeline
 from inference.core.interfaces.camera.entities import VideoFrame
+import numpy as np
 
 # load environment variables
 load_dotenv()
 
 # get config from env variables
 API_KEY = os.getenv('API_KEY', "PXAqQENZCRpDPtJ8rd4w")
-MODEL_ID = os.getenv('MODEL_ID', "guitar-frets-segmenter/1")
+MODEL_ID = "guitar-ppfil/1"
 PORT = int(os.getenv('FLASK_PORT', 8000))
 
 # performance settings - for optimising
@@ -28,8 +29,8 @@ cors = CORS(app, origins=["*"], supports_credentials=True) #enable CORS for all 
 # init video capture
 camera = None
 # Initialize fret tracking objects
-fret_tracker = FretTracker(num_frets=12, stability_threshold=0.3)
 fretboard_notes = FretboardNotes()
+neck_tracker = NeckTracker()
 pipeline = None
 frame_buffer = None
 
@@ -116,88 +117,176 @@ def ensure_initialized():
         #release_camera()
         return False
 
-#main logic for drawing scale notes on the fretboard
-def draw_scale_notes(frame, fret_tracker, fretboard_notes): 
-    """Draw dots for scale notes on detected frets."""
+def deskew_neck(frame, polygon_points):
     try:
-        stable_frets = fret_tracker.get_stable_frets()
-        
-        # display scale information
+        polygon = np.array(polygon_points, dtype=np.float32)
+        rect = cv2.minAreaRect(polygon)
+        box = cv2.boxPoints(rect)
+        box = np.array(box, dtype=np.float32)
+        width = int(rect[1][0])
+        height = int(rect[1][1])
+        print(f"[deskew_neck] rect: {rect}, width: {width}, height: {height}")
+        if width == 0 or height == 0:
+            print("[deskew_neck] Invalid neck dimensions.")
+            raise ValueError("Invalid neck dimensions")
+        dst_pts = np.array([
+            [0, 0],
+            [width - 1, 0],
+            [width - 1, height - 1],
+            [0, height - 1]
+        ], dtype=np.float32)
+        M = cv2.getPerspectiveTransform(box, dst_pts)
+        warped = cv2.warpPerspective(frame, M, (width, height))
+        print(f"[deskew_neck] Warped shape: {warped.shape}")
+        return warped, M, box
+    except Exception as e:
+        print(f"[deskew_neck] Exception: {e}")
+        raise
+
+def detect_frets_with_hough(warped_frame, min_angle=75, threshold=60, min_length=30, max_gap=5):
+    try:
+        gray = cv2.cvtColor(warped_frame, cv2.COLOR_BGR2GRAY)
+        blurred = cv2.GaussianBlur(gray, (3, 3), 0)
+        edges = cv2.Canny(blurred, 50, 150)
+        lines = cv2.HoughLinesP(
+            edges,
+            rho=1,
+            theta=np.pi / 180,
+            threshold=threshold,
+            minLineLength=min_length,
+            maxLineGap=max_gap
+        )
+        print(f"[detect_frets_with_hough] lines detected: {0 if lines is None else len(lines)}")
+        vertical_lines = []
+        if lines is not None:
+            for line in lines:
+                x1, y1, x2, y2 = line[0]
+                angle = np.degrees(np.arctan2(y2 - y1, x2 - x1))
+                if abs(angle) > min_angle:
+                    vertical_lines.append((x1, y1, x2, y2))
+        print(f"[detect_frets_with_hough] vertical_lines (pre-merge): {len(vertical_lines)}")
+        vertical_lines.sort(key=lambda l: (l[0] + l[2]) // 2)
+        merged = []
+        for line in vertical_lines:
+            if not merged or abs((line[0] + line[2]) // 2 - (merged[-1][0] + merged[-1][2]) // 2) > 8:
+                merged.append(line)
+        print(f"[detect_frets_with_hough] vertical_lines (merged): {len(merged)}")
+        return merged
+    except Exception as e:
+        print(f"[detect_frets_with_hough] Exception: {str(e)}")
+        return []
+
+#main logic for drawing scale notes on the fretboard
+def draw_scale_notes(
+    warped_frame,
+    fret_lines,
+    fretboard_notes,
+    neck_height,
+    inverse_transform=None,
+    output_frame=None
+):
+    try:
+        num_frets = len(fret_lines)
+        num_strings = 6  # Standard guitar
+        print(f"[draw_scale_notes] num_frets: {num_frets}, num_strings: {num_strings}")
+        string_y_positions = np.linspace(0.1, 0.9, num_strings) * neck_height
+        for i in range(1, num_frets):
+            x1 = (fret_lines[i - 1][0] + fret_lines[i - 1][2]) // 2
+            x2 = (fret_lines[i][0] + fret_lines[i][2]) // 2
+            x_center = (x1 + x2) // 2
+            fret_num = i
+            for string_idx, y in enumerate(string_y_positions):
+                y = int(y)
+                note_name = fretboard_notes.get_note_at_position(string_idx, fret_num)
+                scale_positions = fretboard_notes.get_string_note_positions(string_idx)
+                if fret_num in scale_positions:
+                    is_root = (note_name == fretboard_notes.selected_root)
+                    color = (0, 0, 255) if is_root else (255, 0, 0)
+                    radius = 8 if is_root else 6
+                    label_color = color
+                else:
+                    color = (128, 128, 128)
+                    radius = 4
+                    label_color = None
+                point = np.array([[[x_center, y]]], dtype=np.float32)
+                if inverse_transform is not None and output_frame is not None:
+                    transformed_point = cv2.perspectiveTransform(point, inverse_transform)[0][0]
+                    x_draw, y_draw = int(transformed_point[0]), int(transformed_point[1])
+                    canvas = output_frame
+                else:
+                    x_draw, y_draw = x_center, y
+                    canvas = warped_frame
+                cv2.circle(canvas, (x_draw, y_draw), radius, color, -1)
+                cv2.circle(canvas, (x_draw, y_draw), radius + 1, (255, 255, 255), 1)
+                if label_color:
+                    cv2.putText(canvas, note_name, (x_draw + 10, y_draw + 4),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, label_color, 2, cv2.LINE_AA)
+        canvas = output_frame if output_frame is not None else warped_frame
         scale_text = f"Scale: {fretboard_notes.selected_root} {fretboard_notes.selected_scale_name}"
         notes_text = f"Notes: {', '.join(fretboard_notes.scale_notes)}"
-        #controls_text = "Press 'c' for C major, 'a' for A minor, 'g' for G major, 'e' for E minor, 'f' for F major, 'd' for D major"
-        
-        cv2.putText(frame, scale_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2, cv2.LINE_AA)
-        cv2.putText(frame, notes_text, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2, cv2.LINE_AA)
-        #cv2.putText(frame, controls_text, (10, frame.shape[0] - 10), 
-                   #cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
-        
-        # process frets in order
-        for x_center, fret_data in fret_tracker.sorted_frets:
-            fret_num = fret_data['fret_num']
-            if fret_num < 1:
-                continue
-            
-            # draw fret number
-            cv2.putText(frame, f"Fret {fret_num}", 
-                       (fret_data['x_center'] - 20, fret_data['y_min'] - 10),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
-            
-            # calc string positions
-            string_positions = fret_tracker.get_string_positions(fret_data)
-            
-            # draw dots for each string
-            for string_idx, y_pos in enumerate(string_positions):
-                # get the note at this pos and check if it's in the scale
-                scale_positions = fretboard_notes.get_string_note_positions(string_idx)
-                note_name = fretboard_notes.get_note_at_position(string_idx, fret_num)
-                
-                if fret_num in scale_positions:
-                    if note_name == fretboard_notes.selected_root:
-                        # root note - red
-                        cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 8, (0, 0, 255), -1)
-                        cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 9, (255, 255, 255), 1)
-                        # Add note name
-                        text_x = fret_data['x_center'] + 10
-                        text_y = int(y_pos) + 4
-                        cv2.putText(frame, note_name, (text_x, text_y),
-                                  cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2, cv2.LINE_AA)
-                    else:
-                        # scale note - blue
-                        cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 6, (255, 0, 0), -1)
-                        cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 7, (255, 255, 255), 1)
-                        # Add note name
-                        text_x = fret_data['x_center'] + 10
-                        text_y = int(y_pos) + 4
-                        cv2.putText(frame, note_name, (text_x, text_y),
-                                  cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv2.LINE_AA)
-                else:
-                    # note not in scale - greyed out
-                    cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 4, (128, 128, 128), -1)
-                
+        cv2.putText(canvas, scale_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2, cv2.LINE_AA)
+        cv2.putText(canvas, notes_text, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2, cv2.LINE_AA)
     except Exception as e:
-        print(f"Error drawing scale notes: {str(e)}")
+        print(f"[draw_scale_notes] Exception: {str(e)}")
+
 
 def custom_sink(predictions: dict, video_frame: VideoFrame):
-    """Custom sink function for the inference pipeline."""
+    """
+    Processes each frame: detects the neck, zooms in, finds frets, draws notes, and overlays back.
+    """
     global frame_buffer
+    if not hasattr(custom_sink, "frame_counter"):
+        custom_sink.frame_counter = 0
+        custom_sink.last_fret_lines = []
     try:
         frame = video_frame.image.copy()
-        
-        # update fret tracking with new detections
-        fret_tracker.update(predictions.get("predictions", []), frame.shape[0])
-        
-        # draw scale notes
-        draw_scale_notes(frame, fret_tracker, fretboard_notes)
-
-        
-        # store the processed frame in the buffer
+        print(f"[custom_sink] Frame shape: {frame.shape}")
+        neck_polygon = None
+        for det in predictions.get("predictions", []):
+            if det.get("class") == "Guitar-necks" and "points" in det:
+                neck_polygon = [[pt["x"], pt["y"]] for pt in det["points"]]
+                break
+        if not neck_polygon or len(neck_polygon) < 4:
+            print("[custom_sink] No valid neck polygon found or not enough points.")
+            frame_buffer = frame
+            return 0
+        try:
+            warped, M, box = deskew_neck(frame, neck_polygon)
+        except Exception as e:
+            print(f"[custom_sink] deskew_neck failed: {e}")
+            frame_buffer = frame
+            return 0
+        M_inv = cv2.getPerspectiveTransform(
+            np.array([
+                [0, 0],
+                [warped.shape[1] - 1, 0],
+                [warped.shape[1] - 1, warped.shape[0] - 1],
+                [0, warped.shape[0] - 1]
+            ], dtype=np.float32),
+            box
+        )
+        custom_sink.frame_counter += 1
+        if custom_sink.frame_counter % 5 == 0:
+            fret_lines = detect_frets_with_hough(warped)
+            custom_sink.last_fret_lines = fret_lines
+        else:
+            fret_lines = custom_sink.last_fret_lines
+        print(f"[custom_sink] fret_lines: {fret_lines}")
+        if not fret_lines or len(fret_lines) < 2:
+            print("[custom_sink] Not enough fret lines detected.")
+        draw_scale_notes(
+            warped_frame=warped,
+            fret_lines=fret_lines,
+            fretboard_notes=fretboard_notes,
+            neck_height=warped.shape[0],
+            inverse_transform=M_inv,
+            output_frame=frame
+        )
+        neck_poly_np = np.array(neck_polygon, dtype=np.int32)
+        cv2.polylines(frame, [neck_poly_np], isClosed=True, color=(0,255,0), thickness=2)
         frame_buffer = frame
-        
-        # Return 0 to continue processing
-        return 0
     except Exception as e:
-        print(f"Error in custom_sink: {str(e)}")
+        print(f"[custom_sink] Exception: {str(e)}")
         return 0
 
 def generate_frames():

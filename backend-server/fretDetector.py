@@ -100,6 +100,36 @@ class FretboardNotes:
         note_idx = (open_note_idx + fret_num) % 12
         return ALL_NOTES[note_idx]
 
+class NeckTracker:
+    def update(self, detections, frame_height): #detections from a guitar neck detector
+        self.frame_height = frame_height
+        # 1st pass: collect all detections
+        for det in detections:
+            if not det.get("points"):
+                continue
+                
+            class_name = det.get("class", "")
+            if not class_name == "neck":
+                continue
+                
+            polygon = np.array([[pt["x"], pt["y"]] for pt in det["points"]], dtype=np.int32)
+            if len(polygon) < 3:
+                continue
+                
+            x_coords = polygon[:, 0]
+            y_coords = polygon[:, 1]
+            x_center = int(np.mean(x_coords))
+            y_center = int(np.mean(y_coords))
+            
+                
+            # Store neck data
+            current_neck = {
+                'x_center': x_center,
+                'y_center': y_center,
+                'y_min': np.min(y_coords),
+                'y_max': np.max(y_coords),
+            }
+
 class FretTracker:
     def __init__(self, num_frets=12, stability_threshold=0.3):
         self.frets = {}  # dict to store fret positions
