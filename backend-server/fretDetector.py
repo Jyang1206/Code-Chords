@@ -30,20 +30,18 @@ SCALES = {
 }
 
 class FretboardNotes:
-    def __init__(self):
+    def __init__(self, num_frets: int = 22):
         self.selected_scale_name = 'major'  # default scale
         self.selected_root = 'C'            # Default root note
         self.scale_notes = self._calculate_scale_notes()
-        
+        self.num_frets = num_frets
+
     def _calculate_scale_notes(self) -> List[str]:
-        """Calculate notes in the currently selected scale."""
         root_index = ALL_NOTES.index(self.selected_root)
         scale_intervals = SCALES[self.selected_scale_name]
-        
         return [ALL_NOTES[(root_index + interval) % 12] for interval in scale_intervals]
-    
+
     def set_scale(self, root: str, scale_name: str) -> None:
-        """Set a new scale by root note and scale type."""
         if root in ALL_NOTES and scale_name in SCALES:
             self.selected_root = root
             self.selected_scale_name = scale_name
@@ -51,53 +49,44 @@ class FretboardNotes:
             print(f"Scale set to {root} {scale_name}: {', '.join(self.scale_notes)}")
         else:
             print(f"Invalid scale parameters. Root must be in {ALL_NOTES} and scale in {list(SCALES.keys())}")
-    
-    def get_fretboard_map(self, num_frets: int = 12) -> Dict[int, List[str]]:
-        """Generate a mapping of string index to notes at each fret position."""
+
+    def get_fretboard_map(self, num_frets: int = None) -> Dict[int, List[str]]:
+        if num_frets is None:
+            num_frets = self.num_frets
         fretboard = {}
-        
         for string_idx, open_note in enumerate(OPEN_STRINGS):
             string_notes = []
             open_note_idx = ALL_NOTES.index(open_note)
-            
-            for fret in range(num_frets + 1):  # Include open string (fret 0)
+            for fret in range(num_frets, 0, -1):  # 22 (rightmost) to 1 (leftmost)
                 note_idx = (open_note_idx + fret) % 12
                 string_notes.append(ALL_NOTES[note_idx])
-            
             fretboard[string_idx] = string_notes
-            
         return fretboard
-    
+
     def is_note_in_scale(self, note: str) -> bool:
-        """Check if a note is in the currently selected scale."""
         return note in self.scale_notes
-    
-    def get_string_note_positions(self, string_idx: int, num_frets: int = 12) -> List[int]:
-        """Get fret positions where notes in the scale appear on a specific string."""
+
+    def get_string_note_positions(self, string_idx: int, num_frets: int = None) -> List[int]:
+        if num_frets is None:
+            num_frets = self.num_frets
         if string_idx < 0 or string_idx >= len(OPEN_STRINGS):
             return []
-        
         positions = []
         open_note = OPEN_STRINGS[string_idx]
         open_note_idx = ALL_NOTES.index(open_note)
-        
-        for fret in range(num_frets + 1):
+        for fret in range(num_frets, 0, -1):  # 22 (rightmost) to 1 (leftmost)
             note_idx = (open_note_idx + fret) % 12
             note = ALL_NOTES[note_idx]
-            
             if self.is_note_in_scale(note):
-                positions.append(fret)
-                
+                positions.append(fret)  # 22=rightmost, 1=leftmost
         return positions
 
     def get_note_at_position(self, string_idx: int, fret_num: int) -> str:
-        """Get the note name at a specific string and fret position."""
         if string_idx < 0 or string_idx >= len(OPEN_STRINGS):
             return ''
-            
         open_note = OPEN_STRINGS[string_idx]
         open_note_idx = ALL_NOTES.index(open_note)
-        note_idx = (open_note_idx + fret_num) % 12
+        note_idx = (open_note_idx + fret_num) % 12  # 22=rightmost, 1=leftmost
         return ALL_NOTES[note_idx]
 
 class NeckTracker:

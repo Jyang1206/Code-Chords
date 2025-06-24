@@ -143,11 +143,16 @@ def deskew_neck(frame, polygon_points):
         print(f"[deskew_neck] Exception: {e}")
         raise
 
-def detect_frets_with_hough(warped_frame, min_angle=75, threshold=60, min_length=30, max_gap=5):
+def detect_frets_with_hough(warped_frame, min_angle=75, threshold=40, min_length=25, max_gap=8):
     try:
         gray = cv2.cvtColor(warped_frame, cv2.COLOR_BGR2GRAY)
-        blurred = cv2.GaussianBlur(gray, (3, 3), 0)
-        edges = cv2.Canny(blurred, 50, 150)
+        # Adaptive thresholding for better contrast
+        adaptive = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 11, 2)
+        # Morphological operations to enhance vertical lines
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 15))
+        morph = cv2.morphologyEx(adaptive, cv2.MORPH_CLOSE, kernel)
+        # Canny edge detection
+        edges = cv2.Canny(morph, 40, 120)
         lines = cv2.HoughLinesP(
             edges,
             rho=1,
@@ -156,7 +161,6 @@ def detect_frets_with_hough(warped_frame, min_angle=75, threshold=60, min_length
             minLineLength=min_length,
             maxLineGap=max_gap
         )
-        print(f"[detect_frets_with_hough] lines detected: {0 if lines is None else len(lines)}")
         vertical_lines = []
         if lines is not None:
             for line in lines:
@@ -164,13 +168,12 @@ def detect_frets_with_hough(warped_frame, min_angle=75, threshold=60, min_length
                 angle = np.degrees(np.arctan2(y2 - y1, x2 - x1))
                 if abs(angle) > min_angle:
                     vertical_lines.append((x1, y1, x2, y2))
-        print(f"[detect_frets_with_hough] vertical_lines (pre-merge): {len(vertical_lines)}")
-        vertical_lines.sort(key=lambda l: (l[0] + l[2]) // 2)
+        # Sort lines by x (right to left)
+        vertical_lines.sort(key=lambda l: -((l[0] + l[2]) // 2))
         merged = []
         for line in vertical_lines:
             if not merged or abs((line[0] + line[2]) // 2 - (merged[-1][0] + merged[-1][2]) // 2) > 8:
                 merged.append(line)
-        print(f"[detect_frets_with_hough] vertical_lines (merged): {len(merged)}")
         return merged
     except Exception as e:
         print(f"[detect_frets_with_hough] Exception: {str(e)}")
@@ -188,18 +191,29 @@ def draw_scale_notes(
     try:
         num_frets = len(fret_lines)
         num_strings = 6  # Standard guitar
-        print(f"[draw_scale_notes] num_frets: {num_frets}, num_strings: {num_strings}")
         string_y_positions = np.linspace(0.1, 0.9, num_strings) * neck_height
-        for i in range(1, num_frets):
-            x1 = (fret_lines[i - 1][0] + fret_lines[i - 1][2]) // 2
-            x2 = (fret_lines[i][0] + fret_lines[i][2]) // 2
+        # Build frets from right to left (fret 22 is rightmost, 1 is leftmost)
+        for i, fret_idx in enumerate(range(num_frets, 0, -1)):
+            if fret_idx <= 0 or fret_idx >= num_frets:
+                continue
+            x1 = (fret_lines[fret_idx - 1][0] + fret_lines[fret_idx - 1][2]) // 2
+            x2 = (fret_lines[fret_idx % num_frets][0] + fret_lines[fret_idx % num_frets][2]) // 2
             x_center = (x1 + x2) // 2
-            fret_num = i
+            fret_num = i + 1  # 1 (leftmost) to N (rightmost)
+            # Label the fret number between the lines
+            if inverse_transform is not None and output_frame is not None:
+                label_point = np.array([[[x_center, 30]]], dtype=np.float32)
+                label_transformed = cv2.perspectiveTransform(label_point, inverse_transform)[0][0]
+                cv2.putText(output_frame, str(num_frets - i), (int(label_transformed[0]), int(label_transformed[1])),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0,255,255), 2, cv2.LINE_AA)
+            else:
+                cv2.putText(warped_frame, str(num_frets - i), (x_center, 30),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0,255,255), 2, cv2.LINE_AA)
             for string_idx, y in enumerate(string_y_positions):
                 y = int(y)
-                note_name = fretboard_notes.get_note_at_position(string_idx, fret_num)
+                note_name = fretboard_notes.get_note_at_position(string_idx, num_frets - i)
                 scale_positions = fretboard_notes.get_string_note_positions(string_idx)
-                if fret_num in scale_positions:
+                if (num_frets - i) in scale_positions:
                     is_root = (note_name == fretboard_notes.selected_root)
                     color = (0, 0, 255) if is_root else (255, 0, 0)
                     radius = 8 if is_root else 6
@@ -240,7 +254,7 @@ def custom_sink(predictions: dict, video_frame: VideoFrame):
         custom_sink.last_fret_lines = []
     try:
         frame = video_frame.image.copy()
-        print(f"[custom_sink] Frame shape: {frame.shape}")
+        # print(f"[custom_sink] Frame shape: {frame.shape}")
         neck_polygon = None
         for det in predictions.get("predictions", []):
             if det.get("class") == "Guitar-necks" and "points" in det:
@@ -265,15 +279,20 @@ def custom_sink(predictions: dict, video_frame: VideoFrame):
             ], dtype=np.float32),
             box
         )
-        custom_sink.frame_counter += 1
-        if custom_sink.frame_counter % 5 == 0:
-            fret_lines = detect_frets_with_hough(warped)
-            custom_sink.last_fret_lines = fret_lines
-        else:
-            fret_lines = custom_sink.last_fret_lines
-        print(f"[custom_sink] fret_lines: {fret_lines}")
+        # Always update fret_lines every frame
+        fret_lines = detect_frets_with_hough(warped)
+        custom_sink.last_fret_lines = fret_lines
         if not fret_lines or len(fret_lines) < 2:
             print("[custom_sink] Not enough fret lines detected.")
+        # Draw Hough lines for debugging
+        if fret_lines:
+            for (x1, y1, x2, y2) in fret_lines:
+                pt1 = np.array([[[x1, y1]]], dtype=np.float32)
+                pt2 = np.array([[[x2, y2]]], dtype=np.float32)
+                if M_inv is not None:
+                    pt1_orig = cv2.perspectiveTransform(pt1, M_inv)[0][0]
+                    pt2_orig = cv2.perspectiveTransform(pt2, M_inv)[0][0]
+                    cv2.line(frame, (int(pt1_orig[0]), int(pt1_orig[1])), (int(pt2_orig[0]), int(pt2_orig[1])), (0,0,255), 2)
         draw_scale_notes(
             warped_frame=warped,
             fret_lines=fret_lines,
@@ -282,6 +301,7 @@ def custom_sink(predictions: dict, video_frame: VideoFrame):
             inverse_transform=M_inv,
             output_frame=frame
         )
+        # Draw the neck polygon on the output frame for testing
         neck_poly_np = np.array(neck_polygon, dtype=np.int32)
         cv2.polylines(frame, [neck_poly_np], isClosed=True, color=(0,255,0), thickness=2)
         frame_buffer = frame
