@@ -1,22 +1,19 @@
-import React from 'react'
-import { useState, useEffect, use } from 'react'
-import Home from './Pages/Home'
-import './App.css'
-import axios from 'axios'
-import { BrowserRouter, Route, Switch } from 'react-router-dom'
-
+import "./css/App.css";
+import Home from "./Pages/Learning";
+import { Routes, Route } from "react-router-dom";
+import NavBar from "./components/NavBar";
 
 function App() {
   return (
-    <BrowserRouter>
-      <Switch>
-        <Route path="/" component = {Home} exact/>
-        
-      </Switch>
-    </BrowserRouter>
-      
-  )
-
+    <>
+      <NavBar />
+      <main className="main-content">
+        <Routes>
+          <Route path="/" element={<Home />} />
+        </Routes>
+      </main>
+    </>
+  );
 }
 
-export default App
+export default App;
