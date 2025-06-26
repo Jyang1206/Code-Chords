@@ -15,7 +15,7 @@ load_dotenv()
 
 # get config from env variables
 API_KEY = os.getenv('API_KEY', "tNGaAGE5IufNanaTpyG3")
-MODEL_ID = os.getenv('MODEL_ID', "guitar-frets-segmenter 1")
+MODEL_ID = os.getenv('MODEL_ID', "guitar-frets-segmenter-jd1ze/1")
 PORT = int(os.getenv('FLASK_PORT', 8000))
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
@@ -122,7 +122,7 @@ def generate_frames():
             print(f"Error in generate_frames: {str(e)}")
             continue
 
-@app.route('/video_feed')
+@app.route('/video_feed', methods=['POST'])
 def video_feed():
     try:
         if not initialize_pipeline():
