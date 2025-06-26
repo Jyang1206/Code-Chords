@@ -180,6 +180,9 @@ def draw_scale_notes(frame, fret_tracker, fretboard_notes):
 
 def custom_sink(predictions: dict, video_frame: VideoFrame):
     """Custom sink function for the inference pipeline."""
+    # Log how long for each inference from frontend to backend (debug)
+    # Debug how long it takes to draw notes, for each fn (using Python time)
+
     global frame_buffer
     try:
         frame = video_frame.image.copy()
