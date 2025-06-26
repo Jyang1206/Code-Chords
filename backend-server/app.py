@@ -14,8 +14,8 @@ from inference.core.interfaces.camera.entities import VideoFrame
 load_dotenv()
 
 # get config from env variables
-API_KEY = os.getenv('API_KEY', "tNGaAGE5IufNanaTpyG3")
-MODEL_ID = os.getenv('MODEL_ID', "guitar-frets-segmenter-jd1ze/1")
+API_KEY = os.getenv('API_KEY', "PXAqQENZCRpDPtJ8rd4w")
+MODEL_ID = os.getenv('MODEL_ID', "guitar-frets-segmenter/1")
 PORT = int(os.getenv('FLASK_PORT', 8000))
 
 # performance settings - for optimising
@@ -23,7 +23,7 @@ MAX_INIT_RETRIES = 2
 INIT_RETRY_DELAY = 0.5 
 
 app = Flask(__name__, static_folder='static', template_folder='templates') #init using Python flask
-CORS(app)
+cors = CORS(app, origins=["*"], supports_credentials=True) #enable CORS for all origins
 
 # init video capture
 camera = None
@@ -180,9 +180,6 @@ def draw_scale_notes(frame, fret_tracker, fretboard_notes):
 
 def custom_sink(predictions: dict, video_frame: VideoFrame):
     """Custom sink function for the inference pipeline."""
-    # Log how long for each inference from frontend to backend (debug)
-    # Debug how long it takes to draw notes, for each fn (using Python time)
-
     global frame_buffer
     try:
         frame = video_frame.image.copy()
@@ -192,30 +189,10 @@ def custom_sink(predictions: dict, video_frame: VideoFrame):
         
         # draw scale notes
         draw_scale_notes(frame, fret_tracker, fretboard_notes)
+
         
         # store the processed frame in the buffer
         frame_buffer = frame
-        
-        # handle keyboard input for scale switching
-        key = cv2.waitKey(1) & 0xFF
-        if key == ord('c'):
-            fretboard_notes.set_scale('C', 'major')
-            print("Switched to C major scale")
-        elif key == ord('a'):
-            fretboard_notes.set_scale('A', 'minor')
-            print("Switched to A minor scale")
-        elif key == ord('g'):
-            fretboard_notes.set_scale('G', 'major')
-            print("Switched to G major scale")
-        elif key == ord('e'):
-            fretboard_notes.set_scale('E', 'minor')
-            print("Switched to E minor scale")
-        elif key == ord('f'):
-            fretboard_notes.set_scale('F', 'major')
-            print("Switched to F major scale")
-        elif key == ord('d'):
-            fretboard_notes.set_scale('D', 'major')
-            print("Switched to D major scale")
         
         # Return 0 to continue processing
         return 0
@@ -257,7 +234,18 @@ def generate_frames():
             print(f"Error in generate_frames: {str(e)}")
             continue
 
-@app.route('/video_feed', methods=['POST'])
+@app.route('/')
+def index():
+    # Initialize camera first
+    '''try:
+        get_camera()
+    except Exception as e:
+        print(f"Failed to initialize camera: {str(e)}")
+        return render_template('index.html', error="Camera initialization failed")'''
+        
+    return render_template('index.html')
+
+@app.route('/video_feed')
 def video_feed():
     # ensure camera is initialized before starting video feed
     try:
