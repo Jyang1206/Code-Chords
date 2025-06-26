@@ -14,8 +14,8 @@ from inference.core.interfaces.camera.entities import VideoFrame
 load_dotenv()
 
 # get config from env variables
-API_KEY = os.getenv('API_KEY', "PXAqQENZCRpDPtJ8rd4w")
-MODEL_ID = os.getenv('MODEL_ID', "guitar-frets-segmenter/1")
+API_KEY = os.getenv('API_KEY', "tNGaAGE5IufNanaTpyG3")
+MODEL_ID = os.getenv('MODEL_ID', "guitar-frets-segmenter-jd1ze/1")
 PORT = int(os.getenv('FLASK_PORT', 8000))
 
 # performance settings - for optimising
@@ -257,18 +257,7 @@ def generate_frames():
             print(f"Error in generate_frames: {str(e)}")
             continue
 
-@app.route('/')
-def index():
-    # Initialize camera first
-    '''try:
-        get_camera()
-    except Exception as e:
-        print(f"Failed to initialize camera: {str(e)}")
-        return render_template('index.html', error="Camera initialization failed")'''
-        
-    return render_template('index.html')
-
-@app.route('/video_feed')
+@app.route('/video_feed', methods=['POST'])
 def video_feed():
     # ensure camera is initialized before starting video feed
     try:
