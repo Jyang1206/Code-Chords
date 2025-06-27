@@ -6,9 +6,13 @@ import os
 import time
 import platform
 from dotenv import load_dotenv
-from fretDetector import FretTracker, FretboardNotes
+from fretDetector import FretTracker, FretboardNotes, custom_sink
 from inference import InferencePipeline
 from inference.core.interfaces.camera.entities import VideoFrame
+import base64
+import numpy as np
+from inference_sdk import InferenceHTTPClient
+import datetime
 
 # load environment variables
 load_dotenv()
@@ -38,6 +42,12 @@ fretboard_notes.set_scale('C', 'major')
 
 # global confidence threshold
 confidence_threshold = 0.3
+
+# initialize the client
+CLIENT = InferenceHTTPClient(
+    api_url="https://serverless.roboflow.com",
+    api_key=API_KEY
+)
 
 '''def get_camera():
     """Initialize camera with retries."""
@@ -81,24 +91,31 @@ def release_camera():
 def initialize_pipeline():
     """Initialize pipeline."""
     global pipeline
+    from fretDetector import custom_sink
     if pipeline is None:
         try:
             # Ensure camera is initialized first
             '''if get_camera() is None:
                 raise Exception("Camera must be initialized before pipeline")'''
-                
+            # Use a lambda to match the expected signature
             pipeline = InferencePipeline.init(
                 model_id=MODEL_ID,
                 api_key=API_KEY,
                 video_reference=0,
-                on_prediction=custom_sink
+                on_prediction=lambda predictions, video_frame: (
+                    custom_sink(
+                        predictions[0] if isinstance(predictions, list) and predictions else predictions,
+                        video_frame[0] if isinstance(video_frame, list) and video_frame else video_frame,
+                        fretboard_notes, fret_tracker
+                    ),
+                    None
+                )[-1]
             )
             pipeline.start()
             return True
         except Exception as e:
             print(f"Pipeline initialization failed: {str(e)}")
             if pipeline is not None:
-                pipeline.stop()
                 pipeline = None
             return False
     return True
@@ -178,28 +195,6 @@ def draw_scale_notes(frame, fret_tracker, fretboard_notes):
     except Exception as e:
         print(f"Error drawing scale notes: {str(e)}")
 
-def custom_sink(predictions: dict, video_frame: VideoFrame):
-    """Custom sink function for the inference pipeline."""
-    global frame_buffer
-    try:
-        frame = video_frame.image.copy()
-        
-        # update fret tracking with new detections
-        fret_tracker.update(predictions.get("predictions", []), frame.shape[0])
-        
-        # draw scale notes
-        draw_scale_notes(frame, fret_tracker, fretboard_notes)
-
-        
-        # store the processed frame in the buffer
-        frame_buffer = frame
-        
-        # Return 0 to continue processing
-        return 0
-    except Exception as e:
-        print(f"Error in custom_sink: {str(e)}")
-        return 0
-
 def generate_frames():
     """Generate video frames."""
     while True:
@@ -245,7 +240,7 @@ def index():
         
     return render_template('index.html')
 
-@app.route('/video_feed')
+@app.route('/video_feed', methods=['GET'])
 def video_feed():
     # ensure camera is initialized before starting video feed
     try:
@@ -320,6 +315,49 @@ def update_confidence():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     return jsonify({'error': 'Invalid request'}), 400
+
+@app.route('/process_frame', methods=['POST'])
+def process_frame():
+    data = request.get_json()
+    image_data = data['image'].split(',')[1]  # Remove data:image/jpeg;base64,
+    nparr = np.frombuffer(base64.b64decode(image_data), np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+    # Save image temporarily for inference_sdk
+    import tempfile
+    with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as tmp:
+        cv2.imwrite(tmp.name, img)
+        tmp_path = tmp.name
+
+    # --- Run Roboflow inference on this frame ---
+    model_id = "guitar-frets-segmenter-jd1ze/1"  # Use your actual model id
+    predictions = CLIENT.infer(tmp_path, model_id=model_id)
+
+    # Remove the temp file
+    import os
+    os.remove(tmp_path)
+
+    # --- Pass predictions and frame to custom_sink ---
+    video_frame = VideoFrame(
+        image=img,
+        frame_id=0,
+        frame_timestamp=datetime.datetime.now()
+    )
+    global fretboard_notes, fret_tracker
+    # Ensure predictions is a dict
+    if isinstance(predictions, list):
+        predictions = predictions[0] if predictions else {}
+    custom_sink(predictions, video_frame, fretboard_notes, fret_tracker)
+
+    # --- Get the processed frame from the video_frame ---
+    processed_img = video_frame.image
+
+    # Encode processed image to base64
+    _, buffer = cv2.imencode('.jpg', processed_img)
+    processed_image_b64 = base64.b64encode(buffer.tobytes()).decode('utf-8')
+    processed_image_uri = f"data:image/jpeg;base64,{processed_image_b64}"
+
+    return jsonify({'processed_image': processed_image_uri})
 
 if __name__ == '__main__':
     #try:

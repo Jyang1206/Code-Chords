@@ -29,43 +29,43 @@
 }
 
 .navbar-light {
-  background-color: #fbc2eb;
-  color: #23234b;
+  background-color: var(--cosmic-accent2);
+  color: var(--cosmic-shadow);
   box-shadow: 0 2px 8px rgba(246, 206, 255, 0.15);
 }
 
 .navbar-light .navbar-brand {
-  color: #23234b;
+  color: var(--cosmic-shadow);
 }
 
 .navbar-light .nav-link {
-  color: #23234b;
+  color: var(--cosmic-shadow);
   background: rgba(255,255,255,0.2);
 }
 
 .navbar-light .nav-link:hover {
   background-color: #fff;
-  color: #a18cd1;
+  color: var(--cosmic-accent);
 }
 
 .navbar-dark {
-  background-color: #000000;
-  color: #e0e6f7;
+  background-color: #090a0f;
+  color: var(--cosmic-nebula);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .navbar-dark .navbar-brand {
-  color: #e0e6f7;
+  color: var(--cosmic-nebula);
 }
 
 .navbar-dark .nav-link {
-  color: #e0e6f7;
+  color: var(--cosmic-star);
   background: rgba(20, 24, 48, 0.2);
 }
 
 .navbar-dark .nav-link:hover {
   background-color: rgba(255, 255, 255, 0.1);
-  color: #7fdbff;
+  color: var(--cosmic-accent2);
 }
 
 @media (max-width: 768px) {

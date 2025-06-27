@@ -11,23 +11,50 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  --cosmic-accent: #a18cd1;
+  --cosmic-accent2: #fbc2eb;
+  --cosmic-star: #ffee91;
+  --cosmic-nebula: #7ed6df;
+  --cosmic-shadow: #23234b;
 }
 
 a {
   font-weight: 500;
-  color: #646cff;
+  color: var(--cosmic-accent);
   text-decoration: inherit;
 }
 a:hover {
-  color: #535bf2;
+  color: var(--cosmic-accent2);
 }
 
-body {
+body, #root {
   margin: 0;
   display: flex;
   place-items: center;
   min-width: 320px;
   min-height: 100vh;
+  background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%) fixed;
+  color: #e0e6f7;
+  background-image: url('https://www.transparenttextures.com/patterns/stardust.png'),
+    linear-gradient(180deg, rgba(20,30,48,0.7) 0%, rgba(36,9,54,0.8) 100%);
+  background-blend-mode: lighten, normal;
+}
+
+body.light-mode, .light-mode #root {
+  background: linear-gradient(120deg, #a18cd1 0%, #fbc2eb 100%) fixed;
+  color: #23234b;
+  background-image: url('https://www.transparenttextures.com/patterns/stardust.png'),
+    linear-gradient(120deg, #fbc2eb 0%, #a6c1ee 100%);
+  background-blend-mode: lighten, normal;
+}
+
+body.dark-mode, .dark-mode #root {
+  background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%) fixed;
+  color: #e0e6f7;
+  background-image: url('https://www.transparenttextures.com/patterns/stardust.png'),
+    linear-gradient(180deg, rgba(20,30,48,0.7) 0%, rgba(36,9,54,0.8) 100%);
+  background-blend-mode: lighten, normal;
 }
 
 h1 {
@@ -42,16 +69,19 @@ button {
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
+  background-color: var(--cosmic-shadow);
+  color: var(--cosmic-star);
   cursor: pointer;
-  transition: border-color 0.25s;
+  transition: border-color 0.25s, background 0.25s, color 0.25s;
 }
 button:hover {
-  border-color: #646cff;
+  border-color: var(--cosmic-accent2);
+  background-color: var(--cosmic-accent);
+  color: var(--cosmic-shadow);
 }
 button:focus,
 button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  outline: 4px auto var(--cosmic-accent2);
 }
 
 @media (prefers-color-scheme: light) {
@@ -64,5 +94,31 @@ button:focus-visible {
   }
   button {
     background-color: #f9f9f9;
+  }
+}
+
+.cosmic-ripple {
+  position: fixed;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9999;
+  width: 40px;
+  height: 40px;
+  background: radial-gradient(circle, var(--cosmic-accent2) 0%, var(--cosmic-accent) 60%, transparent 100%);
+  animation: cosmic-ripple-anim 0.6s linear forwards;
+  opacity: 0.7;
+}
+
+@keyframes cosmic-ripple-anim {
+  0% {
+    transform: scale(0.2);
+    opacity: 0.7;
+  }
+  80% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(3.5);
+    opacity: 0;
   }
 }

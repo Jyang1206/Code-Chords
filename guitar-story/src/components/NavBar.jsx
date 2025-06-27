@@ -8,7 +8,7 @@ function NavBar() {
     return (
         <nav className={`navbar${lightMode ? " navbar-light" : " navbar-dark"}`}>
             <div className="navbar-brand">
-                <Link to="/">GuitarLearning</Link>
+                <Link to="/">Guitar Story</Link>
             </div>
             <div className="navbar-links">
                 <Link to="/" className="nav-link">Home</Link>
