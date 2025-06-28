@@ -267,10 +267,32 @@ def draw_scale_notes(frame, fret_tracker, fretboard_notes):
 
 def custom_sink(predictions: dict, video_frame: VideoFrame, fretboard_notes: FretboardNotes, fret_tracker: FretTracker):
     frame = video_frame.image.copy()
+    
+    # If no predictions provided, use computer vision detection
+    if not predictions or not predictions.get("predictions"):
+        detections = detect_frets_with_hough(frame)
+        predictions = {"predictions": detections}
+    
     detections = predictions.get("predictions", [])
     
     # update fret tracking with new detections
     fret_tracker.update(detections, frame.shape[0])
+    
+    # Draw detected fret lines for debugging
+    for i, detection in enumerate(detections):
+        if "points" in detection and len(detection["points"]) >= 4:
+            points = detection["points"]
+            # Draw the fret line in green
+            cv2.line(frame, 
+                    (int(points[0]["x"]), int(points[0]["y"])), 
+                    (int(points[2]["x"]), int(points[2]["y"])), 
+                    (0, 255, 0), 3)
+            
+            # Draw fret number
+            x_center = (int(points[0]["x"]) + int(points[2]["x"])) // 2
+            y_center = (int(points[0]["y"]) + int(points[2]["y"])) // 2
+            cv2.putText(frame, f"Fret {i+1}", (x_center - 20, y_center - 10),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
     
     # draw scale notes on the stable frets
     draw_scale_notes(frame, fret_tracker, fretboard_notes)
@@ -278,12 +300,89 @@ def custom_sink(predictions: dict, video_frame: VideoFrame, fretboard_notes: Fre
     # display scale information
     scale_text = f"Scale: {fretboard_notes.selected_root} {fretboard_notes.selected_scale_name}"
     notes_text = f"Notes: {', '.join(fretboard_notes.scale_notes)}"
+    detection_text = f"Detected {len(detections)} frets"
     
     cv2.putText(frame, scale_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2, cv2.LINE_AA)
     cv2.putText(frame, notes_text, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2, cv2.LINE_AA)
+    cv2.putText(frame, detection_text, (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2, cv2.LINE_AA)
     
     # Return the processed frame directly (don't modify VideoFrame)
     return frame
+
+def detect_frets_with_hough(frame):
+    """Detect frets using Hough line transform and edge detection."""
+    # Convert to grayscale
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    
+    # Apply Gaussian blur to reduce noise
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    
+    # Edge detection with adaptive thresholds
+    edges = cv2.Canny(blurred, 30, 100)
+    
+    # Morphological operations to connect broken edges
+    kernel = np.ones((3,3), np.uint8)
+    edges = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
+    
+    # Hough line transform to detect vertical lines (frets)
+    lines = cv2.HoughLines(edges, 1, np.pi/180, threshold=80)
+    
+    detections = []
+    if lines is not None:
+        # Filter and sort lines by x-coordinate
+        valid_lines = []
+        for line in lines:
+            rho, theta = line[0]
+            
+            # Only consider near-vertical lines (frets are vertical)
+            if abs(theta - np.pi/2) < 0.2 or abs(theta - 3*np.pi/2) < 0.2:
+                # Convert polar coordinates to Cartesian
+                a = np.cos(theta)
+                b = np.sin(theta)
+                x0 = a * rho
+                y0 = b * rho
+                
+                # Calculate line endpoints
+                x1 = int(x0 + 1000*(-b))
+                y1 = int(y0 + 1000*(a))
+                x2 = int(x0 - 1000*(-b))
+                y2 = int(y0 - 1000*(a))
+                
+                # Only include lines that span most of the frame height
+                line_length = abs(y2 - y1)
+                if line_length > frame.shape[0] * 0.3:  # At least 30% of frame height
+                    valid_lines.append((x1, y1, x2, y2, rho))
+        
+        # Sort lines by x-coordinate and remove duplicates
+        valid_lines.sort(key=lambda x: x[0])
+        filtered_lines = []
+        for i, line in enumerate(valid_lines):
+            if i == 0 or abs(line[0] - filtered_lines[-1][0]) > 30:  # Minimum spacing
+                filtered_lines.append(line)
+        
+        # Create detection objects
+        for i, (x1, y1, x2, y2, rho) in enumerate(filtered_lines[:12]):  # Limit to 12 frets
+            # Create a rectangular zone around the fret line
+            zone_width = 20
+            # Calculate center
+            x_center = (x1 + x2) // 2
+            y_center = (y1 + y2) // 2
+            detection = {
+                "class": f"Zone{i+1}",
+                "confidence": 0.8,
+                "points": [
+                    {"x": x1 - zone_width//2, "y": y1},
+                    {"x": x1 + zone_width//2, "y": y1},
+                    {"x": x1 + zone_width//2, "y": y2},
+                    {"x": x1 - zone_width//2, "y": y2}
+                ],
+                "x_center": x_center,
+                "y_center": y_center,
+                "fret_num": i+1
+            }
+            detections.append(detection)
+    
+    return detections
 
 def main():
     # initialize the fretboard notes with C major scale
