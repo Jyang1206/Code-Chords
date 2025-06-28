@@ -16,6 +16,8 @@ load_dotenv()
 # get config from env variables
 API_KEY = os.getenv('API_KEY', "PXAqQENZCRpDPtJ8rd4w")
 MODEL_ID = os.getenv('MODEL_ID', "guitar-frets-segmenter/1")
+##API_KEY = "tNGaAGE5IufNanaTpyG3"
+##MODEL_ID = "guitar-frets-segmenter-jd1ze/1"
 PORT = int(os.getenv('FLASK_PORT', 8000))
 
 # performance settings - for optimising
@@ -28,7 +30,7 @@ cors = CORS(app, origins=["*"], supports_credentials=True) #enable CORS for all 
 # init video capture
 camera = None
 # Initialize fret tracking objects
-fret_tracker = FretTracker(num_frets=12, stability_threshold=0.3)
+fret_tracker = FretTracker(num_frets=12, stability_threshold=0.4)
 fretboard_notes = FretboardNotes()
 pipeline = None
 frame_buffer = None
@@ -38,6 +40,9 @@ fretboard_notes.set_scale('C', 'major')
 
 # global confidence threshold
 confidence_threshold = 0.3
+
+calibration_reference = {}
+calibration_done = False
 
 '''def get_camera():
     """Initialize camera with retries."""
@@ -122,6 +127,14 @@ def draw_scale_notes(frame, fret_tracker, fretboard_notes):
     try:
         stable_frets = fret_tracker.get_stable_frets()
         
+        # --- Calibration filtering ---
+        global calibration_reference
+        # Convert stable_frets to {fret_num: {'x': x_center, 'y': y_center}}
+        detected_frets = {fret_data['fret_num']: {'x': fret_data['x_center'], 'y': fret_data['y_center']} for x_center, fret_data in fret_tracker.sorted_frets}
+        filtered_frets = filter_frets_with_calibration(detected_frets, calibration_reference)
+        # Only keep filtered frets for drawing
+        filtered_sorted = sorted([(v['x'], f, v['y']) for f, v in filtered_frets.items()], key=lambda t: -t[0])
+        
         # display scale information
         scale_text = f"Scale: {fretboard_notes.selected_root} {fretboard_notes.selected_scale_name}"
         notes_text = f"Notes: {', '.join(fretboard_notes.scale_notes)}"
@@ -133,18 +146,17 @@ def draw_scale_notes(frame, fret_tracker, fretboard_notes):
                    #cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
         
         # process frets in order
-        for x_center, fret_data in fret_tracker.sorted_frets:
-            fret_num = fret_data['fret_num']
+        for x_center, fret_num, y_center in filtered_sorted:
             if fret_num < 1:
                 continue
             
             # draw fret number
             cv2.putText(frame, f"Fret {fret_num}", 
-                       (fret_data['x_center'] - 20, fret_data['y_min'] - 10),
+                       (int(x_center) - 14, int(y_center) - 18),
                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
             
             # calc string positions
-            string_positions = fret_tracker.get_string_positions(fret_data)
+            string_positions = fret_tracker.get_string_positions({'x_center': int(x_center), 'y_min': 60, 'y_max': frame.shape[0]-60})
             
             # draw dots for each string
             for string_idx, y_pos in enumerate(string_positions):
@@ -155,25 +167,25 @@ def draw_scale_notes(frame, fret_tracker, fretboard_notes):
                 if fret_num in scale_positions:
                     if note_name == fretboard_notes.selected_root:
                         # root note - red
-                        cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 8, (0, 0, 255), -1)
-                        cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 9, (255, 255, 255), 1)
+                        cv2.circle(frame, (int(x_center), int(y_pos)), 8, (0, 0, 255), -1)
+                        cv2.circle(frame, (int(x_center), int(y_pos)), 9, (255, 255, 255), 1)
                         # Add note name
-                        text_x = fret_data['x_center'] + 10
+                        text_x = int(x_center) + 10
                         text_y = int(y_pos) + 4
                         cv2.putText(frame, note_name, (text_x, text_y),
                                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2, cv2.LINE_AA)
                     else:
                         # scale note - blue
-                        cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 6, (255, 0, 0), -1)
-                        cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 7, (255, 255, 255), 1)
+                        cv2.circle(frame, (int(x_center), int(y_pos)), 6, (255, 0, 0), -1)
+                        cv2.circle(frame, (int(x_center), int(y_pos)), 7, (255, 255, 255), 1)
                         # Add note name
-                        text_x = fret_data['x_center'] + 10
+                        text_x = int(x_center) + 10
                         text_y = int(y_pos) + 4
                         cv2.putText(frame, note_name, (text_x, text_y),
                                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv2.LINE_AA)
                 else:
                     # note not in scale - greyed out
-                    cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 4, (128, 128, 128), -1)
+                    cv2.circle(frame, (int(x_center), int(y_pos)), 4, (128, 128, 128), -1)
                 
     except Exception as e:
         print(f"Error drawing scale notes: {str(e)}")
@@ -320,6 +332,59 @@ def update_confidence():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     return jsonify({'error': 'Invalid request'}), 400
+
+@app.route('/calibrate', methods=['POST'])
+def calibrate():
+    global calibration_reference, calibration_done
+    data = request.get_json()
+    # Require all six frets with x and y
+    required_frets = [1, 5, 7, 9, 12, 15]
+    if not all(str(f) in data and 'x' in data[str(f)] and 'y' in data[str(f)] for f in required_frets):
+        return jsonify({"error": "Please provide x and y positions for 1st, 5th, 7th, 9th, 12th, and 15th frets."}), 400
+    calibration_reference = {int(k): {'x': v['x'], 'y': v['y']} for k, v in data.items() if int(k) in required_frets}
+    calibration_done = True
+    return jsonify({"status": "calibrated"})
+
+@app.route('/calibration_status')
+def calibration_status():
+    global calibration_done
+    return jsonify({"calibrated": calibration_done})
+
+@app.route('/calibration_overlay')
+def calibration_overlay():
+    # Return overlay info for 1st, 5th, 7th, 9th, 12th, 15th frets
+    return jsonify({"frets": [1, 5, 7, 9, 12, 15]})
+
+# Helper to filter detected frets using calibration
+
+def filter_frets_with_calibration(detected_frets, calibration_reference):
+    # detected_frets: dict {fret_num: {'x': x_center, 'y': y_center}}
+    # calibration_reference: dict {fret_num: {'x': x, 'y': y}}
+    anchors = sorted(calibration_reference.items())
+    if len(anchors) < 2:
+        return detected_frets  # Not enough anchors, return as is
+    anchor_frets = [f for f, _ in anchors]
+    filtered = {}
+    for fret_num, pos in detected_frets.items():
+        # Find anchor neighbors
+        lower = max([f for f in anchor_frets if f < fret_num], default=None)
+        upper = min([f for f in anchor_frets if f > fret_num], default=None)
+        if lower and upper:
+            # Linear interpolation for expected x/y
+            t = (fret_num - lower) / (upper - lower)
+            x_low, y_low = calibration_reference[lower]['x'], calibration_reference[lower]['y']
+            x_high, y_high = calibration_reference[upper]['x'], calibration_reference[upper]['y']
+            expected_x = x_low + t * (x_high - x_low)
+            expected_y = y_low + t * (y_high - y_low)
+            # Accept if detected x/y is between anchor x/y +/- a tolerance
+            tol_x = abs(x_high - x_low) * 0.3 + 20  # 30% of segment or 20px
+            tol_y = abs(y_high - y_low) * 0.3 + 20
+            if (min(x_low, x_high) - tol_x <= pos['x'] <= max(x_low, x_high) + tol_x and
+                min(y_low, y_high) - tol_y <= pos['y'] <= max(y_low, y_high) + tol_y):
+                filtered[fret_num] = pos
+        elif fret_num in anchor_frets:
+            filtered[fret_num] = pos
+    return filtered
 
 if __name__ == '__main__':
     #try:

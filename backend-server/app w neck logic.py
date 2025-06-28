@@ -252,6 +252,7 @@ def custom_sink(predictions: dict, video_frame: VideoFrame):
     if not hasattr(custom_sink, "frame_counter"):
         custom_sink.frame_counter = 0
         custom_sink.last_fret_lines = []
+        custom_sink.last_warped = None
     try:
         frame = video_frame.image.copy()
         # print(f"[custom_sink] Frame shape: {frame.shape}")
@@ -270,6 +271,7 @@ def custom_sink(predictions: dict, video_frame: VideoFrame):
             print(f"[custom_sink] deskew_neck failed: {e}")
             frame_buffer = frame
             return 0
+        custom_sink.last_warped = warped.copy()
         M_inv = cv2.getPerspectiveTransform(
             np.array([
                 [0, 0],
@@ -429,6 +431,26 @@ def update_confidence():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     return jsonify({'error': 'Invalid request'}), 400
+
+@app.route('/debug_hough')
+def debug_hough():
+    """Return the current warped neck frame with Hough lines drawn for debugging."""
+    global frame_buffer, custom_sink
+    try:
+        # Use the last warped frame and last detected fret lines from custom_sink
+        if not hasattr(custom_sink, 'last_warped') or not hasattr(custom_sink, 'last_fret_lines'):
+            return "No warped frame available yet", 503
+        warped = custom_sink.last_warped.copy()
+        fret_lines = custom_sink.last_fret_lines
+        # Draw Hough lines
+        for (x1, y1, x2, y2) in fret_lines:
+            cv2.line(warped, (x1, y1), (x2, y2), (0, 0, 255), 2)
+        ret, buffer = cv2.imencode('.jpg', warped)
+        if not ret:
+            return "Failed to encode debug frame", 500
+        return Response(buffer.tobytes(), mimetype='image/jpeg')
+    except Exception as e:
+        return f"Error in debug_hough: {str(e)}", 500
 
 if __name__ == '__main__':
     #try:

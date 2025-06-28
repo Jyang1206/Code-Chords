@@ -1,0 +1,71 @@
+/* Calibration overlay styles */
+#marking-overlay {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: auto;
+  z-index: 200;
+}
+#marking-instructions {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #fff;
+  background: rgba(0,0,0,0.7);
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-size: 18px;
+  z-index: 201;
+}
+.fret-drag-btn {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  background: #ffeb3b;
+  color: #222;
+  border: none;
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: grab;
+  z-index: 202;
+  display: block;
+  user-select: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+#marking-calibrate-btn {
+  display: none;
+  position: absolute;
+  top: 90px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 201;
+  background: #3498db;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 24px;
+  font-size: 18px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+#recalibrate-btn {
+  display: none;
+  position: absolute;
+  top: 140px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 201;
+  background: #e67e22;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 18px;
+  font-size: 15px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+} 

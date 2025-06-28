@@ -153,8 +153,11 @@ class FretTracker:
             if not det.get("points"):
                 continue
                 
+            ##print(det)
             class_name = det.get("class", "")
+            ##if class_name == "Hand" or not class_name.startswith("fret"):
             if class_name == "Hand" or not class_name.startswith("Zone"):
+                ##print("entered")
                 continue
                 
             # get fret number

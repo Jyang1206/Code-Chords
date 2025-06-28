@@ -137,6 +137,20 @@
                 <div class="video-wrapper">
                     <img id="video-feed" src="{{ url_for('video_feed') }}" alt="Video Feed">
                     <canvas id="fretboard-overlay"></canvas>
+                    <!-- Manual fret marking overlay for calibration with draggable buttons -->
+                    <div id="marking-overlay">
+                      <div id="marking-instructions">
+                        Drag each button to the center of your <b>1st</b>, <b>5th</b>, <b>7th</b>, <b>9th</b>, <b>12th</b>, and <b>15th</b> frets, then click Finish Calibration.
+                      </div>
+                      <button class="fret-drag-btn" id="fret-btn-1">1</button>
+                      <button class="fret-drag-btn" id="fret-btn-5">5</button>
+                      <button class="fret-drag-btn" id="fret-btn-7">7</button>
+                      <button class="fret-drag-btn" id="fret-btn-9">9</button>
+                      <button class="fret-drag-btn" id="fret-btn-12">12</button>
+                      <button class="fret-drag-btn" id="fret-btn-15">15</button>
+                      <button id="marking-calibrate-btn">Finish Calibration</button>
+                    </div>
+                    <button id="recalibrate-btn">Recalibrate</button>
                 </div>
         </div>
         
@@ -195,6 +209,7 @@
 
     <!-- Load scripts with proper attributes -->
     <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/calibration.js') }}" defer></script>
     <script>
         function changeScale() {
             const select = document.getElementById('scale-select');
