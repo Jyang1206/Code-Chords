@@ -75,14 +75,16 @@ input[type="range"]::-webkit-slider-thumb {
 
 /* Panel container */
 .guitar-detection-panel {
-  background: #23272f;
-  border-radius: 16px;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.4);
-  padding: 2rem 2.5rem;
-  margin: 2rem auto;
-  max-width: 600px;
-  color: #fff;
-  font-family: 'Segoe UI', Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 20px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  max-width: 800px;
+  margin: 0 auto;
 }
 
 .guitar-detection-panel h2 {
@@ -185,7 +187,7 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 .guitar-detection-panel.light {
-  background: #f7f7fa;
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
   color: #23234b;
 }
 .guitar-detection-panel.light h2 {
@@ -228,4 +230,125 @@ input[type="range"]::-webkit-slider-thumb {
   /* Ensures dark mode is explicit */
   background: #23272f;
   color: #fff;
+}
+
+.video-container {
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.video-canvas {
+  border-radius: 10px;
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  width: 100%;
+  max-width: 600px;
+}
+
+.controls button {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.controls button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.controls button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.scale-controls {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 15px;
+  border-radius: 8px;
+  backdrop-filter: blur(10px);
+}
+
+.scale-controls h4 {
+  margin: 0 0 10px 0;
+  color: white;
+  text-align: center;
+}
+
+.scale-buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 8px;
+}
+
+.scale-buttons button {
+  padding: 8px 12px;
+  font-size: 0.9em;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.scale-buttons button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.scale-info {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 15px;
+  border-radius: 8px;
+  backdrop-filter: blur(10px);
+  text-align: center;
+}
+
+.scale-info p {
+  margin: 5px 0;
+  color: white;
+  font-weight: 500;
+}
+
+.status-text {
+  text-align: center;
+  color: white;
+  font-weight: bold;
+  margin: 10px 0;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 5px;
+}
+
+.connection-status {
+  text-align: center;
+  color: white;
+  font-weight: 500;
+  margin: 5px 0;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 5px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .guitar-detection-panel {
+    padding: 15px;
+  }
+  
+  .scale-buttons {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .controls button {
+    padding: 10px 20px;
+  }
 }

@@ -1,10 +1,15 @@
 import cv2
 import numpy as np
-import mediapipe as mp
-from inference import InferencePipeline
-from inference.core.interfaces.camera.entities import VideoFrame
-from typing import Dict, List, Tuple, Optional
 import time
+from typing import Dict, List, Tuple, Optional
+from datetime import datetime
+
+# Simple VideoFrame class to replace inference package dependency
+class VideoFrame:
+    def __init__(self, image, frame_id=0, frame_timestamp=None):
+        self.image = image
+        self.frame_id = frame_id
+        self.frame_timestamp = frame_timestamp or datetime.now()
 
 API_KEY = "PXAqQENZCRpDPtJ8rd4w"
 MODEL_ID = "guitar-frets-segmenter/1"
@@ -277,15 +282,8 @@ def custom_sink(predictions: dict, video_frame: VideoFrame, fretboard_notes: Fre
     cv2.putText(frame, scale_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2, cv2.LINE_AA)
     cv2.putText(frame, notes_text, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2, cv2.LINE_AA)
     
-    # display keyboard controls (curr not working)
-    cv2.putText(frame, "Press 'q' to quit, 's' to change scale", (10, frame.shape[0] - 10), 
-               cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
-    
-    cv2.imshow("Guitar Scale Detector", frame)
-    key = cv2.waitKey(1) & 0xFF
-    
-    # Return keyboard input for main program to handle
-    return key
+    # Return the processed frame directly (don't modify VideoFrame)
+    return frame
 
 def main():
     # initialize the fretboard notes with C major scale
