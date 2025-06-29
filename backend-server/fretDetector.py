@@ -1,10 +1,15 @@
 import cv2
 import numpy as np
-import mediapipe as mp
-from inference import InferencePipeline
-from inference.core.interfaces.camera.entities import VideoFrame
-from typing import Dict, List, Tuple, Optional
 import time
+from typing import Dict, List, Tuple, Optional
+from datetime import datetime
+
+# Simple VideoFrame class to replace inference package dependency
+class VideoFrame:
+    def __init__(self, image, frame_id=0, frame_timestamp=None):
+        self.image = image
+        self.frame_id = frame_id
+        self.frame_timestamp = frame_timestamp or datetime.now()
 
 API_KEY = "PXAqQENZCRpDPtJ8rd4w"
 MODEL_ID = "guitar-frets-segmenter/1"
@@ -127,6 +132,8 @@ class FretTracker:
             
         self.last_update_time = current_time
         
+        print(f"DEBUG: FretTracker.update called with {len(detections)} detections")
+        
         current_frets = {}
         
         # 1st pass: collect all detections
@@ -135,6 +142,8 @@ class FretTracker:
                 continue
                 
             class_name = det.get("class", "")
+            print(f"DEBUG: Processing detection with class: {class_name}")
+            
             if class_name == "Hand" or not class_name.startswith("Zone"):
                 continue
                 
@@ -166,6 +175,8 @@ class FretTracker:
             if fret_width < self.min_fret_width:
                 continue
                 
+            print(f"DEBUG: Valid fret {fret_num} at ({x_center}, {y_center}) with confidence {confidence}")
+                
             # Store basic fret data
             current_frets[x_center] = {
                 'x_center': x_center,
@@ -176,6 +187,8 @@ class FretTracker:
                 'fret_num': fret_num,
                 'confidence': confidence
             }
+        
+        print(f"DEBUG: Collected {len(current_frets)} valid frets")
         
         # 2nd pass: validate spacing between frets (for optimisation purposes)
         sorted_frets = sorted(current_frets.items(), key=lambda x: x[1]['x_center'])
@@ -196,6 +209,9 @@ class FretTracker:
         
         self.frets = valid_frets
         self.sorted_frets = sorted(self.frets.items(), key=lambda x: x[1]['x_center'])
+        print(f"DEBUG: Final valid frets: {len(self.frets)}")
+        for x_center, fret_data in self.sorted_frets:
+            print(f"DEBUG: Final fret {fret_data['fret_num']} at x={x_center}")
 
     def get_string_positions(self, fret_data):
         """Calculate positions of strings on this fret."""
@@ -219,14 +235,21 @@ def draw_scale_notes(frame, fret_tracker, fretboard_notes):
     """Draw dots for scale notes on detected frets."""
     stable_frets = fret_tracker.get_stable_frets()
     
+    print(f"DEBUG: draw_scale_notes called")
+    print(f"DEBUG: stable_frets count: {len(stable_frets)}")
+    print(f"DEBUG: sorted_frets count: {len(fret_tracker.sorted_frets)}")
+    
     # process frets in order
     for x_center, fret_data in fret_tracker.sorted_frets:
         fret_num = fret_data['fret_num']
+        print(f"DEBUG: Processing fret {fret_num} at x={x_center}")
+        
         if fret_num < 1:
             continue
         
         # calc string positions (6th string to 1st string)
         string_positions = fret_tracker.get_string_positions(fret_data)
+        print(f"DEBUG: String positions for fret {fret_num}: {string_positions}")
         
         # draw fret number label at the top
         cv2.putText(frame, f"Fret {fret_num}", 
@@ -238,13 +261,17 @@ def draw_scale_notes(frame, fret_tracker, fretboard_notes):
             scale_positions = fretboard_notes.get_string_note_positions(string_idx)
             note_name = fretboard_notes.get_note_at_position(string_idx, fret_num)
             
+            print(f"DEBUG: String {string_idx}, fret {fret_num}, note {note_name}, in scale: {fret_num in scale_positions}")
+            
             if fret_num in scale_positions:
                 if note_name == fretboard_notes.selected_root:
                     # Root note - red
                     cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 8, (0, 0, 255), -1)
+                    print(f"DEBUG: Drawing RED root note {note_name} at ({fret_data['x_center']}, {int(y_pos)})")
                 else:
                     # Scale note - blue
                     cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 8, (255, 0, 0), -1)
+                    print(f"DEBUG: Drawing BLUE scale note {note_name} at ({fret_data['x_center']}, {int(y_pos)})")
                 
                 # display note name
                 text_x = fret_data['x_center'] + 12
@@ -254,96 +281,70 @@ def draw_scale_notes(frame, fret_tracker, fretboard_notes):
             else:
                 # Non-scale note - small grey dot
                 cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 4, (128, 128, 128), -1)
+                print(f"DEBUG: Drawing GREY non-scale note {note_name} at ({fret_data['x_center']}, {int(y_pos)})")
 
     # draw scale info
     scale_text = f"{fretboard_notes.selected_root} {fretboard_notes.selected_scale_name}"
     cv2.putText(frame, scale_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 
                 0.7, (255, 255, 255), 2, cv2.LINE_AA)
 
-def custom_sink(predictions: dict, video_frame: VideoFrame, fretboard_notes: FretboardNotes, fret_tracker: FretTracker):
-    frame = video_frame.image.copy()
-    detections = predictions.get("predictions", [])
-    
-    # update fret tracking with new detections
-    fret_tracker.update(detections, frame.shape[0])
-    
-    # draw scale notes on the stable frets
-    draw_scale_notes(frame, fret_tracker, fretboard_notes)
+# def main():
+#     # initialize the fretboard notes with C major scale
+#     fretboard_notes = FretboardNotes()
+#     fretboard_notes.set_scale('C', 'major')
+#     
+#     # initialize fret tracker with more permissive settings
+#     fret_tracker = FretTracker(num_frets=12, stability_threshold=0.3)
+#     
+#     # available scales for cycling
+#     available_scales = [
+#         ('C', 'major'),
+#         ('A', 'minor'),
+#         ('G', 'major'),
+#         ('E', 'minor'),
+#         ('F', 'major'),
+#         ('D', 'major'),
+#         ('A', 'pentatonic_minor'),
+#         ('E', 'blues'),
+#         ('D', 'dorian'),
+#         ('G', 'mixolydian')
+#     ]
+#     current_scale_idx = 0
+#     
+#     # create a custom sink function with the fretboard_notes object
+#     def sink_with_objects(predictions: dict, video_frame: VideoFrame):
+#         return custom_sink(predictions, video_frame, fretboard_notes, fret_tracker)
+#     
+#     # Initialize the inference pipeline without preprocessing_params
+#     pipeline = InferencePipeline.init(
+#         model_id=MODEL_ID,
+#         api_key=API_KEY,
+#         video_reference=0,
+#         on_prediction=sink_with_objects,
+#     )
+#     
+#     pipeline.start()
+#     
+#     #main loop to handle keyboard input
+#     try:
+#         while True:
+#             # Check for keyboard input returned from custom_sink
+#             key = cv2.waitKey(100) & 0xFF
+#             
+#             if key == ord('q'):
+#                 break
+#             elif key == ord('s'):
+#                 # Cycle to the next scale
+#                 current_scale_idx = (current_scale_idx + 1) % len(available_scales)
+#                 root, scale_type = available_scales[current_scale_idx]
+#                 fretboard_notes.set_scale(root, scale_type)
+#                 
+#     except KeyboardInterrupt:
+#         pass
+#     finally:
+#         # Stop the pipeline and close windows
+#         pipeline.stop()
+#         cv2.destroyAllWindows()
 
-    # display scale information
-    scale_text = f"Scale: {fretboard_notes.selected_root} {fretboard_notes.selected_scale_name}"
-    notes_text = f"Notes: {', '.join(fretboard_notes.scale_notes)}"
-    
-    cv2.putText(frame, scale_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2, cv2.LINE_AA)
-    cv2.putText(frame, notes_text, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2, cv2.LINE_AA)
-    
-    # display keyboard controls (curr not working)
-    cv2.putText(frame, "Press 'q' to quit, 's' to change scale", (10, frame.shape[0] - 10), 
-               cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
-    
-    cv2.imshow("Guitar Scale Detector", frame)
-    key = cv2.waitKey(1) & 0xFF
-    
-    # Return keyboard input for main program to handle
-    return key
-
-def main():
-    # initialize the fretboard notes with C major scale
-    fretboard_notes = FretboardNotes()
-    fretboard_notes.set_scale('C', 'major')
-    
-    # initialize fret tracker with more permissive settings
-    fret_tracker = FretTracker(num_frets=12, stability_threshold=0.3)
-    
-    # available scales for cycling
-    available_scales = [
-        ('C', 'major'),
-        ('A', 'minor'),
-        ('G', 'major'),
-        ('E', 'minor'),
-        ('F', 'major'),
-        ('D', 'major'),
-        ('A', 'pentatonic_minor'),
-        ('E', 'blues'),
-        ('D', 'dorian'),
-        ('G', 'mixolydian')
-    ]
-    current_scale_idx = 0
-    
-    # create a custom sink function with the fretboard_notes object
-    def sink_with_objects(predictions: dict, video_frame: VideoFrame):
-        return custom_sink(predictions, video_frame, fretboard_notes, fret_tracker)
-    
-    # Initialize the inference pipeline without preprocessing_params
-    pipeline = InferencePipeline.init(
-        model_id=MODEL_ID,
-        api_key=API_KEY,
-        video_reference=0,
-        on_prediction=sink_with_objects,
-    )
-    
-    pipeline.start()
-    
-    #main loop to handle keyboard input
-    try:
-        while True:
-            # Check for keyboard input returned from custom_sink
-            key = cv2.waitKey(100) & 0xFF
-            
-            if key == ord('q'):
-                break
-            elif key == ord('s'):
-                # Cycle to the next scale
-                current_scale_idx = (current_scale_idx + 1) % len(available_scales)
-                root, scale_type = available_scales[current_scale_idx]
-                fretboard_notes.set_scale(root, scale_type)
-                
-    except KeyboardInterrupt:
-        pass
-    finally:
-        # Stop the pipeline and close windows
-        pipeline.stop()
-        cv2.destroyAllWindows()
-
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()

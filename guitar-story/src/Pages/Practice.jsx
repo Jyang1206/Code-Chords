@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
 import "../css/Practice.css";
-import GuitarDetectionPanel from "../components/GuitarDetectionPanel";
+import MJPEGStream from "../components/MJPEGStream";
 
 function Practice() {
    
   return (
     <>
-      <GuitarDetectionPanel />
+      <MJPEGStream />
     </>
   );
 }
