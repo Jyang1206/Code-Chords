@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../firebase";
+import "../css/Login.css";
 
 export default function Login({ onSwitch }) {
   const [email, setEmail] = useState("");
@@ -17,30 +18,32 @@ export default function Login({ onSwitch }) {
   };
 
   return (
-    <form onSubmit={handleLogin} style={{ maxWidth: 320, margin: "2rem auto", padding: 24, border: "1px solid #ccc", borderRadius: 8 }}>
-      <h2>Login</h2>
-      {error && <div style={{ color: "red" }}>{error}</div>}
-      <input
-        type="email"
-        placeholder="Email"
-        value={email}
-        onChange={e => setEmail(e.target.value)}
-        required
-        style={{ width: "100%", marginBottom: 8 }}
-      /><br/>
-      <input
-        type="password"
-        placeholder="Password"
-        value={password}
-        onChange={e => setPassword(e.target.value)}
-        required
-        style={{ width: "100%", marginBottom: 8 }}
-      /><br/>
-      <button type="submit" style={{ width: "100%", marginBottom: 8 }}>Login</button>
-      <p>
-        Don't have an account?{" "}
-        <button type="button" onClick={onSwitch}>Sign up</button>
-      </p>
-    </form>
+    <div className="cosmic-login-bg">
+      <form onSubmit={handleLogin} className="cosmic-login-form">
+        <h2 className="cosmic-login-title">🚀 Login to GuitarStory</h2>
+        {error && <div className="cosmic-login-error">{error}</div>}
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          required
+          className="cosmic-login-input"
+        /><br/>
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+          required
+          className="cosmic-login-input"
+        /><br/>
+        <button type="submit" className="cosmic-login-btn">Login</button>
+        <p className="cosmic-login-switch">
+          Don't have an account?{" "}
+          <button type="button" className="cosmic-login-link" onClick={onSwitch}>Sign up</button>
+        </p>
+      </form>
+    </div>
   );
 } 

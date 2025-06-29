@@ -8,6 +8,7 @@ import Tuner from "./Pages/Tuner";
 import { Routes, Route } from "react-router-dom";
 import NavBar from "./components/NavBar";
 import { AuthProvider } from "./contexts/AuthContext";
+import RequireAuth from "./components/RequireAuth";
 
 export const ThemeContext = createContext();
 
@@ -32,10 +33,10 @@ function App() {
       <main className="main-content">
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/Practice" element={<Practice />} />
-          <Route path="/Learn songs" element={<LearnSongs />} />
-          <Route path="/Settings" element={<Settings />} />
-          <Route path="/tuner" element={<Tuner />} />
+          <Route path="/Practice" element={<RequireAuth><Practice /></RequireAuth>} />
+          <Route path="/Learn songs" element={<RequireAuth><LearnSongs /></RequireAuth>} />
+          <Route path="/Settings" element={<RequireAuth><Settings /></RequireAuth>} />
+          <Route path="/tuner" element={<RequireAuth><Tuner /></RequireAuth>} />
         </Routes>
       </main>
     </ThemeContext.Provider>

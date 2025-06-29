@@ -1,0 +1,107 @@
+.cosmic-login-bg {
+  min-height: 100vh;
+  width: 100vw;
+  background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%) fixed;
+  background-image: url('https://www.transparenttextures.com/patterns/stardust.png'),
+    linear-gradient(180deg, rgba(20,30,48,0.7) 0%, rgba(36,9,54,0.8) 100%);
+  background-blend-mode: lighten, normal;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cosmic-login-form {
+  background: rgba(30, 30, 60, 0.95);
+  border-radius: 18px;
+  box-shadow: 0 0 32px 8px #23234b, 0 0 0 2px #6cf8;
+  padding: 2.5rem 2rem 2rem 2rem;
+  max-width: 350px;
+  width: 100%;
+  margin: 2rem auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border: 2px solid #6cf;
+  position: relative;
+}
+
+.cosmic-login-title {
+  color: #ffee91;
+  font-family: 'Orbitron', 'Arial', sans-serif;
+  font-size: 2rem;
+  margin-bottom: 1.5rem;
+  text-shadow: 0 0 12px #6cf, 0 0 2px #fff;
+  letter-spacing: 1.5px;
+}
+
+.cosmic-login-input {
+  width: 100%;
+  padding: 0.8rem 1rem;
+  margin-bottom: 1rem;
+  border-radius: 8px;
+  border: 1.5px solid #6cf;
+  background: #181c2b;
+  color: #e0e6f6;
+  font-size: 1.1rem;
+  font-family: 'Orbitron', 'Arial', sans-serif;
+  box-shadow: 0 0 8px #6cf2;
+  transition: border 0.2s, box-shadow 0.2s;
+}
+.cosmic-login-input:focus {
+  border: 2px solid #ffee91;
+  box-shadow: 0 0 16px #ffee91aa;
+  outline: none;
+}
+
+.cosmic-login-btn {
+  width: 100%;
+  padding: 0.8rem 0;
+  background: linear-gradient(90deg, #6cf 0%, #23a 100%);
+  color: #23234b;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-family: 'Orbitron', 'Arial', sans-serif;
+  font-weight: bold;
+  margin-bottom: 1rem;
+  box-shadow: 0 0 12px #6cf8;
+  cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+.cosmic-login-btn:hover {
+  background: linear-gradient(90deg, #23a 0%, #6cf 100%);
+  box-shadow: 0 0 24px #6cfb;
+}
+
+.cosmic-login-error {
+  color: #ff7675;
+  background: rgba(40,0,0,0.7);
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  margin-bottom: 1rem;
+  text-align: center;
+  font-weight: bold;
+  box-shadow: 0 0 8px #f338;
+}
+
+.cosmic-login-switch {
+  color: #e0e6f7;
+  font-size: 1rem;
+  margin-top: 0.5rem;
+  text-align: center;
+}
+
+.cosmic-login-link {
+  background: none;
+  border: none;
+  color: #ffee91;
+  font-family: 'Orbitron', 'Arial', sans-serif;
+  font-size: 1rem;
+  cursor: pointer;
+  text-decoration: underline;
+  margin-left: 0.2rem;
+  transition: color 0.2s;
+}
+.cosmic-login-link:hover {
+  color: #6cf;
+} 
