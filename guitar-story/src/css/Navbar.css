@@ -1,0 +1,87 @@
+.navbar {
+  background-color: #000000;
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.navbar-brand {
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.navbar-links {
+  display: flex;
+  gap: 2rem;
+}
+
+.nav-link {
+  font-size: 1rem;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.nav-link:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.navbar-light {
+  background-color: var(--cosmic-accent2);
+  color: var(--cosmic-shadow);
+  box-shadow: 0 2px 8px rgba(246, 206, 255, 0.15);
+}
+
+.navbar-light .navbar-brand {
+  color: var(--cosmic-shadow);
+}
+
+.navbar-light .nav-link {
+  color: var(--cosmic-shadow);
+  background: rgba(255,255,255,0.2);
+}
+
+.navbar-light .nav-link:hover {
+  background-color: #fff;
+  color: var(--cosmic-accent);
+}
+
+.navbar-dark {
+  background-color: #090a0f;
+  color: var(--cosmic-nebula);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.navbar-dark .navbar-brand {
+  color: var(--cosmic-nebula);
+}
+
+.navbar-dark .nav-link {
+  color: var(--cosmic-star);
+  background: rgba(20, 24, 48, 0.2);
+}
+
+.navbar-dark .nav-link:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: var(--cosmic-accent2);
+}
+
+@media (max-width: 768px) {
+  .navbar {
+    padding: 1rem;
+  }
+
+  .navbar-brand {
+    font-size: 1.2rem;
+  }
+
+  .navbar-links {
+    gap: 1rem;
+  }
+
+  .nav-link {
+    padding: 0.5rem;
+  }
+}

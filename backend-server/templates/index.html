@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guitar Story - Backend API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin: 0;
+            padding: 40px;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 40px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            font-size: 1.2em;
+            margin-bottom: 30px;
+            opacity: 0.9;
+        }
+        .status {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .endpoints {
+            text-align: left;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+        .endpoint {
+            margin: 10px 0;
+            font-family: monospace;
+        }
+        .method {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        .url {
+            color: #2196F3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎸 Guitar Story</h1>
+        <p class="subtitle">Backend API Server</p>
+        
+        <div class="status">
+            <h3>✅ Server Status: Running</h3>
+            <p>WebSocket connections: <span id="ws-status">Ready</span></p>
+            <p>Scale: <span id="current-scale">C Major</span></p>
+        </div>
+        
+        <div class="endpoints">
+            <h3>Available Endpoints:</h3>
+            <div class="endpoint">
+                <span class="method">GET</span> <span class="url">/health</span> - Health check
+            </div>
+            <div class="endpoint">
+                <span class="method">POST</span> <span class="url">/process_frame</span> - Process single frame
+            </div>
+            <div class="endpoint">
+                <span class="method">POST</span> <span class="url">/change_scale</span> - Change musical scale
+            </div>
+            <div class="endpoint">
+                <span class="method">GET</span> <span class="url">/get_frets</span> - Get current fret data
+            </div>
+            <div class="endpoint">
+                <span class="method">WS</span> <span class="url">/socket.io</span> - WebSocket for real-time processing
+            </div>
+        </div>
+        
+        <p style="margin-top: 30px; opacity: 0.8;">
+            Use the React frontend at <strong>http://localhost:5173</strong> for the full application.
+        </p>
+    </div>
+</body>
+</html>
