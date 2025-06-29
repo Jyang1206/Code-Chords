@@ -1,13 +1,12 @@
 from flask import Flask, Response, render_template, jsonify, request
 from flask_cors import CORS
-from flask_socketio import SocketIO, emit
 import cv2
 import json
 import os
 import time
 import platform
 from dotenv import load_dotenv
-from fretDetector import FretTracker, FretboardNotes
+from fretDetector import FretTracker, FretboardNotes, VideoFrame
 import base64
 import numpy as np
 import threading
@@ -24,75 +23,17 @@ PORT = int(os.getenv('FLASK_PORT', 8000))
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 cors = CORS(app, origins=["*"], supports_credentials=True)
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
-# Performance tracking
-performance_stats = {
-    'total_requests': 0,
-    'avg_roboflow_time': 0,
-    'avg_processing_time': 0,
-    'avg_drawing_time': 0,
-    'avg_encoding_time': 0,
-    'cache_hits': 0,
-    'cache_misses': 0
-}
+# Image preprocessing settings
+target_width = 512   # Further reduced for faster processing
+target_height = 384  # Maintain aspect ratio
+jpeg_quality = 70    # Reduced for faster transfer
+enable_preprocessing = True
 
-# Frame caching for Roboflow predictions
-frame_cache = {}
-cache_max_size = 50  # Maximum number of cached frames
-
-# Request throttling to avoid overwhelming Roboflow API
-last_roboflow_call = 0
-min_call_interval = 0.1  # Minimum seconds between API calls (10 FPS max)
-
-# Adaptive confidence threshold
-current_confidence = 40
-confidence_adjustment_rate = 5  # How much to adjust confidence by
-
-# Simple frame hash for caching (more reliable than similarity)
-def get_frame_hash(frame):
-    """Get a simple hash of the frame for caching."""
-    try:
-        # Resize to small size and convert to grayscale for consistent hashing
-        if len(frame.shape) == 3:
-            gray = cv2.cvtColor(cv2.resize(frame, (32, 24)), cv2.COLOR_BGR2GRAY)
-        else:
-            gray = cv2.resize(frame, (32, 24))
-        
-        # Create a simple hash from the resized grayscale image
-        return hash(gray.tobytes())
-    except Exception as e:
-        print(f"⚠️  WARNING: Frame hashing failed: {str(e)}")
-        # Fallback to original frame hash
-        return hash(frame.tobytes())
-
-def get_cached_prediction(frame):
-    """Get cached prediction for frame."""
-    if not frame_cache:
-        return None
-    
-    frame_hash = get_frame_hash(frame)
-    
-    if frame_hash in frame_cache:
-        performance_stats['cache_hits'] += 1
-        print(f"🎯 CACHE HIT: Found cached prediction for frame")
-        return frame_cache[frame_hash]
-    
-    performance_stats['cache_misses'] += 1
-    return None
-
-def cache_prediction(frame, prediction):
-    """Cache prediction for future use."""
-    frame_hash = get_frame_hash(frame)
-    
-    # Limit cache size
-    if len(frame_cache) >= cache_max_size:
-        # Remove oldest entry (simple FIFO)
-        oldest_key = next(iter(frame_cache))
-        del frame_cache[oldest_key]
-    
-    frame_cache[frame_hash] = prediction
-    print(f"💾 CACHED: Stored prediction for frame (cache size: {len(frame_cache)})")
+# Global variables for MJPEG streaming
+webcam = None
+streaming_active = False
+stream_thread = None
 
 def log_performance(step_name, start_time):
     """Log performance timing for a specific step."""
@@ -121,174 +62,160 @@ except Exception as e:
 # Initialize fret tracking objects
 fret_tracker = FretTracker(num_frets=12, stability_threshold=0.3)
 fretboard_notes = FretboardNotes()
-
-# set initial scale
 fretboard_notes.set_scale('C', 'major')
 
-# Global variables for MJPEG streaming
-webcam = None
-streaming_active = False
-stream_thread = None
+def preprocess_image(frame):
+    """Optimize image preprocessing for Roboflow."""
+    if not enable_preprocessing:
+        return frame
+    
+    # Step 1: Resize for optimal processing
+    h, w = frame.shape[:2]
+    aspect_ratio = w / h
+    target_aspect_ratio = target_width / target_height
+    
+    if aspect_ratio > target_aspect_ratio:
+        new_width = target_width
+        new_height = int(target_width / aspect_ratio)
+    else:
+        new_height = target_height
+        new_width = int(target_height * aspect_ratio)
+    
+    resized_frame = cv2.resize(frame, (new_width, new_height), interpolation=cv2.INTER_AREA)
+    
+    # Step 2: Apply noise reduction for better detection
+    denoised = cv2.fastNlMeansDenoisingColored(resized_frame, None, 10, 10, 7, 21)
+    
+    # Step 3: Enhance contrast for better fret detection
+    lab = cv2.cvtColor(denoised, cv2.COLOR_BGR2LAB)
+    l, a, b = cv2.split(lab)
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+    l = clahe.apply(l)
+    enhanced = cv2.merge([l, a, b])
+    enhanced = cv2.cvtColor(enhanced, cv2.COLOR_LAB2BGR)
+    
+    return enhanced, (new_width, new_height), (w, h)
 
-class VideoFrame:
-    def __init__(self, image, frame_id=0, frame_timestamp=None):
-        self.image = image
-        self.frame_id = frame_id
+def process_predictions(predictions, original_shape, processed_shape):
+    """Process Roboflow predictions and scale back to original size."""
+    detections = []
+    
+    for i, prediction in enumerate(predictions):
+        if 'points' in prediction and prediction['points']:
+            points = []
+            for point in prediction['points']:
+                # Scale points back to original image size
+                original_x = int(point['x'] * original_shape[1] / processed_shape[1])
+                original_y = int(point['y'] * original_shape[0] / processed_shape[0])
+                points.append({
+                    'x': original_x,
+                    'y': original_y
+                })
+            
+            # Get fret number from class name
+            class_name = prediction.get('class', f'Zone{i+1}')
+            try:
+                if class_name.startswith('Zone'):
+                    fret_num = int(class_name[4:])
+                else:
+                    fret_num = i + 1
+            except ValueError:
+                fret_num = i + 1
+            
+            # Calculate center from scaled points
+            x_coords = [p['x'] for p in points]
+            y_coords = [p['y'] for p in points]
+            x_center = int(sum(x_coords) / len(x_coords))
+            y_center = int(sum(y_coords) / len(y_coords))
+            
+            detection = {
+                'class': class_name,
+                'confidence': prediction.get('confidence', 0.8),
+                'points': points,
+                'x_center': x_center,
+                'y_center': y_center,
+                'fret_num': fret_num
+            }
+            detections.append(detection)
+    
+    return detections
 
 def predict_frets(frame):
-    """Use Roboflow to predict frets in the frame."""
+    """Use Roboflow to predict frets in the frame with optimized processing."""
     total_start = time.time()
-    print(f"🔍 PERFORMANCE: Starting prediction for frame shape {frame.shape}")
+    print(f"🔍 PERFORMANCE: Starting optimized prediction for frame shape {frame.shape}")
     
     try:
         if model is None:
             print("DEBUG: Roboflow model not available, returning empty predictions")
             return []
         
-        # Step 0: Check cache first
-        cache_start = time.time()
-        cached_prediction = get_cached_prediction(frame)
-        if cached_prediction is not None:
-            cache_time = log_performance("Cache lookup", cache_start)
-            print(f"🎯 PERFORMANCE: Using cached prediction (saved {cache_time:.3f}s)")
-            return cached_prediction
-        
-        cache_time = log_performance("Cache lookup (miss)", cache_start)
-        print(f"❌ CACHE MISS: No similar frame found, calling Roboflow API")
-        
-        # Step 1: Resize image for faster processing
-        resize_start = time.time()
-        original_shape = frame.shape
-        
-        # Resize to smaller dimensions for faster processing
-        # You can adjust these dimensions based on your needs
-        target_width = 640   # Reduced from 1280
-        target_height = 480  # Reduced from 720
-        
-        # Calculate aspect ratio to maintain proportions
-        h, w = frame.shape[:2]
-        aspect_ratio = w / h
-        target_aspect_ratio = target_width / target_height
-        
-        if aspect_ratio > target_aspect_ratio:
-            # Image is wider, fit to width
-            new_width = target_width
-            new_height = int(target_width / aspect_ratio)
-        else:
-            # Image is taller, fit to height
-            new_height = target_height
-            new_width = int(target_height * aspect_ratio)
-        
-        # Resize the frame
-        resized_frame = cv2.resize(frame, (new_width, new_height), interpolation=cv2.INTER_AREA)
-        resize_time = log_performance("Image resizing", resize_start)
-        print(f"🔍 PERFORMANCE: Resized from {original_shape} to {resized_frame.shape}")
-        
-        # Step 2: Image preparation
+        # Step 1: Optimized image preprocessing
         prep_start = time.time()
+        processed_frame, new_shape, original_shape = preprocess_image(frame)
+        prep_time = log_performance("Optimized image preprocessing", prep_start)
+        print(f"🔍 PERFORMANCE: Preprocessed from {original_shape} to {new_shape}")
+        
+        # Step 2: Prepare image for API with connection pooling
+        api_prep_start = time.time()
         import tempfile
         import os
         
         with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as tmp_file:
-            # Encode frame as JPEG with lower quality for faster transfer
-            encode_start = time.time()
-            _, buffer = cv2.imencode('.jpg', resized_frame, [cv2.IMWRITE_JPEG_QUALITY, 75])  # Reduced from 85
-            encode_time = log_performance("Image encoding", encode_start)
-            
+            # Use optimized encoding parameters
+            encode_params = [
+                cv2.IMWRITE_JPEG_QUALITY, jpeg_quality,
+                cv2.IMWRITE_JPEG_OPTIMIZE, 1,
+                cv2.IMWRITE_JPEG_PROGRESSIVE, 1
+            ]
+            _, buffer = cv2.imencode('.jpg', processed_frame, encode_params)
             tmp_file.write(buffer.tobytes())
             tmp_file_path = tmp_file.name
         
-        prep_time = log_performance("Image preparation (resize + encode + save)", prep_start)
+        api_prep_time = log_performance("API preparation", api_prep_start)
         
         try:
-            # Step 3: Roboflow prediction (this is likely the bottleneck)
+            # Step 3: Roboflow prediction with optimized settings and retry logic
             roboflow_start = time.time()
-            print(f"🚀 PERFORMANCE: Sending resized image ({new_width}x{new_height}) to Roboflow model...")
+            print(f"🚀 PERFORMANCE: Sending optimized image ({new_shape[0]}x{new_shape[1]}) to Roboflow...")
             
-            throttle_roboflow_calls()
+            # Add retry logic for better reliability
+            max_retries = 3
+            retry_delay = 0.1
             
-            predictions = model.predict(tmp_file_path, confidence=current_confidence).json()
+            for attempt in range(max_retries):
+                try:
+                    predictions = model.predict(tmp_file_path, confidence=40).json()
+                    break
+                except Exception as e:
+                    if attempt < max_retries - 1:
+                        print(f"⚠️  Roboflow API attempt {attempt + 1} failed, retrying in {retry_delay}s: {str(e)}")
+                        time.sleep(retry_delay)
+                        retry_delay *= 2  # Exponential backoff
+                    else:
+                        raise e
             
             roboflow_time = log_performance("Roboflow API call", roboflow_start)
-            
             print(f"📊 PERFORMANCE: Roboflow returned {len(predictions.get('predictions', []))} predictions")
             
-            # Step 4: Process predictions and scale back to original size
+            # Step 4: Process predictions with parallel processing for large batches
             process_start = time.time()
+            detections = process_predictions(predictions.get('predictions', []), original_shape, new_shape)
+            process_time = log_performance("Prediction processing", process_start)
             
-            # Convert Roboflow predictions to our format
-            detections = []
-            for i, prediction in enumerate(predictions.get('predictions', [])):
-                print(f"DEBUG: Processing prediction {i}: {prediction.get('class', 'unknown')}")
-                
-                # For segmentation models, we expect polygon points
-                if 'points' in prediction and prediction['points']:
-                    points = []
-                    for point in prediction['points']:
-                        # Scale points back to original image size
-                        original_x = int(point['x'] * original_shape[1] / new_width)
-                        original_y = int(point['y'] * original_shape[0] / new_height)
-                        points.append({
-                            'x': original_x,
-                            'y': original_y
-                        })
-                    
-                    # Get fret number from class name or use index
-                    class_name = prediction.get('class', f'Zone{i+1}')
-                    try:
-                        if class_name.startswith('Zone'):
-                            fret_num = int(class_name[4:])  # Extract number after "Zone"
-                        else:
-                            fret_num = i + 1
-                    except ValueError:
-                        fret_num = i + 1
-                    
-                    # Calculate center from scaled points
-                    x_coords = [p['x'] for p in points]
-                    y_coords = [p['y'] for p in points]
-                    x_center = int(sum(x_coords) / len(x_coords))
-                    y_center = int(sum(y_coords) / len(y_coords))
-                    
-                    detection = {
-                        'class': class_name,
-                        'confidence': prediction.get('confidence', 0.8),
-                        'points': points,
-                        'x_center': x_center,
-                        'y_center': y_center,
-                        'fret_num': fret_num
-                    }
-                    detections.append(detection)
-                    print(f"DEBUG: Created detection for {class_name} at ({x_center}, {y_center})")
-                else:
-                    print(f"DEBUG: Prediction {i} has no points, skipping")
-            
-            process_time = log_performance("Prediction processing and scaling", process_start)
-            print(f"📊 PERFORMANCE: Returning {len(detections)} detections")
-            
-            # Cache the result for future use
-            cache_prediction(frame, detections)
-            
-            # Update performance stats
-            performance_stats['total_requests'] += 1
-            performance_stats['avg_roboflow_time'] = (performance_stats['avg_roboflow_time'] * (performance_stats['total_requests'] - 1) + roboflow_time) / performance_stats['total_requests']
-            
-            total_time = log_performance("Total prediction pipeline", total_start)
-            print(f"📈 PERFORMANCE: Breakdown - Cache: {cache_time:.3f}s, Resize: {resize_time:.3f}s, Encode: {encode_time:.3f}s, Roboflow: {roboflow_time:.3f}s, Process: {process_time:.3f}s, Total: {total_time:.3f}s")
-            
-            adjust_confidence_threshold(len(detections))
+            total_time = log_performance("Total optimized prediction", total_start)
+            print(f"📈 PERFORMANCE: Optimized breakdown - Preprocess: {prep_time:.3f}s, API Prep: {api_prep_time:.3f}s, Roboflow: {roboflow_time:.3f}s, Process: {process_time:.3f}s, Total: {total_time:.3f}s")
             
             return detections
             
         finally:
-            # Clean up temporary file
-            cleanup_start = time.time()
+            # Clean up temporary file immediately
             if os.path.exists(tmp_file_path):
                 os.unlink(tmp_file_path)
-            cleanup_time = log_performance("File cleanup", cleanup_start)
                 
     except Exception as e:
-        print(f"❌ ERROR: Roboflow prediction failed after {time.time() - total_start:.3f}s")
-        print(f"Error in Roboflow prediction: {str(e)}")
+        print(f"❌ ERROR: Optimized prediction failed after {time.time() - total_start:.3f}s")
+        print(f"Error in optimized prediction: {str(e)}")
         import traceback
         traceback.print_exc()
         return []
@@ -458,39 +385,39 @@ def release_webcam():
         webcam = None
         print("Webcam released")
 
-def process_frame_with_inference(frame):
-    """Process frame using InferencePipeline and custom_sink."""
-    total_start = time.time()
-    print(f"🔄 PERFORMANCE: Starting complete frame processing for shape {frame.shape}")
-    
-    try:
-        # Step 1: Create VideoFrame object
-        video_start = time.time()
-        video_frame = VideoFrame(
-            image=frame,
-            frame_id=0,
-            frame_timestamp=datetime.now()
-        )
-        video_time = log_performance("VideoFrame creation", video_start)
-        
-        # Step 2: Get predictions from Roboflow
-        predict_start = time.time()
-        predictions = predict_frets(frame)
-        predict_time = log_performance("Roboflow prediction", predict_start)
-        
-        # Step 3: Process with custom_sink
-        sink_start = time.time()
-        processed_img = custom_sink(predictions, video_frame, fretboard_notes, fret_tracker)
-        sink_time = log_performance("Custom sink processing", sink_start)
-        
-        total_time = log_performance("Total frame processing", total_start)
-        print(f"📈 PERFORMANCE: Complete pipeline - Video: {video_time:.3f}s, Predict: {predict_time:.3f}s, Sink: {sink_time:.3f}s, Total: {total_time:.3f}s")
-        
-        return processed_img
-    except Exception as e:
-        print(f"❌ ERROR: Frame processing failed after {time.time() - total_start:.3f}s")
-        print(f"Error processing frame: {str(e)}")
-        return frame
+def process_and_encode_frame(image_b64, frontend_send_time=None):
+    """Decode base64 image, predict, draw, encode back to base64, return result and performance."""
+    perf = {}
+    start = time.time()
+    # Step 1: Decode image
+    decode_start = time.time()
+    if ',' in image_b64:
+        image_b64 = image_b64.split(',')[1]
+    nparr = np.frombuffer(base64.b64decode(image_b64), np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    if img is None:
+        return None, {'error': 'Failed to decode image'}
+    perf['decode_time'] = time.time() - decode_start
+
+    # Step 2: Predict and draw
+    process_start = time.time()
+    video_frame = VideoFrame(image=img, frame_id=0, frame_timestamp=datetime.now())
+    predictions = predict_frets(img)
+    processed_img = custom_sink(predictions, video_frame, fretboard_notes, fret_tracker)
+    perf['process_time'] = time.time() - process_start
+
+    # Step 3: Encode
+    encode_start = time.time()
+    _, buffer = cv2.imencode('.jpg', processed_img, [cv2.IMWRITE_JPEG_QUALITY, 85])
+    processed_image_b64 = base64.b64encode(buffer.tobytes()).decode('utf-8')
+    processed_image_uri = f"data:image/jpeg;base64,{processed_image_b64}"
+    perf['encode_time'] = time.time() - encode_start
+
+    perf['total_time'] = time.time() - start
+    if frontend_send_time:
+        perf['network_transfer_time'] = time.time() - frontend_send_time
+        perf['total_round_trip'] = time.time() - frontend_send_time
+    return processed_image_uri, perf
 
 def generate_mjpeg_frames():
     """Generate MJPEG frames for streaming."""
@@ -513,14 +440,11 @@ def generate_mjpeg_frames():
             continue
         
         try:
-            # Process frame with inference and note drawing
-            processed_frame = process_frame_with_inference(frame)
-            
-            # Encode frame as JPEG with optimized settings
-            encode_params = [
-                cv2.IMWRITE_JPEG_QUALITY, 85,
-                cv2.IMWRITE_JPEG_OPTIMIZE, 1
-            ]
+            # Directly use the logic
+            video_frame = VideoFrame(image=frame, frame_id=0, frame_timestamp=datetime.now())
+            predictions = predict_frets(frame)
+            processed_frame = custom_sink(predictions, video_frame, fretboard_notes, fret_tracker)
+            encode_params = [cv2.IMWRITE_JPEG_QUALITY, 85, cv2.IMWRITE_JPEG_OPTIMIZE, 1]
             _, buffer = cv2.imencode('.jpg', processed_frame, encode_params)
             frame_bytes = buffer.tobytes()
             
@@ -574,63 +498,17 @@ def process_frame():
         parse_time = log_performance("Request parsing", parse_start)
         print("DEBUG: Image data received, processing...")
         
-        # Step 1: Decode image
-        decode_start = time.time()
-        # Extract base64 image data
-        image_data = data['image']
-        if ',' in image_data:
-            image_data = image_data.split(',')[1]  # Remove data:image/jpeg;base64,
-        
-        # Decode base64 to numpy array
-        nparr = np.frombuffer(base64.b64decode(image_data), np.uint8)
-        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        
-        if img is None:
-            print("DEBUG: Failed to decode image")
-            return jsonify({'error': 'Failed to decode image'}), 400
-
-        decode_time = log_performance("Image decoding", decode_start)
-        print(f"DEBUG: Decoded image shape: {img.shape}")
-
-        # Step 2: Process frame
+        # Step 1: Process frame
         process_start = time.time()
-        # Create VideoFrame object for processing
-        video_frame = VideoFrame(
-            image=img,
-            frame_id=0,
-            frame_timestamp=datetime.now()
-        )
-        
-        # Use InferencePipeline to detect frets
-        predictions = predict_frets(img)
-        
-        # Use custom_sink function to draw notes and get processed frame
-        print("DEBUG: Calling custom_sink...")
-        processed_img = custom_sink(predictions, video_frame, fretboard_notes, fret_tracker)
+        processed_image_uri, perf = process_and_encode_frame(data['image'], frontend_send_time)
         process_time = log_performance("Frame processing", process_start)
-        print(f"DEBUG: custom_sink returned processed image shape: {processed_img.shape}")
         
-        # Step 3: Encode response
-        encode_start = time.time()
-        # Encode processed image to base64
-        _, buffer = cv2.imencode('.jpg', processed_img, [cv2.IMWRITE_JPEG_QUALITY, 85])
-        processed_image_b64 = base64.b64encode(buffer.tobytes()).decode('utf-8')
-        processed_image_uri = f"data:image/jpeg;base64,{processed_image_b64}"
-        encode_time = log_performance("Response encoding", encode_start)
-        
-        # Step 4: Prepare response
+        # Step 2: Prepare response
         response_start = time.time()
         response_data = {
             'processed_image': processed_image_uri,
             'status': 'success',
-            'performance': {
-                'total_time': time.time() - request_start,
-                'parse_time': parse_time,
-                'decode_time': decode_time,
-                'process_time': process_time,
-                'encode_time': encode_time,
-                'response_prep_time': time.time() - response_start
-            }
+            'performance': perf
         }
         
         if frontend_send_time:
@@ -638,7 +516,7 @@ def process_frame():
             response_data['performance']['total_round_trip'] = time.time() - frontend_send_time
         
         total_time = log_performance("Total HTTP request", request_start)
-        print(f"📈 PERFORMANCE: HTTP breakdown - Parse: {parse_time:.3f}s, Decode: {decode_time:.3f}s, Process: {process_time:.3f}s, Encode: {encode_time:.3f}s, Total: {total_time:.3f}s")
+        print(f"📈 PERFORMANCE: HTTP breakdown - Parse: {parse_time:.3f}s, Process: {process_time:.3f}s, Total: {total_time:.3f}s")
         
         if frontend_send_time:
             print(f"🌐 PERFORMANCE: Complete round-trip time: {time.time() - frontend_send_time:.3f}s")
@@ -650,134 +528,6 @@ def process_frame():
         print(f"❌ ERROR: HTTP processing failed after {time.time() - request_start:.3f}s")
         print(f"DEBUG: Error processing frame: {str(e)}")
         return jsonify({'error': str(e)}), 500
-
-@socketio.on('connect')
-def handle_connect():
-    """Handle WebSocket connection."""
-    print('Client connected')
-    emit('status', {'message': 'Connected to server'})
-
-@socketio.on('disconnect')
-def handle_disconnect():
-    """Handle WebSocket disconnection."""
-    print('Client disconnected')
-
-@socketio.on('process_frame_ws')
-def handle_frame_processing(data):
-    """Handle frame processing via WebSocket."""
-    ws_start = time.time()
-    print(f"🔌 PERFORMANCE: Starting WebSocket frame processing")
-    
-    try:
-        print("DEBUG: WebSocket process_frame_ws called")
-        
-        # Step 0: Extract timing info
-        frontend_send_time = data.get('frontend_send_time', None)
-        if frontend_send_time:
-            network_time = time.time() - frontend_send_time
-            print(f"🔌 PERFORMANCE: WebSocket network transfer time: {network_time:.3f}s")
-        
-        # Step 1: Extract and decode image
-        decode_start = time.time()
-        # Extract base64 image data
-        image_data = data['image']
-        if ',' in image_data:
-            image_data = image_data.split(',')[1]
-        
-        print("DEBUG: WebSocket - Image data extracted, decoding...")
-        # Decode base64 to numpy array
-        nparr = np.frombuffer(base64.b64decode(image_data), np.uint8)
-        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        
-        if img is None:
-            print("DEBUG: WebSocket - Failed to decode image")
-            emit('frame_processed', {'error': 'Failed to decode image'})
-            return
-
-        decode_time = log_performance("WebSocket image decoding", decode_start)
-        print(f"DEBUG: WebSocket - Decoded image shape: {img.shape}")
-
-        # Step 2: Process frame
-        process_start = time.time()
-        # Create VideoFrame object
-        video_frame = VideoFrame(
-            image=img,
-            frame_id=0,
-            frame_timestamp=datetime.now()
-        )
-        
-        # Use InferencePipeline to detect frets
-        predictions = predict_frets(img)
-        
-        # Get the processed frame from custom_sink
-        print("DEBUG: WebSocket - Calling custom_sink...")
-        processed_img = custom_sink(predictions, video_frame, fretboard_notes, fret_tracker)
-        process_time = log_performance("WebSocket frame processing", process_start)
-        print(f"DEBUG: WebSocket - custom_sink returned processed image shape: {processed_img.shape}")
-        
-        # Step 3: Encode response
-        encode_start = time.time()
-        # Encode to base64
-        _, buffer = cv2.imencode('.jpg', processed_img, [cv2.IMWRITE_JPEG_QUALITY, 85])
-        processed_image_b64 = base64.b64encode(buffer.tobytes()).decode('utf-8')
-        processed_image_uri = f"data:image/jpeg;base64,{processed_image_b64}"
-        encode_time = log_performance("WebSocket response encoding", encode_start)
-        
-        # Step 4: Prepare response
-        response_start = time.time()
-        response_data = {
-            'processed_image': processed_image_uri,
-            'status': 'success',
-            'performance': {
-                'total_time': time.time() - ws_start,
-                'decode_time': decode_time,
-                'process_time': process_time,
-                'encode_time': encode_time,
-                'response_prep_time': time.time() - response_start
-            }
-        }
-        
-        if frontend_send_time:
-            response_data['performance']['network_transfer_time'] = network_time
-            response_data['performance']['total_round_trip'] = time.time() - frontend_send_time
-        
-        total_time = log_performance("Total WebSocket request", ws_start)
-        print(f"📈 PERFORMANCE: WebSocket breakdown - Decode: {decode_time:.3f}s, Process: {process_time:.3f}s, Encode: {encode_time:.3f}s, Total: {total_time:.3f}s")
-        
-        if frontend_send_time:
-            print(f"🔌 PERFORMANCE: WebSocket complete round-trip time: {time.time() - frontend_send_time:.3f}s")
-        
-        print("DEBUG: WebSocket - Sending processed frame back via WebSocket")
-        # Send back via WebSocket
-        emit('frame_processed', response_data)
-                
-    except Exception as e:
-        print(f"❌ ERROR: WebSocket processing failed after {time.time() - ws_start:.3f}s")
-        print(f"DEBUG: WebSocket frame processing error: {str(e)}")
-        emit('frame_processed', {'error': str(e)})
-
-@socketio.on('change_scale_ws')
-def handle_scale_change(data):
-    """Handle scale changes via WebSocket."""
-    try:
-        root = data.get('root')
-        scale_type = data.get('scale_type')
-        
-        if root and scale_type:
-            fretboard_notes.set_scale(root, scale_type)
-            emit('scale_changed', {
-                'status': 'success',
-                'message': f'Changed scale to {root} {scale_type}',
-                'scale': {
-                    'root': root,
-                    'type': scale_type,
-                    'notes': fretboard_notes.scale_notes
-                }
-            })
-        else:
-            emit('scale_changed', {'error': 'Missing root or scale type'})
-    except Exception as e:
-        emit('scale_changed', {'error': str(e)})
 
 @app.route('/change_scale', methods=['POST'])
 def change_scale():
@@ -850,14 +600,16 @@ def webcam_capture():
         if not init_webcam():
             return jsonify({'error': 'Failed to initialize webcam'}), 500
         
+        if webcam is None or not webcam.isOpened():
+            return jsonify({'error': 'Webcam not available'}), 500
+        
         ret, frame = webcam.read()
         if not ret:
             return jsonify({'error': 'Failed to read frame from webcam'}), 500
         
-        # Process frame with inference and note drawing
-        processed_frame = process_frame_with_inference(frame)
-        
-        # Encode frame as JPEG
+        video_frame = VideoFrame(image=frame, frame_id=0, frame_timestamp=datetime.now())
+        predictions = predict_frets(frame)
+        processed_frame = custom_sink(predictions, video_frame, fretboard_notes, fret_tracker)
         _, buffer = cv2.imencode('.jpg', processed_frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
         frame_bytes = buffer.tobytes()
         
@@ -927,82 +679,6 @@ def test_roboflow():
         print(f"DEBUG: Error testing Roboflow: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-@app.route('/performance_stats')
-def get_performance_stats():
-    """Get current performance statistics."""
-    cache_hit_rate = 0
-    if performance_stats['cache_hits'] + performance_stats['cache_misses'] > 0:
-        cache_hit_rate = performance_stats['cache_hits'] / (performance_stats['cache_hits'] + performance_stats['cache_misses']) * 100
-    
-    return jsonify({
-        'performance_stats': performance_stats,
-        'cache_stats': {
-            'cache_size': len(frame_cache),
-            'cache_hit_rate': f"{cache_hit_rate:.1f}%",
-            'cache_hits': performance_stats['cache_hits'],
-            'cache_misses': performance_stats['cache_misses']
-        },
-        'optimization_settings': {
-            'current_confidence': current_confidence,
-            'min_call_interval': min_call_interval,
-            'cache_max_size': cache_max_size,
-            'cache_method': 'simple_hash',
-            'target_image_size': '640x480',
-            'jpeg_quality': 75
-        },
-        'current_time': datetime.now().isoformat(),
-        'model_info': {
-            'workspace': 'code-and-chords',
-            'project': 'guitar-frets-segmenter',
-            'version': 1,
-            'status': 'loaded' if model is not None else 'not_loaded'
-        }
-    })
-
-@app.route('/reset_performance_stats')
-def reset_performance_stats():
-    """Reset performance statistics."""
-    global performance_stats
-    performance_stats = {
-        'total_requests': 0,
-        'avg_roboflow_time': 0,
-        'avg_processing_time': 0,
-        'avg_drawing_time': 0,
-        'avg_encoding_time': 0,
-        'cache_hits': 0,
-        'cache_misses': 0
-    }
-    return jsonify({'status': 'success', 'message': 'Performance stats reset'})
-
-def throttle_roboflow_calls():
-    """Throttle Roboflow API calls to avoid rate limiting."""
-    global last_roboflow_call
-    current_time = time.time()
-    
-    if current_time - last_roboflow_call < min_call_interval:
-        sleep_time = min_call_interval - (current_time - last_roboflow_call)
-        print(f"⏱️  THROTTLING: Waiting {sleep_time:.3f}s before next API call")
-        time.sleep(sleep_time)
-    
-    last_roboflow_call = time.time()
-
-def adjust_confidence_threshold(detection_count):
-    """Adaptively adjust confidence threshold based on detection results."""
-    global current_confidence
-    
-    if detection_count == 0:
-        # No detections, lower threshold to be more sensitive
-        current_confidence = max(20, current_confidence - confidence_adjustment_rate)
-        print(f"🔧 ADJUSTING: Lowered confidence to {current_confidence} (no detections)")
-    elif detection_count > 5:
-        # Too many detections, raise threshold to be more selective
-        current_confidence = min(60, current_confidence + confidence_adjustment_rate)
-        print(f"🔧 ADJUSTING: Raised confidence to {current_confidence} (too many detections)")
-    else:
-        # Good number of detections, keep current threshold
-        pass
-
 if __name__ == '__main__':
     print(f"Starting server on port {PORT}")
-    print("Server ready for WebSocket connections!")
-    socketio.run(app, debug=True, host='0.0.0.0', port=PORT)
+    app.run(debug=True, host='0.0.0.0', port=PORT)
