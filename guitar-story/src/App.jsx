@@ -4,6 +4,7 @@ import Home from "./Pages/Home";
 import Practice from "./Pages/Practice";
 import LearnSongs from "./Pages/LearnSongs";
 import Settings from "./Pages/Settings";
+import Tuner from "./Pages/Tuner";
 import { Routes, Route } from "react-router-dom";
 import NavBar from "./components/NavBar";
 
@@ -32,6 +33,7 @@ function App() {
           <Route path="/Practice" element={<Practice />} />
           <Route path="/Learn songs" element={<LearnSongs />} />
           <Route path="/Settings" element={<Settings />} />
+          <Route path="/tuner" element={<Tuner />} />
         </Routes>
       </main>
     </ThemeContext.Provider>
