@@ -1,0 +1,65 @@
+.ytp-space-container {
+  background: linear-gradient(135deg, #181c2b 0%, #232946 100%);
+  border-radius: 18px;
+  box-shadow: 0 4px 32px 0 rgba(44, 62, 80, 0.45), 0 1.5px 8px 0 #2d3250;
+  padding: 32px 24px 24px 24px;
+  max-width: 700px;
+  margin: 40px auto;
+  color: #e0e6f6;
+  font-family: 'Orbitron', 'Montserrat', 'Segoe UI', Arial, sans-serif;
+}
+
+.ytp-space-player {
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 0 16px 2px #3a3f5a;
+  margin-bottom: 28px;
+}
+
+.ytp-space-slider-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.ytp-space-label {
+  font-size: 1.1rem;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+  color: #a3bffa;
+  text-shadow: 0 0 6px #2d3250;
+}
+
+.ytp-space-speed {
+  color: #f7c873;
+  font-weight: bold;
+  margin-left: 6px;
+  text-shadow: 0 0 8px #f7c87399;
+}
+
+.ytp-space-slider {
+  width: 100%;
+  max-width: 350px;
+  margin-top: 8px;
+  accent-color: #7f5af0;
+  background: linear-gradient(90deg, #7f5af0 0%, #232946 100%);
+  border-radius: 8px;
+  height: 6px;
+  outline: none;
+  box-shadow: 0 0 8px #7f5af0cc;
+  transition: box-shadow 0.2s;
+}
+
+.ytp-space-slider:focus {
+  box-shadow: 0 0 16px #7f5af0;
+}
+
+@media (max-width: 700px) {
+  .ytp-space-container {
+    padding: 16px 4px 16px 4px;
+  }
+  .ytp-space-player {
+    height: 200px;
+  }
+} 

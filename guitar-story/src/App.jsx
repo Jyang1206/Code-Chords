@@ -7,6 +7,7 @@ import Settings from "./Pages/Settings";
 import Tuner from "./Pages/Tuner";
 import { Routes, Route } from "react-router-dom";
 import NavBar from "./components/NavBar";
+import { AuthProvider } from "./contexts/AuthContext";
 
 export const ThemeContext = createContext();
 
@@ -25,6 +26,7 @@ function App() {
   }, [lightMode]);
 
   return (
+     <AuthProvider>
     <ThemeContext.Provider value={{ lightMode, setLightMode }}>
       <NavBar />
       <main className="main-content">
@@ -37,6 +39,7 @@ function App() {
         </Routes>
       </main>
     </ThemeContext.Provider>
+    </AuthProvider>
   );
 }
 
