@@ -1,5 +1,5 @@
 import { InferenceEngine, CVImage } from "inferencejs";
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo, useContext } from "react";
 import { ThemeContext } from "../App";
 import "../css/GuitarObjDetection.css";
 import AudioPitchDetector from "./AudioPitchDetector";
@@ -46,6 +46,8 @@ function getStringNotePositions(stringIdx, scaleNotes, numFrets = 12) {
 // --- End Fretboard Logic ---
 
 function GuitarObjDetection() {
+  const { lightMode } = useContext(ThemeContext);
+
   const inferEngine = useMemo(() => {
     return new InferenceEngine();
   }, []);
@@ -54,6 +56,11 @@ function GuitarObjDetection() {
 
   const videoRef = useRef();
   const canvasRef = useRef();
+
+  // --- Streaming state ---
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [streamStatus, setStreamStatus] = useState("Ready to start video stream");
+  let mediaStreamRef = useRef(null);
 
   // --- Scale/Key Controls State ---
   const ROOT_NOTES = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
@@ -84,33 +91,38 @@ function GuitarObjDetection() {
     }
   }, [inferEngine, modelLoading]);
 
+  // Only start webcam when user clicks start
   useEffect(() => {
-    if (modelWorkerId) {
+    if (isStreaming && modelWorkerId) {
       startWebcam();
     }
-  }, [modelWorkerId]);
-
-  // Ensure latest scaleNotes and selectedRoot/selectedScale are used in detectFrame
-  useEffect(() => {
-    // Redraw overlay when scale changes
-    if (canvasRef.current && videoRef.current && modelWorkerId) {
-      // Force a redraw by calling detectFrame once
-      detectFrame(true);
+    // Stop webcam if isStreaming is set to false
+    if (!isStreaming) {
+      stopWebcam();
     }
     // eslint-disable-next-line
-  }, [selectedRoot, selectedScale]);
+  }, [isStreaming, modelWorkerId]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopWebcam();
+    };
+  }, []);
 
   const startWebcam = () => {
+    setStreamStatus("Starting video stream...");
     var constraints = {
       audio: false,
       video: {
-        width: { ideal: 640 },
-        height: { ideal: 480 },
+        width: { ideal: 900 },
+        height: { ideal: 540 },
         facingMode: "environment",
       },
     };
 
     navigator.mediaDevices.getUserMedia(constraints).then((stream) => {
+      mediaStreamRef.current = stream;
       videoRef.current.srcObject = stream;
       videoRef.current.onloadedmetadata = function () {
         videoRef.current.width = videoRef.current.videoWidth;
@@ -130,10 +142,51 @@ function GuitarObjDetection() {
         canvasRef.current.height = height;
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.clearRect(0, 0, width, height);
+        setStreamStatus("Video stream active - detecting frets and notes...");
         detectFrame();
       };
+    }).catch((err) => {
+      setStreamStatus("Error accessing webcam: " + err.message);
+      setIsStreaming(false);
     });
   };
+
+  // Ensure canvas matches video size on window resize
+  useEffect(() => {
+    function handleResize() {
+      if (videoRef.current && canvasRef.current && videoRef.current.videoWidth && videoRef.current.videoHeight) {
+        canvasRef.current.width = videoRef.current.videoWidth;
+        canvasRef.current.height = videoRef.current.videoHeight;
+      }
+    }
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const stopWebcam = () => {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      mediaStreamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    if (canvasRef.current) {
+      const ctx = canvasRef.current.getContext("2d");
+      ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    }
+    setStreamStatus("Video stream stopped");
+  };
+
+  // Ensure latest scaleNotes and selectedRoot/selectedScale are used in detectFrame
+  useEffect(() => {
+    // Redraw overlay when scale changes
+    if (canvasRef.current && videoRef.current && modelWorkerId) {
+      // Force a redraw by calling detectFrame once
+      detectFrame(true);
+    }
+    // eslint-disable-next-line
+  }, [selectedRoot, selectedScale]);
 
   // Pass forceRedraw=true to only draw overlay (no new inference)
   const detectFrame = (forceRedraw = false) => {
@@ -160,8 +213,8 @@ function GuitarObjDetection() {
     var ctx = canvasRef.current.getContext("2d");
     ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
 
-    // Filter out hand detections
-    const filteredPredictions = predictions.filter(pred => pred.class !== 'Hand');
+    // Filter out hand detections and only show predictions with confidence > 0.9
+    const filteredPredictions = predictions.filter(pred => pred.class !== 'Hand' && pred.confidence > 0.9);
 
     // --- Heuristic Rotation Correction ---
     const fretCenters = filteredPredictions.map(pred => ({
@@ -258,120 +311,145 @@ function GuitarObjDetection() {
   };
 
   return (
-    <div className="guitar-obj-detection">
-      <div className="guitar-video-container">
-        <video
-          id="video"
-          ref={videoRef}
-          className="guitar-video"
-          playsInline
-          muted
-        />
-        <canvas
-          id="canvas"
-          ref={canvasRef}
-          className="guitar-canvas"
-        />
-        {/* Overlay scale label on video */}
-        <div className="guitar-scale-label-overlay">
-          {selectedRootRef.current} {selectedScaleRef.current.replace('_', ' ')}
-        </div>
-        {/* Audio note display using AudioPitchDetector */}
-        <AudioPitchDetector>
-          {({ note, frequency, listening, start, stop, error }) => {
-            // Extract note name (strip octave)
-            const noteName = note ? note.replace(/\d+$/, "") : null;
-            // Check if note is in scale
-            const currentScaleNotes = scaleNotesRef.current;
-            const isInScale = noteName && currentScaleNotes.includes(noteName);
-
-            // --- Keep last detected note/frequency for 2 seconds ---
-            const [displayNote, setDisplayNote] = useState(null);
-            const [displayFreq, setDisplayFreq] = useState(null);
-            const [displayTimeout, setDisplayTimeout] = useState(null);
-            // Update displayNote/freq on new detection
-            useEffect(() => {
-              if (note && frequency) {
-                setDisplayNote(note);
-                setDisplayFreq(frequency);
-                if (displayTimeout) clearTimeout(displayTimeout);
-                // If not in scale, display for 4s, else 2s
-                const timeoutMs = (!isInScale && noteName) ? 4000 : 2000;
-                const timeout = setTimeout(() => {
-                  setDisplayNote(null);
-                  setDisplayFreq(null);
-                }, timeoutMs);
-                setDisplayTimeout(timeout);
-              } else if (!note && !frequency && displayTimeout == null && (displayNote || displayFreq)) {
-                // If no note, start a timeout to clear after 2s (in case missed above)
-                const timeout = setTimeout(() => {
-                  setDisplayNote(null);
-                  setDisplayFreq(null);
-                }, 2000);
-                setDisplayTimeout(timeout);
-              }
-              // Cleanup on unmount or note change
-              return () => {
-                if (displayTimeout) clearTimeout(displayTimeout);
-              };
-            }, [note, frequency, isInScale, noteName]);
-            // --- End keep last note logic ---
-
-            return (
-              <div className="guitar-audio-note-panel">
-                <div className="audio-note-label">🎤 Detected Note</div>
-                <div className="audio-note-value">{displayNote || '--'}</div>
-                <div className="audio-freq-value">{displayFreq ? displayFreq.toFixed(2) + ' Hz' : '--'}</div>
-                {!isInScale && noteName && (
-                  <div className="audio-warning">
-                    Note {noteName} is not in the {selectedRootRef.current} {selectedScaleRef.current.replace('_',' ')} scale!
-                  </div>
-                )}
-                {error && <div className="audio-warning">{error}</div>}
-                <div className="audio-controls">
-                  {!listening ? (
-                    <button className="start-btn" onClick={start}>Start Audio</button>
-                  ) : (
-                    <button className="stop-btn" onClick={stop}>Stop Audio</button>
-                  )}
-                </div>
+    <div className={`guitar-obj-detection${lightMode ? ' light' : ' dark'}`}>
+      <div className="guitar-obj-detection-content">
+        <div className="guitar-video-container">
+          {/* Video/Canvas or Placeholder */}
+          {isStreaming ? (
+            <>
+              <video
+                id="video"
+                ref={videoRef}
+                className="guitar-video"
+                playsInline
+                muted
+              />
+              <canvas
+                id="canvas"
+                ref={canvasRef}
+                className="guitar-canvas"
+              />
+              {/* Overlay scale label on video */}
+              <div className="guitar-scale-label-overlay">
+                {selectedRootRef.current} {selectedScaleRef.current.replace('_', ' ')}
               </div>
-            );
-          }}
-        </AudioPitchDetector>
-      </div>
-      {/* Scale Controls UI */}
-      <div className="guitar-scale-controls">
-        <h3>Scale Controls</h3>
-        <div className="guitar-scale-btns-row">
-          <div className="guitar-root-notes">
-            <label>Root Note: </label>
-            {ROOT_NOTES.map(note => (
-              <button
-                key={note}
-                className={`guitar-scale-btn${selectedRoot === note ? ' active' : ''}`}
-                onClick={() => setSelectedRoot(note)}
-              >
-                {note}
-              </button>
-            ))}
-          </div>
-          <div className="guitar-scale-types">
-            <label>Scale Type: </label>
-            {SCALE_TYPES.map(type => (
-              <button
-                key={type}
-                className={`guitar-scale-btn${selectedScale === type ? ' active' : ''}`}
-                onClick={() => setSelectedScale(type)}
-              >
-                {type.replace('_', ' ')}
-              </button>
-            ))}
-          </div>
+              {/* AudioPitchDetector overlayed in video-container */}
+              <div style={{ position: 'absolute', top: 24, right: 24, zIndex: 3 }}>
+                <AudioPitchDetector>
+                  {({ note, frequency, listening, start, stop, error }) => {
+                    // Extract note name (strip octave)
+                    const noteName = note ? note.replace(/\d+$/, "") : null;
+                    // Check if note is in scale
+                    const currentScaleNotes = scaleNotesRef.current;
+                    const isInScale = noteName && currentScaleNotes.includes(noteName);
+
+                    // --- Keep last detected note/frequency for 2 seconds ---
+                    const [displayNote, setDisplayNote] = useState(null);
+                    const [displayFreq, setDisplayFreq] = useState(null);
+                    const [displayTimeout, setDisplayTimeout] = useState(null);
+                    // Update displayNote/freq on new detection
+                    useEffect(() => {
+                      if (note && frequency) {
+                        setDisplayNote(note);
+                        setDisplayFreq(frequency);
+                        if (displayTimeout) clearTimeout(displayTimeout);
+                        // If not in scale, display for 4s, else 2s
+                        const timeoutMs = (!isInScale && noteName) ? 4000 : 2000;
+                        const timeout = setTimeout(() => {
+                          setDisplayNote(null);
+                          setDisplayFreq(null);
+                        }, timeoutMs);
+                        setDisplayTimeout(timeout);
+                      } else if (!note && !frequency && displayTimeout == null && (displayNote || displayFreq)) {
+                        // If no note, start a timeout to clear after 2s (in case missed above)
+                        const timeout = setTimeout(() => {
+                          setDisplayNote(null);
+                          setDisplayFreq(null);
+                        }, 2000);
+                        setDisplayTimeout(timeout);
+                      }
+                      // Cleanup on unmount or note change
+                      return () => {
+                        if (displayTimeout) clearTimeout(displayTimeout);
+                      };
+                    }, [note, frequency, isInScale, noteName]);
+                    // --- End keep last note logic ---
+
+                    return (
+                      <div className="guitar-audio-note-panel">
+                        <div className="audio-note-label">🎤 Detected Note</div>
+                        <div className="audio-note-value">{displayNote || '--'}</div>
+                        <div className="audio-freq-value">{displayFreq ? displayFreq.toFixed(2) + ' Hz' : '--'}</div>
+                        {!isInScale && noteName && (
+                          <div className="audio-warning">
+                            Note {noteName} is not in the {selectedRootRef.current} {selectedScaleRef.current.replace('_',' ')} scale!
+                          </div>
+                        )}
+                        {error && <div className="audio-warning">{error}</div>}
+                        <div className="audio-controls">
+                          {!listening ? (
+                            <button className="start-btn" onClick={start}>Start Audio</button>
+                          ) : (
+                            <button className="stop-btn" onClick={stop}>Stop Audio</button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }}
+                </AudioPitchDetector>
+              </div>
+            </>
+          ) : (
+            <div className="guitar-video-placeholder">
+              <div className="guitar-video-placeholder-text">
+                {streamStatus || "Click 'Start Stream' to begin"}
+              </div>
+            </div>
+          )}
         </div>
-        <div className="guitar-current-scale">
-          <div className="guitar-scale-notes">
-            Notes: {scaleNotes.join(', ')}
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>
+          {!isStreaming ? (
+            <button className="start-btn" onClick={() => setIsStreaming(true)}>
+              Start Stream
+            </button>
+          ) : (
+            <button className="stop-btn" onClick={() => setIsStreaming(false)}>
+              Stop Stream
+            </button>
+          )}
+        </div>
+        <div className="guitar-scale-controls">
+          <h3>Scale Controls</h3>
+          <div className="guitar-scale-btns-row">
+            <div className="guitar-root-notes">
+              <label>Root Note: </label>
+              {ROOT_NOTES.map(note => (
+                <button
+                  key={note}
+                  className={`guitar-scale-btn${selectedRoot === note ? ' active' : ''}`}
+                  onClick={() => setSelectedRoot(note)}
+                >
+                  {note}
+                </button>
+              ))}
+            </div>
+            <div className="guitar-scale-types">
+              <label>Scale Type: </label>
+              {SCALE_TYPES.map(type => (
+                <button
+                  key={type}
+                  className={`guitar-scale-btn${selectedScale === type ? ' active' : ''}`}
+                  onClick={() => setSelectedScale(type)}
+                >
+                  {type.replace('_', ' ')}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="guitar-current-scale">
+            <div className="guitar-scale-notes">
+              Notes: {scaleNotes.join(', ')}
+            </div>
           </div>
         </div>
       </div>
