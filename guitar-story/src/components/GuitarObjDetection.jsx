@@ -42,7 +42,6 @@ function getStringNotePositions(stringIdx, scaleNotes, numFrets = 12) {
   }
   return positions;
 }
-
 // --- End Fretboard Logic ---
 
 function GuitarObjDetection() {
@@ -62,6 +61,15 @@ function GuitarObjDetection() {
   const [selectedScale, setSelectedScale] = useState('major');
   const scaleNotes = useMemo(() => getScaleNotes(selectedRoot, selectedScale), [selectedRoot, selectedScale]);
 
+  // --- Fix: Use refs to always access latest state in async callbacks ---
+  const selectedRootRef = useRef(selectedRoot);
+  const selectedScaleRef = useRef(selectedScale);
+  const scaleNotesRef = useRef(scaleNotes);
+  useEffect(() => { selectedRootRef.current = selectedRoot; }, [selectedRoot]);
+  useEffect(() => { selectedScaleRef.current = selectedScale; }, [selectedScale]);
+  useEffect(() => { scaleNotesRef.current = scaleNotes; }, [scaleNotes]);
+  // --- End fix ---
+
   useEffect(() => {
     if (!modelLoading) {
       setModelLoading(true);
@@ -80,6 +88,16 @@ function GuitarObjDetection() {
       startWebcam();
     }
   }, [modelWorkerId]);
+
+  // Ensure latest scaleNotes and selectedRoot/selectedScale are used in detectFrame
+  useEffect(() => {
+    // Redraw overlay when scale changes
+    if (canvasRef.current && videoRef.current && modelWorkerId) {
+      // Force a redraw by calling detectFrame once
+      detectFrame(true);
+    }
+    // eslint-disable-next-line
+  }, [selectedRoot, selectedScale]);
 
   const startWebcam = () => {
     var constraints = {
@@ -116,109 +134,126 @@ function GuitarObjDetection() {
     });
   };
 
-  const detectFrame = () => {
-    if (!modelWorkerId) setTimeout(detectFrame, 100 / 3);
+  // Pass forceRedraw=true to only draw overlay (no new inference)
+  const detectFrame = (forceRedraw = false) => {
+    if (!modelWorkerId) setTimeout(() => detectFrame(forceRedraw), 100 / 3);
+
+    if (forceRedraw) {
+      // Just redraw overlay using last predictions if available
+      if (window._lastPredictions) {
+        drawOverlay(window._lastPredictions);
+      }
+      return;
+    }
 
     const img = new CVImage(videoRef.current);
     inferEngine.infer(modelWorkerId, img).then((predictions) => {
-      var ctx = canvasRef.current.getContext("2d");
-      ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-
-      // Filter out hand detections
-      const filteredPredictions = predictions.filter(pred => pred.class !== 'Hand');
-
-      // --- Heuristic Rotation Correction ---
-      const fretCenters = filteredPredictions.map(pred => ({
-        x: pred.bbox.x,
-        y: pred.bbox.y
-      }));
-      let angle = 0;
-      if (fretCenters.length >= 2) {
-        const n = fretCenters.length;
-        const meanX = fretCenters.reduce((sum, c) => sum + c.x, 0) / n;
-        const meanY = fretCenters.reduce((sum, c) => sum + c.y, 0) / n;
-        const num = fretCenters.reduce((sum, c) => sum + (c.x - meanX) * (c.y - meanY), 0);
-        const den = fretCenters.reduce((sum, c) => sum + (c.x - meanX) ** 2, 0);
-        const slope = den !== 0 ? num / den : 0;
-        angle = Math.atan(slope);
-      }
-      // --- End Heuristic Rotation Correction ---
-
-      // --- Dynamic Scaling for Distance ---
-      // Use average bbox height as proxy for distance
-      let avgFretHeight = 60; // default
-      if (filteredPredictions.length > 0) {
-        avgFretHeight = filteredPredictions.reduce((sum, pred) => sum + pred.bbox.height, 0) / filteredPredictions.length;
-      }
-      // Clamp scaling factor
-      const minFretHeight = 30, maxFretHeight = 120;
-      const scaleFactor = Math.max(0.5, Math.min(1.5, avgFretHeight / 60));
-      // Dots and font sizes
-      const rootRadius = 6 * scaleFactor;
-      const scaleRadius = 5 * scaleFactor;
-      const nonScaleRadius = 2.5 * scaleFactor;
-      const fontSize = 9 * scaleFactor;
-      // --- End Dynamic Scaling ---
-
-      // Draw scale notes with rotation correction
-      for (var i = 0; i < filteredPredictions.length; i++) {
-        var prediction = filteredPredictions[i];
-        let fretNum = 0;
-        if (prediction.class.startsWith('Zone')) {
-          fretNum = parseInt(prediction.class.replace('Zone', ''));
-        } else if (prediction.class.startsWith('Fret')) {
-          fretNum = parseInt(prediction.class.replace('Fret', ''));
-        } else {
-          fretNum = i + 1;
-        }
-        if (isNaN(fretNum)) fretNum = i + 1;
-        if (fretNum < 1) continue;
-
-        let xCenter = prediction.bbox.x;
-        let yCenter = prediction.bbox.y;
-        let width = prediction.bbox.width;
-        let height = prediction.bbox.height;
-
-        for (let stringIdx = 0; stringIdx < 6; stringIdx++) {
-          let yString = yCenter - height / 2 + (stringIdx * height) / 5;
-          let xFret = xCenter;
-          let dx = 0;
-          let dy = yString - yCenter;
-          let xRot = xCenter + dx * Math.cos(angle) - dy * Math.sin(angle);
-          let yRot = yCenter + dx * Math.sin(angle) + dy * Math.cos(angle);
-
-          let noteName = getNoteAtPosition(stringIdx, fretNum);
-          let isRoot = noteName === selectedRoot;
-          let isInScale = scaleNotes.includes(noteName);
-          if (isRoot) {
-            ctx.beginPath();
-            ctx.arc(xRot, yRot, rootRadius, 0, 2 * Math.PI);
-            ctx.fillStyle = 'red';
-            ctx.fill();
-            ctx.closePath();
-          } else if (isInScale) {
-            ctx.beginPath();
-            ctx.arc(xRot, yRot, scaleRadius, 0, 2 * Math.PI);
-            ctx.fillStyle = 'blue';
-            ctx.fill();
-            ctx.closePath();
-          } else {
-            ctx.beginPath();
-            ctx.arc(xRot, yRot, nonScaleRadius, 0, 2 * Math.PI);
-            ctx.fillStyle = 'grey';
-            ctx.fill();
-            ctx.closePath();
-          }
-          ctx.font = `${fontSize}px monospace`;
-          ctx.fillStyle = 'white';
-          ctx.fillText(noteName, xRot + 7 * scaleFactor, yRot + 3 * scaleFactor);
-        }
-      }
-      ctx.font = '18px monospace';
-      ctx.fillStyle = 'white';
-      ctx.fillText(`${selectedRoot} ${selectedScale}`, 10, 30);
+      window._lastPredictions = predictions;
+      drawOverlay(predictions);
       setTimeout(detectFrame, 100 / 3);
     });
+  };
+
+  // Draw overlay using latest scaleNotes and selectedRoot
+  const drawOverlay = (predictions) => {
+    var ctx = canvasRef.current.getContext("2d");
+    ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+
+    // Filter out hand detections
+    const filteredPredictions = predictions.filter(pred => pred.class !== 'Hand');
+
+    // --- Heuristic Rotation Correction ---
+    const fretCenters = filteredPredictions.map(pred => ({
+      x: pred.bbox.x,
+      y: pred.bbox.y
+    }));
+    let angle = 0;
+    if (fretCenters.length >= 2) {
+      const n = fretCenters.length;
+      const meanX = fretCenters.reduce((sum, c) => sum + c.x, 0) / n;
+      const meanY = fretCenters.reduce((sum, c) => sum + c.y, 0) / n;
+      const num = fretCenters.reduce((sum, c) => sum + (c.x - meanX) * (c.y - meanY), 0);
+      const den = fretCenters.reduce((sum, c) => sum + (c.x - meanX) ** 2, 0);
+      const slope = den !== 0 ? num / den : 0;
+      angle = Math.atan(slope);
+    }
+    // --- End Heuristic Rotation Correction ---
+
+    // --- Dynamic Scaling for Distance ---
+    // Use average bbox height as proxy for distance
+    let avgFretHeight = 60; // default
+    if (filteredPredictions.length > 0) {
+      avgFretHeight = filteredPredictions.reduce((sum, pred) => sum + pred.bbox.height, 0) / filteredPredictions.length;
+    }
+    // Clamp scaling factor
+    const minFretHeight = 30, maxFretHeight = 120;
+    const scaleFactor = Math.max(0.5, Math.min(1.5, avgFretHeight / 60));
+    // Dots and font sizes
+    const rootRadius = 6 * scaleFactor;
+    const scaleRadius = 5 * scaleFactor;
+    const nonScaleRadius = 2.5 * scaleFactor;
+    const fontSize = 9 * scaleFactor;
+    // --- End Dynamic Scaling ---
+
+    // Use refs for latest values
+    const currentRoot = selectedRootRef.current;
+    const currentScale = selectedScaleRef.current;
+    const currentScaleNotes = scaleNotesRef.current;
+
+    // Draw scale notes with rotation correction
+    for (var i = 0; i < filteredPredictions.length; i++) {
+      var prediction = filteredPredictions[i];
+      let fretNum = 0;
+      if (prediction.class.startsWith('Zone')) {
+        fretNum = parseInt(prediction.class.replace('Zone', ''));
+      } else if (prediction.class.startsWith('Fret')) {
+        fretNum = parseInt(prediction.class.replace('Fret', ''));
+      } else {
+        fretNum = i + 1;
+      }
+      if (isNaN(fretNum)) fretNum = i + 1;
+      if (fretNum < 1) continue;
+
+      let xCenter = prediction.bbox.x;
+      let yCenter = prediction.bbox.y;
+      let width = prediction.bbox.width;
+      let height = prediction.bbox.height;
+
+      for (let stringIdx = 0; stringIdx < 6; stringIdx++) {
+        let yString = yCenter - height / 2 + (stringIdx * height) / 5;
+        let xFret = xCenter;
+        let dx = 0;
+        let dy = yString - yCenter;
+        let xRot = xCenter + dx * Math.cos(angle) - dy * Math.sin(angle);
+        let yRot = yCenter + dx * Math.sin(angle) + dy * Math.cos(angle);
+
+        let noteName = getNoteAtPosition(stringIdx, fretNum);
+        let isRoot = noteName === currentRoot;
+        let isInScale = currentScaleNotes.includes(noteName);
+        if (isRoot) {
+          ctx.beginPath();
+          ctx.arc(xRot, yRot, rootRadius, 0, 2 * Math.PI);
+          ctx.fillStyle = 'red';
+          ctx.fill();
+          ctx.closePath();
+        } else if (isInScale) {
+          ctx.beginPath();
+          ctx.arc(xRot, yRot, scaleRadius, 0, 2 * Math.PI);
+          ctx.fillStyle = 'blue';
+          ctx.fill();
+          ctx.closePath();
+        } else {
+          ctx.beginPath();
+          ctx.arc(xRot, yRot, nonScaleRadius, 0, 2 * Math.PI);
+          ctx.fillStyle = 'grey';
+          ctx.fill();
+          ctx.closePath();
+        }
+        ctx.font = `${fontSize}px monospace`;
+        ctx.fillStyle = 'white';
+        ctx.fillText(noteName, xRot + 7 * scaleFactor, yRot + 3 * scaleFactor);
+      }
+    }
   };
 
   return (
@@ -236,6 +271,10 @@ function GuitarObjDetection() {
           ref={canvasRef}
           className="guitar-canvas"
         />
+        {/* Overlay scale label on video */}
+        <div className="guitar-scale-label-overlay">
+          {selectedRootRef.current} {selectedScaleRef.current.replace('_', ' ')}
+        </div>
       </div>
       {/* Scale Controls UI */}
       <div className="guitar-scale-controls">
@@ -267,7 +306,6 @@ function GuitarObjDetection() {
           </div>
         </div>
         <div className="guitar-current-scale">
-          <strong>Current Scale:</strong> {selectedRoot} {selectedScale}
           <div className="guitar-scale-notes">
             Notes: {scaleNotes.join(', ')}
           </div>
