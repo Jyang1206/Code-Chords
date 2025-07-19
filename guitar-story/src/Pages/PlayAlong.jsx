@@ -1,55 +1,39 @@
 import React, { useState, useRef } from "react";
 import PlayAlongOverlay from "../components/PlayAlongOverlay";
-import { Routes, Route } from "react-router-dom";
-import Home from "./Home";
-import Practice from "./Practice";
 
-function parseTabFromHtml(html) {
-  const preMatch = html.match(/<pre[^>]*>([\s\S]*?)<\/pre>/gi);
-  if (!preMatch) return [];
-  const tabText = preMatch[0].replace(/<[^>]+>/g, "");
-  return tabText.split("\n").filter(line => line.trim().length > 0);
-}
-
-const DEFAULT_SONG = "Enter Sandman";
+const ARPEGGIOS = {
+  "C Major Triad": [
+    { stringIdx: 5, fretNum: 3, note: "C", isRoot: true }, // 3rd fret, 5th string (A string)
+    { stringIdx: 4, fretNum: 2, note: "E" },               // 2nd fret, 4th string (D string)
+    { stringIdx: 3, fretNum: 0, note: "G" },               // open 3rd string (G string)
+  ],
+  "D Major Triad": [
+    { stringIdx: 3, fretNum: 0, note: "D", isRoot: true }, // open 4th string (D string)
+    { stringIdx: 2, fretNum: 2, note: "A" },               // 2nd fret, 2nd string (B string)
+    { stringIdx: 1, fretNum: 2, note: "F#" },              // 2nd fret, 1st string (E string)
+  ],
+  "G Major Triad": [
+    { stringIdx: 5, fretNum: 2, note: "B" },               // 2nd fret, 5th string (A string)
+    { stringIdx: 4, fretNum: 0, note: "D" },               // open 4th string (D string)
+    { stringIdx: 3, fretNum: 0, note: "G", isRoot: true }, // open 3rd string (G string)
+  ],
+};
 
 function PlayAlong() {
-  const [song, setSong] = useState(DEFAULT_SONG);
-  const [tabLines, setTabLines] = useState([]);
+  const [selectedArpeggio, setSelectedArpeggio] = useState("C Major Triad");
   const [isPlaying, setIsPlaying] = useState(false);
-  const [currentLineIdx, setCurrentLineIdx] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [currentStepIdx, setCurrentStepIdx] = useState(0);
   const playTimer = useRef(null);
 
-  // Fetch tab from Songsterr
-  const fetchTab = async (song) => {
-    setLoading(true);
-    setTabLines([]);
-    setCurrentLineIdx(0);
-    try {
-      const res = await fetch(`https://www.songsterr.com/a/wa/bestMatchForQueryStringPart?s=${encodeURIComponent(song)}`);
-      const data = await res.json();
-      if (data.length > 0) {
-        const id = data[0].id;
-        const tabRes = await fetch(`https://www.songsterr.com/a/wa/view?r=${id}`);
-        const tabHtml = await tabRes.text();
-        const lines = parseTabFromHtml(tabHtml);
-        setTabLines(lines);
-      } else {
-        setTabLines(["No tab found for this song."]);
-      }
-    } catch (e) {
-      setTabLines(["Error loading tab."]);
-    }
-    setLoading(false);
-  };
+  const arpeggioSteps = ARPEGGIOS[selectedArpeggio];
+  const currentStep = arpeggioSteps[currentStepIdx] || null;
 
   const startPlayback = () => {
     setIsPlaying(true);
-    setCurrentLineIdx(0);
+    setCurrentStepIdx(0);
     playTimer.current = setInterval(() => {
-      setCurrentLineIdx(idx => {
-        if (tabLines && idx < tabLines.length - 1) {
+      setCurrentStepIdx(idx => {
+        if (idx < arpeggioSteps.length - 1) {
           return idx + 1;
         } else {
           clearInterval(playTimer.current);
@@ -57,7 +41,7 @@ function PlayAlong() {
           return idx;
         }
       });
-    }, 500); // 0.5s per line for MVP
+    }, 1200); // 1.2s per note for demo
   };
 
   const stopPlayback = () => {
@@ -69,25 +53,22 @@ function PlayAlong() {
     <div style={{ textAlign: "center", color: "#fff", background: "#181c24", minHeight: "100vh", paddingTop: 40 }}>
       <h2>Play Along</h2>
       <div style={{ margin: "2em" }}>
-        <input
-          type="text"
-          value={song}
-          onChange={e => setSong(e.target.value)}
-          placeholder="Enter song name"
-          style={{ fontSize: "1.1em", padding: "0.3em 1em", width: 260 }}
-          disabled={isPlaying || loading}
-        />
-        <button
-          style={{ fontSize: "1.2em", padding: "0.5em 2em", margin: "1em" }}
-          onClick={() => fetchTab(song)}
-          disabled={isPlaying || loading}
+        <label htmlFor="arpeggio">Choose Arpeggio: </label>
+        <select
+          id="arpeggio"
+          value={selectedArpeggio}
+          onChange={e => setSelectedArpeggio(e.target.value)}
+          style={{ fontSize: "1.1em", padding: "0.3em 1em" }}
+          disabled={isPlaying}
         >
-          {loading ? "Loading..." : "Load Tab"}
-        </button>
+          {Object.keys(ARPEGGIOS).map(name => (
+            <option key={name} value={name}>{name}</option>
+          ))}
+        </select>
         <button
           style={{ fontSize: "1.2em", padding: "0.5em 2em", margin: "1em" }}
           onClick={startPlayback}
-          disabled={!tabLines.length || isPlaying}
+          disabled={isPlaying}
         >
           Play
         </button>
@@ -100,7 +81,14 @@ function PlayAlong() {
         </button>
       </div>
       <div style={{ position: "relative", width: 640, height: 480, margin: "0 auto" }}>
-        <PlayAlongOverlay tabLine={isPlaying && tabLines.length > 0 ? tabLines[currentLineIdx] : null} />
+        <PlayAlongOverlay arpeggioNote={isPlaying && currentStep ? currentStep : null} />
+      </div>
+      <div style={{ fontSize: "1.5em", marginTop: "2em" }}>
+        {isPlaying && currentStep
+          ? `Now playing: ${currentStep.note} (String ${currentStep.stringIdx + 1}, Fret ${currentStep.fretNum})`
+          : !isPlaying
+          ? "Ready to play."
+          : "Done!"}
       </div>
     </div>
   );
