@@ -12,28 +12,28 @@ import os
 from typing import Dict, List, Tuple, Optional
 from datetime import datetime
 from roboflow import Roboflow
-from fretDetector import FretTracker, FretboardNotes, VideoFrame
+from fretDetector import FretTracker, FretboardNotes, VideoFrame, draw_scale_notes
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
 
 # Musical constants
-ALL_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-OPEN_STRINGS = ['E', 'A', 'D', 'G', 'B', 'E']  # 6th to 1st string
+# ALL_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+# OPEN_STRINGS = ['E', 'A', 'D', 'G', 'B', 'E']  # 6th to 1st string
 
-SCALES = {
-    'major': [0, 2, 4, 5, 7, 9, 11],
-    'minor': [0, 2, 3, 5, 7, 8, 10],
-    'pentatonic_major': [0, 2, 4, 7, 9],
-    'pentatonic_minor': [0, 3, 5, 7, 10],
-    'blues': [0, 3, 5, 6, 7, 10],
-    'dorian': [0, 2, 3, 5, 7, 9, 10],
-    'mixolydian': [0, 2, 4, 5, 7, 9, 10],
-    'harmonic_minor': [0, 2, 3, 5, 7, 8, 11],
-    'melodic_minor': [0, 2, 3, 5, 7, 9, 11],
-    'phrygian': [0, 1, 3, 5, 7, 8, 10]
-}
+# SCALES = {
+#     'major': [0, 2, 4, 5, 7, 9, 11],
+#     'minor': [0, 2, 3, 5, 7, 8, 10],
+#     'pentatonic_major': [0, 2, 4, 7, 9],
+#     'pentatonic_minor': [0, 3, 5, 7, 10],
+#     'blues': [0, 3, 5, 6, 7, 10],
+#     'dorian': [0, 2, 3, 5, 7, 9, 10],
+#     'mixolydian': [0, 2, 4, 5, 7, 9, 10],
+#     'harmonic_minor': [0, 2, 3, 5, 7, 8, 11],
+#     'melodic_minor': [0, 2, 3, 5, 7, 9, 11],
+#     'phrygian': [0, 1, 3, 5, 7, 8, 10]
+# }
 
 class GuitarProcessor:
     """Main processor for guitar fret detection and visualization."""
@@ -326,60 +326,8 @@ class GuitarProcessor:
     
     def draw_scale_notes(self, frame):
         """Draw dots for scale notes on detected frets."""
-        stable_frets = self.fret_tracker.get_stable_frets()
-        
-        print(f"DEBUG: draw_scale_notes called")
-        print(f"DEBUG: stable_frets count: {len(stable_frets)}")
-        print(f"DEBUG: sorted_frets count: {len(self.fret_tracker.sorted_frets)}")
-        
-        # Process frets in order
-        for x_center, fret_data in self.fret_tracker.sorted_frets:
-            fret_num = fret_data['fret_num']
-            print(f"DEBUG: Processing fret {fret_num} at x={x_center}")
-            
-            if fret_num < 1:
-                continue
-            
-            # Calculate string positions (6th string to 1st string)
-            string_positions = self.fret_tracker.get_string_positions(fret_data)
-            print(f"DEBUG: String positions for fret {fret_num}: {string_positions}")
-            
-            # Draw fret number label at the top
-            cv2.putText(frame, f"Fret {fret_num}", 
-                       (fret_data['x_center'] - 20, int(string_positions[0]) - 20),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
-            
-            # Draw dots for each string if the note is in the scale
-            for string_idx, y_pos in enumerate(string_positions):
-                scale_positions = self.fretboard_notes.get_string_note_positions(string_idx)
-                note_name = self.fretboard_notes.get_note_at_position(string_idx, fret_num)
-                
-                print(f"DEBUG: String {string_idx}, fret {fret_num}, note {note_name}, in scale: {fret_num in scale_positions}")
-                
-                if fret_num in scale_positions:
-                    if note_name == self.fretboard_notes.selected_root:
-                        # Root note - red
-                        cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 8, (0, 0, 255), -1)
-                        print(f"DEBUG: Drawing RED root note {note_name} at ({fret_data['x_center']}, {int(y_pos)})")
-                    else:
-                        # Scale note - blue
-                        cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 8, (255, 0, 0), -1)
-                        print(f"DEBUG: Drawing BLUE scale note {note_name} at ({fret_data['x_center']}, {int(y_pos)})")
-                    
-                    # Display note name
-                    text_x = fret_data['x_center'] + 12
-                    text_y = int(y_pos) + 5
-                    cv2.putText(frame, note_name, (text_x, text_y),
-                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
-                else:
-                    # Non-scale note - small grey dot
-                    cv2.circle(frame, (fret_data['x_center'], int(y_pos)), 4, (128, 128, 128), -1)
-                    print(f"DEBUG: Drawing GREY non-scale note {note_name} at ({fret_data['x_center']}, {int(y_pos)})")
-
-        # Draw scale info
-        scale_text = f"{self.fretboard_notes.selected_root} {self.fretboard_notes.selected_scale_name}"
-        cv2.putText(frame, scale_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 
-                    0.7, (255, 255, 255), 2, cv2.LINE_AA)
+        # Use the imported draw_scale_notes function
+        draw_scale_notes(frame, self.fret_tracker, self.fretboard_notes)
     
     def init_webcam(self):
         """Initialize webcam capture."""

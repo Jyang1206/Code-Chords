@@ -288,6 +288,13 @@ def draw_scale_notes(frame, fret_tracker, fretboard_notes):
     cv2.putText(frame, scale_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 
                 0.7, (255, 255, 255), 2, cv2.LINE_AA)
 
+__all__ = [
+    'FretboardNotes',
+    'FretTracker',
+    'VideoFrame',
+    'draw_scale_notes',
+]
+
 # def main():
 #     # initialize the fretboard notes with C major scale
 #     fretboard_notes = FretboardNotes()
