@@ -1,15 +1,18 @@
 .navbar {
-  background-color: #000000;
+  background: var(--space-card-bg);
   padding: 1rem 2rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px var(--space-shadow);
+  border-bottom: 2px solid var(--space-border);
 }
 
 .navbar-brand {
   font-size: 1.5rem;
   font-weight: bold;
+  color: var(--space-accent);
+  text-shadow: 0 0 8px var(--space-accent2);
 }
 
 .navbar-links {
@@ -22,50 +25,54 @@
   padding: 0.5rem 1rem;
   border-radius: 4px;
   transition: background-color 0.2s;
+  color: var(--space-star);
+  background: rgba(255,255,255,0.08);
+  box-shadow: 0 1px 4px var(--space-shadow);
 }
 
 .nav-link:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  background: var(--space-btn-bg);
+  color: var(--space-shadow);
 }
 
 .navbar-light {
-  background-color: var(--cosmic-accent2);
-  color: var(--cosmic-shadow);
-  box-shadow: 0 2px 8px rgba(246, 206, 255, 0.15);
+  background: var(--space-card-bg-light);
+  color: var(--space-shadow);
+  box-shadow: 0 2px 8px var(--space-accent2);
 }
 
 .navbar-light .navbar-brand {
-  color: var(--cosmic-shadow);
+  color: var(--space-shadow);
 }
 
 .navbar-light .nav-link {
-  color: var(--cosmic-shadow);
+  color: var(--space-shadow);
   background: rgba(255,255,255,0.2);
 }
 
 .navbar-light .nav-link:hover {
-  background-color: #fff;
-  color: var(--cosmic-accent);
+  background: var(--space-btn-bg-light);
+  color: var(--space-accent);
 }
 
 .navbar-dark {
-  background-color: #090a0f;
-  color: var(--cosmic-nebula);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background: var(--space-card-bg);
+  color: var(--space-nebula);
+  box-shadow: 0 2px 8px var(--space-shadow);
 }
 
 .navbar-dark .navbar-brand {
-  color: var(--cosmic-nebula);
+  color: var(--space-nebula);
 }
 
 .navbar-dark .nav-link {
-  color: var(--cosmic-star);
+  color: var(--space-star);
   background: rgba(20, 24, 48, 0.2);
 }
 
 .navbar-dark .nav-link:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-  color: var(--cosmic-accent2);
+  background: var(--space-btn-bg);
+  color: var(--space-accent2);
 }
 
 @media (max-width: 768px) {

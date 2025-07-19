@@ -214,7 +214,7 @@ function GuitarObjDetection() {
     ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
 
     // Filter out hand detections and only show predictions with confidence > 0.9
-    const filteredPredictions = predictions.filter(pred => pred.class !== 'Hand' && pred.confidence > 0.9);
+    const filteredPredictions = predictions.filter(pred => pred.class !== 'Hand' && pred.confidence > 0.8);
 
     // --- Heuristic Rotation Correction ---
     const fretCenters = filteredPredictions.map(pred => ({
