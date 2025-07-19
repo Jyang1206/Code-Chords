@@ -12,6 +12,7 @@
   "dependencies": {
     "axios": "^1.10.0",
     "firebase": "^11.9.1",
+    "inferencejs": "^1.0.21",
     "pitchy": "^4.1.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
