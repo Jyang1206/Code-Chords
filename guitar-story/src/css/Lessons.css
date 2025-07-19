@@ -1,26 +1,27 @@
 body.lessons-page {
-  background: linear-gradient(135deg, #0f2027, #2c5364 80%, #1a1a40 100%);
-  color: #e0e6f7;
+  background: var(--space-bg);
+  color: var(--space-text);
   min-height: 100vh;
-  background-image: url('https://www.transparenttextures.com/patterns/stardust.png');
+  background-image: var(--space-star-bg), var(--space-bg);
+  background-blend-mode: lighten, normal;
 }
 .lessons-content {
   padding: 2rem;
   border-radius: 16px;
-  background: rgba(20, 24, 48, 0.85);
-  box-shadow: 0 0 40px 5px #1a1a40;
+  background: var(--space-card-bg);
+  box-shadow: 0 0 40px 5px var(--space-shadow);
   margin: 2rem auto;
   max-width: 700px;
 }
 .lessons-content h1 {
   font-size: 2.5rem;
-  color: #7fdbff;
-  text-shadow: 0 0 10px #0ff, 0 0 20px #0ff;
+  color: var(--space-star);
+  text-shadow: 0 0 10px var(--space-accent), 0 0 20px var(--space-star);
 }
 .lessons-content p {
   font-size: 1.2rem;
-  color: #e0e6f7;
-  text-shadow: 0 0 4px #1a1a40;
+  color: var(--space-text);
+  text-shadow: 0 0 4px var(--space-shadow);
 } 
 
 .lessons-content {
@@ -67,6 +68,23 @@ body.lessons-page {
   background-color: #f40612;
 }
 
+body.light-mode {
+  background: var(--space-bg-light);
+  color: var(--space-text-light);
+}
+body.light-mode .lessons-content {
+  background: var(--space-card-bg-light);
+  color: var(--space-shadow);
+}
+body.light-mode .lessons-content h1 {
+  color: var(--space-shadow);
+  text-shadow: 0 0 10px #fff, 0 0 20px var(--space-accent2);
+}
+body.light-mode .lessons-content p {
+  color: var(--space-shadow);
+  text-shadow: 0 0 4px #fff;
+}
+
 
 @media (max-width: 639px) {
   .home {
@@ -85,4 +103,19 @@ body.lessons-page {
   padding: 1rem;
   width: 100%;
   box-sizing: border-box;
+}
+
+/* Light mode overrides for Lessons.css */
+.light-mode .lessons-content {
+  background: var(--space-card-bg-light) !important;
+  color: var(--space-shadow) !important;
+  box-shadow: 0 0 40px 5px var(--space-accent2);
+}
+.light-mode .lessons-content h1 {
+  color: var(--space-shadow) !important;
+  text-shadow: 0 0 10px #fff, 0 0 20px var(--space-accent2) !important;
+}
+.light-mode .lessons-content p {
+  color: var(--space-shadow) !important;
+  text-shadow: 0 0 4px #fff !important;
 }

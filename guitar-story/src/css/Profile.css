@@ -2,24 +2,24 @@
   display: flex;
   align-items: center;
   gap: 1.5rem;
-  background: rgba(30, 30, 60, 0.85);
-  border-radius: 14px;
-  box-shadow: 0 0 16px #6cf6, 0 0 0 2px #23234b;
+  background: var(--space-card-bg);
+  border-radius: 16px;
+  box-shadow: 0 0 16px var(--space-accent), 0 0 0 2px var(--space-shadow);
   padding: 1.2rem 2rem;
   margin: 1.5rem 0 1rem 0;
   max-width: 400px;
   width: 100%;
-  color: #ffee91;
+  color: var(--space-star);
 }
 .cosmic-profile-avatar {
-  background: linear-gradient(135deg, #6cf 0%, #23234b 100%);
+  background: linear-gradient(135deg, var(--space-blue) 0%, var(--space-shadow) 100%);
   border-radius: 50%;
   width: 64px;
   height: 64px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 16px #6cf8;
+  box-shadow: 0 0 16px var(--space-blue);
 }
 .cosmic-profile-info {
   display: flex;
@@ -28,13 +28,13 @@
 }
 .cosmic-profile-label {
   font-size: 1rem;
-  color: #a18cd1;
+  color: var(--space-accent);
   font-family: 'Orbitron', 'Arial', sans-serif;
   letter-spacing: 1px;
 }
 .cosmic-profile-email {
   font-size: 1.1rem;
-  color: #ffee91;
+  color: var(--space-star);
   font-family: 'Orbitron', 'Arial', sans-serif;
-  text-shadow: 0 0 8px #ffee91aa;
+  text-shadow: 0 0 8px var(--space-star);
 } 
