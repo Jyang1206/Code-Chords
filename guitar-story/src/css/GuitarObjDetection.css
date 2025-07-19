@@ -152,10 +152,90 @@
   color: #444;
 }
 
+.guitar-audio-note-panel {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  min-width: 120px;
+  background: rgba(255,255,255,0.92);
+  color: #222;
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.13);
+  padding: 18px 20px 14px 20px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: inherit;
+  font-size: 15px;
+  gap: 6px;
+}
+.guitar-audio-note-panel .audio-note-label {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 2px;
+  color: #444;
+}
+.guitar-audio-note-panel .audio-note-value {
+  font-size: 2.1em;
+  font-weight: 700;
+  color: #667eea;
+  margin-bottom: 2px;
+}
+.guitar-audio-note-panel .audio-freq-value {
+  font-size: 1.1em;
+  color: #333;
+  margin-bottom: 2px;
+}
+.guitar-audio-note-panel .audio-warning {
+  margin-top: 6px;
+  color: #d32f2f;
+  background: #fff3f3;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 1em;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(211,47,47,0.07);
+  text-align: center;
+}
+.guitar-audio-note-panel .audio-controls {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
+}
+.guitar-audio-note-panel .start-btn, .guitar-audio-note-panel .stop-btn {
+  padding: 7px 16px;
+  border-radius: 7px;
+  border: none;
+  font-size: 1em;
+  font-weight: 600;
+  cursor: pointer;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  transition: background 0.2s, box-shadow 0.2s;
+  box-shadow: 0 2px 8px rgba(102,126,234,0.09);
+}
+.guitar-audio-note-panel .stop-btn {
+  background: linear-gradient(135deg, #f44336, #d32f2f);
+}
+.guitar-audio-note-panel .start-btn:hover {
+  background: linear-gradient(135deg, #5a6eea, #6c3ba2);
+}
+.guitar-audio-note-panel .stop-btn:hover {
+  background: linear-gradient(135deg, #d32f2f, #f44336);
+}
+
 /* Responsive design */
 @media (max-width: 900px) {
   .guitar-video-container, .guitar-scale-controls {
     max-width: 100%;
+  }
+  .guitar-audio-note-panel {
+    right: 8px;
+    top: 8px;
+    padding: 12px 10px 10px 10px;
+    min-width: 90px;
+    font-size: 13px;
   }
 }
 
@@ -197,5 +277,17 @@
   .guitar-current-scale {
     font-size: 13px;
     padding: 7px 0 0 0;
+  }
+}
+
+@media (max-width: 600px) {
+  .guitar-audio-note-panel {
+    position: static;
+    margin: 10px auto 0 auto;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.09);
+    width: 90%;
+    min-width: 0;
+    border-radius: 12px;
+    font-size: 12px;
   }
 } 

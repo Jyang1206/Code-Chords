@@ -2,6 +2,7 @@ import { InferenceEngine, CVImage } from "inferencejs";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { ThemeContext } from "../App";
 import "../css/GuitarObjDetection.css";
+import AudioPitchDetector from "./AudioPitchDetector";
 
 // --- Fretboard Logic ---
 const ALL_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -275,6 +276,69 @@ function GuitarObjDetection() {
         <div className="guitar-scale-label-overlay">
           {selectedRootRef.current} {selectedScaleRef.current.replace('_', ' ')}
         </div>
+        {/* Audio note display using AudioPitchDetector */}
+        <AudioPitchDetector>
+          {({ note, frequency, listening, start, stop, error }) => {
+            // Extract note name (strip octave)
+            const noteName = note ? note.replace(/\d+$/, "") : null;
+            // Check if note is in scale
+            const currentScaleNotes = scaleNotesRef.current;
+            const isInScale = noteName && currentScaleNotes.includes(noteName);
+
+            // --- Keep last detected note/frequency for 2 seconds ---
+            const [displayNote, setDisplayNote] = useState(null);
+            const [displayFreq, setDisplayFreq] = useState(null);
+            const [displayTimeout, setDisplayTimeout] = useState(null);
+            // Update displayNote/freq on new detection
+            useEffect(() => {
+              if (note && frequency) {
+                setDisplayNote(note);
+                setDisplayFreq(frequency);
+                if (displayTimeout) clearTimeout(displayTimeout);
+                // If not in scale, display for 4s, else 2s
+                const timeoutMs = (!isInScale && noteName) ? 4000 : 2000;
+                const timeout = setTimeout(() => {
+                  setDisplayNote(null);
+                  setDisplayFreq(null);
+                }, timeoutMs);
+                setDisplayTimeout(timeout);
+              } else if (!note && !frequency && displayTimeout == null && (displayNote || displayFreq)) {
+                // If no note, start a timeout to clear after 2s (in case missed above)
+                const timeout = setTimeout(() => {
+                  setDisplayNote(null);
+                  setDisplayFreq(null);
+                }, 2000);
+                setDisplayTimeout(timeout);
+              }
+              // Cleanup on unmount or note change
+              return () => {
+                if (displayTimeout) clearTimeout(displayTimeout);
+              };
+            }, [note, frequency, isInScale, noteName]);
+            // --- End keep last note logic ---
+
+            return (
+              <div className="guitar-audio-note-panel">
+                <div className="audio-note-label">🎤 Detected Note</div>
+                <div className="audio-note-value">{displayNote || '--'}</div>
+                <div className="audio-freq-value">{displayFreq ? displayFreq.toFixed(2) + ' Hz' : '--'}</div>
+                {!isInScale && noteName && (
+                  <div className="audio-warning">
+                    Note {noteName} is not in the {selectedRootRef.current} {selectedScaleRef.current.replace('_',' ')} scale!
+                  </div>
+                )}
+                {error && <div className="audio-warning">{error}</div>}
+                <div className="audio-controls">
+                  {!listening ? (
+                    <button className="start-btn" onClick={start}>Start Audio</button>
+                  ) : (
+                    <button className="stop-btn" onClick={stop}>Stop Audio</button>
+                  )}
+                </div>
+              </div>
+            );
+          }}
+        </AudioPitchDetector>
       </div>
       {/* Scale Controls UI */}
       <div className="guitar-scale-controls">
