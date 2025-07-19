@@ -5,6 +5,7 @@ import Practice from "./Pages/Practice";
 import LearnSongs from "./Pages/LearnSongs";
 import Settings from "./Pages/Settings";
 import Tuner from "./Pages/Tuner";
+import PlayAlong from "./Pages/PlayAlong";
 import { Routes, Route } from "react-router-dom";
 import NavBar from "./components/NavBar";
 import { AuthProvider } from "./contexts/AuthContext";
@@ -35,6 +36,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/Practice" element={<RequireAuth><Practice /></RequireAuth>} />
           <Route path="/Learn songs" element={<RequireAuth><LearnSongs /></RequireAuth>} />
+          <Route path="/playalong" element={<RequireAuth><PlayAlong/></RequireAuth>} />
           <Route path="/Settings" element={<RequireAuth><Settings /></RequireAuth>} />
           <Route path="/tuner" element={<RequireAuth><Tuner /></RequireAuth>} />
         </Routes>

@@ -13,6 +13,7 @@ function NavBar() {
             <div className="navbar-links">
                 <Link to="/" className="nav-link">Home</Link>
                 <Link to="/Practice" className="nav-link">Practice</Link>
+                <Link to="/playalong" className="nav-link">Play Along</Link>
                 <Link to="/tuner" className="nav-link">Tuner</Link>
                 <Link to="/Learn songs" className="nav-link">Learn songs</Link>
                 <Link to="/Settings" className="nav-link">Settings</Link>
