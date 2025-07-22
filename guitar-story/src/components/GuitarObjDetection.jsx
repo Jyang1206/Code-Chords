@@ -15,6 +15,7 @@ import {
   autoWhiteBalance
 } from "../utils/imagePreprocessing";
 import { calibrateDetection, CALIBRATION_FILTERS } from '../utils/calibrationUtils';
+import { applyFilterChainToCanvas } from '../utils/imagePreprocessing';
 
 // --- Fretboard Logic ---
 const ALL_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -57,6 +58,17 @@ function getStringNotePositions(stringIdx, scaleNotes, numFrets = 12) {
 }
 // --- End Fretboard Logic ---
 
+// Utility to apply a filter chain to a canvas context
+// function applyFilterChainToCanvas(ctx, filterChain, filters) {
+//   if (!filterChain || !Array.isArray(filterChain)) return;
+//   for (const f of filterChain) {
+//     const filterObj = filters.find(fl => fl.name === f.filter);
+//     if (filterObj && filterObj.apply) {
+//       filterObj.apply(ctx, f.param);
+//     }
+//   }
+// }
+
 function GuitarObjDetection() {
   const { lightMode } = useContext(ThemeContext);
 
@@ -71,10 +83,6 @@ function GuitarObjDetection() {
   const preprocessedCanvasRef = useRef();
 
   // --- Preprocessing Filter State ---
-  // Remove all filter dropdown/buttons and manual filter state
-  // Remove: const [filter, setFilter] = useState('none');
-  // Remove: const FILTERS = ...
-  // Remove: all JSX and logic for filter dropdown/buttons
   // In applyFilterAndPreprocess, always use calibratedFilter if calibration is done
   // Add state to track calibration status and selected filter
   const [calibrationDone, setCalibrationDone] = useState(false);
@@ -361,50 +369,11 @@ function GuitarObjDetection() {
     preprocessedCanvasRef.current.height = height;
     preprocessedCtx.drawImage(videoRef.current, 0, 0, width, height);
 
-    // Always use the calibrated filter if available
-    const filterToApply = (calibrationDone && calibratedFilter) ? calibratedFilter.filter : null;
-    const paramToApply = (calibrationDone && calibratedFilter) ? calibratedFilter.param : null;
-
-    if (!filterToApply || filterToApply === 'none') return;
-    
-    const imageData = preprocessedCtx.getImageData(0, 0, width, height);
-    const data = imageData.data;
-
-    switch (filterToApply) {
-      case 'grayscale':
-        for (let i = 0; i < data.length; i += 4) {
-          const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-          data[i] = data[i + 1] = data[i + 2] = avg;
-        }
-        break;
-      case 'brightness':
-        const brightness = paramToApply !== null ? paramToApply : 50;
-        for (let i = 0; i < data.length; i += 4) {
-          data[i] = Math.min(255, data[i] + brightness);
-          data[i + 1] = Math.min(255, data[i + 1] + brightness);
-          data[i + 2] = Math.min(255, data[i + 2] + brightness);
-        }
-        break;
-      case 'contrast':
-        const contrast = paramToApply !== null ? paramToApply : 50;
-        const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
-        for (let i = 0; i < data.length; i += 4) {
-          data[i] = Math.max(0, Math.min(255, factor * (data[i] - 128) + 128));
-          data[i + 1] = Math.max(0, Math.min(255, factor * (data[i + 1] - 128) + 128));
-          data[i + 2] = Math.max(0, Math.min(255, factor * (data[i + 2] - 128) + 128));
-        }
-        break;
-      case 'invert':
-        for (let i = 0; i < data.length; i += 4) {
-          data[i] = 255 - data[i];
-          data[i + 1] = 255 - data[i + 1];
-          data[i + 2] = 255 - data[i + 2];
-        }
-        break;
-      default:
-        break;
+    // Always use the calibrated filterChain if available
+    const filterChain = (calibrationDone && calibratedFilter && Array.isArray(calibratedFilter.filterChain)) ? calibratedFilter.filterChain : [];
+    if (filterChain.length > 0) {
+      applyFilterChainToCanvas(preprocessedCtx, filterChain, CALIBRATION_FILTERS);
     }
-    preprocessedCtx.putImageData(imageData, 0, 0);
   };
 
   // --- Modified detectFrame to use calibrated filter ---
@@ -470,6 +439,24 @@ function GuitarObjDetection() {
   const calibrationCancelledRef = useRef(false);
   const [showOverridePrompt, setShowOverridePrompt] = useState(false);
 
+  // On calibration complete, save filterChain to localStorage
+  useEffect(() => {
+    if (calibrationDone && calibratedFilter && Array.isArray(calibratedFilter.filterChain)) {
+      localStorage.setItem('calibratedFilter', JSON.stringify(calibratedFilter));
+    }
+  }, [calibrationDone, calibratedFilter]);
+  // On mount, load filterChain from localStorage if it exists
+  useEffect(() => {
+    const saved = localStorage.getItem('calibratedFilter');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setCalibratedFilter(parsed);
+        setCalibrationDone(true);
+      } catch {}
+    }
+  }, []);
+
   // --- Inference Loop Control ---
   useEffect(() => {
     // Only run detectFrame if streaming and calibration is done and not calibrating
@@ -481,8 +468,7 @@ function GuitarObjDetection() {
 
   // --- Calibration handler ---
   async function handleCalibration() {
-    // If calibration is already done, prompt for override
-    if (calibrationDone && !showOverridePrompt) {
+    if ((calibrationDone || calibrationResult) && !showOverridePrompt) {
       setShowOverridePrompt(true);
       return;
     }
@@ -564,7 +550,7 @@ function GuitarObjDetection() {
     setNoGuitarDetected(false);
 
     // Calibration logic (refactored to allow cancellation and require 80% confidence)
-    let best = { filter: 'none', param: null, avgConfidence: baselineConfidence, baseline: baselineConfidence };
+    let best = { filterChain: [], avgConfidence: baselineConfidence, baseline: baselineConfidence };
     const totalSteps = CALIBRATION_FILTERS.reduce((sum, f) => sum + f.params.length, 0);
     let currentStep = 0;
     let foundAbove80 = false;
@@ -602,7 +588,7 @@ function GuitarObjDetection() {
         })();
         setCalibrationProgress({ percent, text: `Filter: ${filter.name} (${param}) - Avg confidence: ${(avgConfidence * 100).toFixed(1)}%` });
         if (avgConfidence > best.avgConfidence) {
-          best = { filter: filter.name, param, avgConfidence: avgConfidence, baseline: baselineConfidence };
+          best = { filterChain: [...best.filterChain, { filter: filter.name, param }], avgConfidence: avgConfidence, baseline: baselineConfidence };
         }
         if (avgConfidence >= 0.8) {
           foundAbove80 = true;
@@ -639,7 +625,11 @@ function GuitarObjDetection() {
   function handleOverrideConfirm(confirm) {
     setShowOverridePrompt(false);
     if (confirm) {
-      handleCalibration();
+      setShowCalibrationPrompt(true);
+      setNoGuitarDetected(false);
+      setCalibrationProgress('');
+      setCalibrationResult(null);
+      setCalibrationDone(false);
     }
   }
 
@@ -658,9 +648,9 @@ function GuitarObjDetection() {
         {showOverridePrompt && (
           <div className="calibration-override-prompt" style={{ textAlign: 'center', marginBottom: 24 }}>
             <div style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 8 }}>
-              Calibration already exists. Override current calibration?
+              Are you sure you want to recalibrate?
             </div>
-            <button className="start-btn" onClick={() => handleOverrideConfirm(true)} style={{ marginRight: 12 }}>Yes, override</button>
+            <button className="start-btn" onClick={() => handleOverrideConfirm(true)} style={{ marginRight: 12 }}>Yes, recalibrate</button>
             <button className="stop-btn" onClick={() => handleOverrideConfirm(false)}>Cancel</button>
           </div>
         )}
@@ -692,7 +682,7 @@ function GuitarObjDetection() {
             </button>
             <div style={{ marginTop: 12, color: 'var(--space-accent)' }}>
               <strong>Baseline (No Preprocessing):</strong> {calibrationResult.baseline ? (calibrationResult.baseline * 100).toFixed(1) + '%' : '--'}<br/>
-              <strong>Best Filter:</strong> {calibrationResult.filter} {calibrationResult.param !== null ? `(${calibrationResult.param})` : ''}<br/>
+              <strong>Best Filter:</strong> {Array.isArray(calibrationResult?.filterChain) ? calibrationResult.filterChain.map(f => `${f.filter} (${f.param})`).join(', ') : '--'}<br/>
               <strong>Avg Confidence After Preprocessing:</strong> {calibrationResult.avgConfidence ? (calibrationResult.avgConfidence * 100).toFixed(1) + '%' : '--'}
             </div>
           </div>
@@ -713,6 +703,11 @@ function GuitarObjDetection() {
           }}>
             Calibration failed: No filter achieved confidence ≥ 80%.<br/>
             <span style={{ color: '#fff' }}>Please move to a location with better lighting and try again.</span>
+            <div style={{ marginTop: 16 }}>
+              <button className="start-btn" onClick={() => setShowOverridePrompt(true)}>
+                Retry Calibration
+              </button>
+            </div>
           </div>
         )}
         <div className="main-view-flex-container">
@@ -820,7 +815,7 @@ function GuitarObjDetection() {
             {/* Show which filter is applied after calibration */}
             {calibrationDone && calibratedFilter && (
               <div style={{ marginTop: 8, color: 'var(--space-accent)', fontSize: 14 }}>
-                <strong>Applied Filter:</strong> {calibratedFilter.filter} {calibratedFilter.param !== null ? `(${calibratedFilter.param})` : ''}
+                <strong>Applied Filter:</strong> {Array.isArray(calibratedFilter?.filterChain) ? calibratedFilter.filterChain.map(f => `${f.filter} (${f.param})`).join(', ') : '--'}
               </div>
             )}
           </div>
@@ -870,22 +865,6 @@ function GuitarObjDetection() {
               Notes: {scaleNotes.join(', ')}
             </div>
           </div>
-        </div>
-
-        {/* --- Preprocessing Controls --- */}
-        <div className="guitar-preprocessing-controls">
-          <h3>Preprocessing Controls</h3>
-          {/* Remove all filter dropdown/buttons and manual filter state */}
-          {/* Remove: Object.keys(preprocessingOptions).map(option => ( */}
-          {/* Remove:   <button */}
-          {/* Remove:     key={option} */}
-          {/* Remove:     className={`guitar-preprocessing-btn${preprocessingOptions[option] ? ' active' : ''}`} */}
-          {/* Remove:     onClick={() => handlePreprocessingChange(option)} */}
-          {/* Remove:   > */}
-          {/* Remove:     {/* Format name for display, e.g., 'autoWhiteBalance' -> 'Auto White Balance' */}
-          {/* Remove:     {option.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())} */}
-          {/* Remove:   </button> */}
-          {/* Remove: ))} */}
         </div>
       </div>
     </div>

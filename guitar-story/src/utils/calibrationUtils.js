@@ -1,12 +1,9 @@
 // src/utils/calibrationUtils.js
 
 /**
- * Runs calibration to find the best preprocessing filter/parameter for detection confidence.
- * @param {HTMLVideoElement} videoEl - The user's webcam video element.
- * @param {Function} runInference - Function that takes an image/canvas and returns a Promise of predictions.
- * @param {Array} filters - Array of filter configs: { name, params: [values], apply: (ctx, param) => void }
- * @param {Function} onProgress - Callback for UI updates.
- * @returns {Promise<{filter: string, param: any, avgConfidence: number, baseline: number}>}
+ * Runs chained calibration: for each filter, test all settings in combination with the previous best chain.
+ * Only add a filter to the chain if it increases confidence. Save the final chain as the calibrated filter.
+ * Returns { filterChain: [{filter, param}], avgConfidence, baseline }
  */
 export async function calibrateDetection(videoEl, runInference, filters, onProgress) {
   // Capture a single frame from the webcam
@@ -16,15 +13,25 @@ export async function calibrateDetection(videoEl, runInference, filters, onProgr
   const staticCtx = staticCanvas.getContext('2d', { willReadFrequently: true });
   staticCtx.drawImage(videoEl, 0, 0, staticCanvas.width, staticCanvas.height);
 
-  // Helper to run inference and get average confidence for a given filter
-  async function getAvgConfidence(filterApply) {
+  // Helper to apply a chain of filters
+  function applyFilterChain(ctx, filterChain) {
+    for (const f of filterChain) {
+      const filterObj = filters.find(fl => fl.name === f.filter);
+      if (filterObj && filterObj.apply) {
+        filterObj.apply(ctx, f.param);
+      }
+    }
+  }
+
+  // Helper to run inference and get average confidence for a given filter chain
+  async function getAvgConfidence(filterChain) {
     // Work on a copy of the static frame
     const testCanvas = document.createElement('canvas');
     testCanvas.width = staticCanvas.width;
     testCanvas.height = staticCanvas.height;
     const testCtx = testCanvas.getContext('2d', { willReadFrequently: true });
     testCtx.drawImage(staticCanvas, 0, 0, testCanvas.width, testCanvas.height);
-    if (filterApply) filterApply(testCtx);
+    if (filterChain && filterChain.length > 0) applyFilterChain(testCtx, filterChain);
     try {
       const predictions = await runInference(testCanvas);
       if (predictions && predictions.length > 0) {
@@ -37,35 +44,51 @@ export async function calibrateDetection(videoEl, runInference, filters, onProgr
     return 0;
   }
 
-  let best = { filter: 'none', param: null, avgConfidence: 0 };
-
   // Baseline (no filter)
   onProgress?.('Testing baseline...');
-  best.avgConfidence = await getAvgConfidence(null);
-  best.baseline = best.avgConfidence;
+  const baseline = await getAvgConfidence([]);
+  let bestChain = [];
+  let bestConfidence = baseline;
+  console.log(`[Calibration] Baseline confidence: ${(baseline * 100).toFixed(2)}%`);
 
-  // For each filter
-  const totalSteps = filters.reduce((sum, f) => sum + f.params.length, 0);
-  let currentStep = 0;
+  // Chained filter search
+  let currentChain = [];
   for (let i = 0; i < filters.length; i++) {
     const filter = filters[i];
+    let bestForThisFilter = null;
+    let bestForThisConfidence = bestConfidence;
     for (let j = 0; j < filter.params.length; j++) {
       const param = filter.params[j];
-      currentStep++;
-      const percent = Math.round((currentStep / totalSteps) * 100);
-      const text = `Applying ${filter.name} (${param})...`;
-      onProgress && onProgress({ percent, text });
-      console.log(`Applying filter: ${filter.name} (${param})`);
-      const avgConfidence = await getAvgConfidence(ctx => filter.apply(ctx, param));
-      console.log(`Avg confidence for ${filter.name} (${param}): ${avgConfidence}`);
-      onProgress && onProgress({ percent, text: `Filter: ${filter.name} (${param}) - Avg confidence: ${avgConfidence.toFixed(3)}` });
-      if (avgConfidence > best.avgConfidence) {
-        best = { filter: filter.name, param, avgConfidence: avgConfidence, baseline: best.baseline };
+      const testChain = [...currentChain, { filter: filter.name, param }];
+      const chainStr = testChain.map(f => `${f.filter}${f.param !== null ? `(${f.param})` : ''}`).join(' -> ');
+      onProgress && onProgress({ percent: Math.round((i / filters.length) * 100), text: `Testing chain: ${chainStr}` });
+      console.log(`[Calibration] Testing chain: ${chainStr}`);
+      const avgConfidence = await getAvgConfidence(testChain);
+      onProgress && onProgress({ percent: Math.round((i / filters.length) * 100), text: `Chain: ${chainStr} - Avg confidence: ${(avgConfidence*100).toFixed(2)}%` });
+      console.log(`[Calibration] Chain: ${chainStr} - Avg confidence: ${(avgConfidence*100).toFixed(2)}%`);
+      if (avgConfidence > bestForThisConfidence) {
+        bestForThisConfidence = avgConfidence;
+        bestForThisFilter = { filter: filter.name, param };
       }
     }
+    // Only add this filter if it improved confidence
+    if (bestForThisFilter && bestForThisConfidence > bestConfidence) {
+      currentChain.push(bestForThisFilter);
+      bestConfidence = bestForThisConfidence;
+      const chainStr = currentChain.map(f => `${f.filter}${f.param !== null ? `(${f.param})` : ''}`).join(' -> ');
+      console.log(`[Calibration] Added filter to chain: ${chainStr} (Confidence: ${(bestConfidence*100).toFixed(2)}%)`);
+    } else {
+      console.log(`[Calibration] Skipped filter '${filter.name}' (no improvement)`);
+    }
   }
-
-  return best;
+  const finalChainStr = currentChain.length > 0 ? currentChain.map(f => `${f.filter}${f.param !== null ? `(${f.param})` : ''}`).join(' -> ') : 'none';
+  console.log(`[Calibration] Final filter chain: ${finalChainStr}`);
+  console.log(`[Calibration] Final confidence: ${(bestConfidence*100).toFixed(2)}% | Baseline: ${(baseline*100).toFixed(2)}%`);
+  return {
+    filterChain: currentChain,
+    avgConfidence: bestConfidence,
+    baseline
+  };
 }
 
 // Example filter configs for use in your calibration component
