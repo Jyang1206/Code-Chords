@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "../firebase";
 import "../css/Login.css";
+import { Link } from 'react-router-dom';
 
 export default function Login({ onSwitch }) {
   const [email, setEmail] = useState("");
@@ -39,6 +40,11 @@ export default function Login({ onSwitch }) {
           className="cosmic-login-input"
         /><br/>
         <button type="submit" className="cosmic-login-btn">Login</button>
+        <div className="cosmic-login-switch">
+          <Link className="cosmic-login-link" to="/reset_password">
+            Forgot Password?
+          </Link>
+        </div>
         <p className="cosmic-login-switch">
           Don't have an account?{" "}
           <button type="button" className="cosmic-login-link" onClick={onSwitch}>Sign up</button>

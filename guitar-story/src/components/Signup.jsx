@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../firebase";
+import { auth, googleProvider } from "../firebase";
 
 export default function Signup({ onSwitch }) {
   const [email, setEmail] = useState("");
@@ -12,7 +12,7 @@ export default function Signup({ onSwitch }) {
     try {
       await createUserWithEmailAndPassword(auth, email, password);
     } catch (err) {
-      setError(err.message);
+      setError(err.message);  
     }
   };
 

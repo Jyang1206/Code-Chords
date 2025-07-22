@@ -165,10 +165,45 @@
 }
 
 .guitar-scale-notes {
-  margin-top: 8px;
-  font-size: 14px;
-  opacity: 0.85;
-  color: var(--space-accent2);
+  margin-top: 1rem;
+  font-family: monospace;
+  font-size: 1rem;
+  word-break: break-all;
+}
+
+/* --- Preprocessing Controls --- */
+.guitar-preprocessing-controls {
+  margin-top: 2rem;
+  padding: 1rem;
+  border-top: 1px solid #444;
+}
+
+.guitar-preprocessing-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.guitar-preprocessing-btn {
+  background-color: #333;
+  color: #eee;
+  border: 1px solid #555;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s;
+  text-transform: capitalize;
+}
+
+.guitar-preprocessing-btn:hover {
+  background-color: #444;
+}
+
+.guitar-preprocessing-btn.active {
+  background-color: #007bff;
+  border-color: #0056b3;
+  color: white;
 }
 
 .guitar-audio-note-panel {
@@ -262,6 +297,70 @@
   padding: 20px;
 }
 
+/* Side-by-side layout for main view and preprocessed view */
+.main-view-flex-container {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.guitar-video-container {
+  flex: 3; /* Give more space to the main video */
+}
+
+.preprocessed-view-container {
+  flex: 2; /* Smaller container for the preprocessed view */
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: var(--space-card-bg);
+  padding: 16px;
+  border-radius: 16px;
+  box-shadow: 0 4px 24px var(--space-shadow);
+}
+
+.preprocessed-canvas {
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  background: #000;
+}
+
+.filter-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.filter-controls label {
+  font-weight: 600;
+  color: var(--space-accent);
+}
+
+.filter-select {
+  flex: 1;
+  padding: 8px 12px;
+  background: var(--space-shadow);
+  color: var(--space-star);
+  border: 1.5px solid var(--space-border);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 1rem;
+}
+
+.light-mode .preprocessed-view-container {
+  background: var(--space-card-bg-light);
+}
+.light-mode .filter-controls label {
+  color: var(--space-accent);
+}
+.light-mode .filter-select {
+  background: #fff;
+  color: var(--space-shadow);
+  border-color: var(--space-accent);
+}
+
 /* Responsive design */
 @media (max-width: 900px) {
   .guitar-video-container, .guitar-scale-controls {
@@ -327,4 +426,32 @@
     border-radius: 12px;
     font-size: 12px;
   }
+} 
+
+.space-progress-bar-bg {
+  width: 100%;
+  height: 18px;
+  background: linear-gradient(90deg, var(--space-bg2) 0%, var(--space-bg1) 100%);
+  border-radius: 12px;
+  box-shadow: 0 0 8px 2px var(--space-shadow);
+  overflow: hidden;
+  border: 1.5px solid var(--space-accent);
+  position: relative;
+}
+.space-progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #6ec3f4 0%, #b388ff 50%, #ff61a6 100%);
+  box-shadow: 0 0 12px 2px #b388ff;
+  border-radius: 12px 0 0 12px;
+  transition: width 0.3s cubic-bezier(.4,2,.6,1);
+}
+
+/* Light mode overrides */
+.light-mode .space-progress-bar-bg {
+  background: linear-gradient(90deg, #e3e9f7 0%, #f7faff 100%);
+  border: 1.5px solid #6ec3f4;
+}
+.light-mode .space-progress-bar-fill {
+  background: linear-gradient(90deg, #6ec3f4 0%, #b388ff 50%, #ff61a6 100%);
+  box-shadow: 0 0 8px 2px #6ec3f4;
 } 

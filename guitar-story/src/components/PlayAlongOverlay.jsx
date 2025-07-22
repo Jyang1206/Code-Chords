@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useMemo, useState } from "react";
 import { InferenceEngine, CVImage } from "inferencejs";
+import { CALIBRATION_FILTERS } from '../utils/calibrationUtils';
+import { applyFilterChainToCanvas } from '../utils/imagePreprocessing';
 
 const ALL_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const OPEN_STRINGS = ['E', 'A', 'D', 'G', 'B', 'E']; // 6th to 1st string
@@ -13,13 +15,89 @@ function getNoteAtPosition(stringIdx, fretNum) {
   return ALL_NOTES[noteIdx];
 }
 
-function PlayAlongOverlay({ arpeggioNote }) {
+// Helper to apply calibrated filter to a canvas
+function applyCalibratedFilterToCanvas(srcVideo, filterObj) {
+  if (!filterObj || !filterObj.filter || filterObj.filter === 'none') return null;
+  const tempCanvas = document.createElement('canvas');
+  tempCanvas.width = srcVideo.videoWidth || FRETBOARD_WIDTH;
+  tempCanvas.height = srcVideo.videoHeight || FRETBOARD_HEIGHT;
+  const ctx = tempCanvas.getContext('2d');
+  ctx.drawImage(srcVideo, 0, 0, tempCanvas.width, tempCanvas.height);
+  const imageData = ctx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+  const data = imageData.data;
+  switch (filterObj.filter) {
+    case 'grayscale':
+      for (let i = 0; i < data.length; i += 4) {
+        const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+        data[i] = data[i + 1] = data[i + 2] = avg;
+      }
+      break;
+    case 'brightness':
+      const brightness = filterObj.param !== null ? filterObj.param : 50;
+      for (let i = 0; i < data.length; i += 4) {
+        data[i] = Math.min(255, data[i] + brightness);
+        data[i + 1] = Math.min(255, data[i + 1] + brightness);
+        data[i + 2] = Math.min(255, data[i + 2] + brightness);
+      }
+      break;
+    case 'contrast':
+      const contrast = filterObj.param !== null ? filterObj.param : 50;
+      const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+      for (let i = 0; i < data.length; i += 4) {
+        data[i] = Math.max(0, Math.min(255, factor * (data[i] - 128) + 128));
+        data[i + 1] = Math.max(0, Math.min(255, factor * (data[i + 1] - 128) + 128));
+        data[i + 2] = Math.max(0, Math.min(255, factor * (data[i + 2] - 128) + 128));
+      }
+      break;
+    case 'invert':
+      for (let i = 0; i < data.length; i += 4) {
+        data[i] = 255 - data[i];
+        data[i + 1] = 255 - data[i + 1];
+        data[i + 2] = 255 - data[i + 2];
+      }
+      break;
+    default:
+      break;
+  }
+  ctx.putImageData(imageData, 0, 0);
+  return tempCanvas;
+}
+
+function PlayAlongOverlay() {
   const videoRef = useRef();
   const canvasRef = useRef();
   const inferEngine = useMemo(() => new InferenceEngine(), []);
   const [modelWorkerId, setModelWorkerId] = useState(null);
   const [modelLoading, setModelLoading] = useState(false);
   const [lastFrets, setLastFrets] = useState([]);
+
+  // Calibration state (copied from GuitarObjDetection)
+  const [calibrating, setCalibrating] = useState(false);
+  const [calibrationProgress, setCalibrationProgress] = useState('');
+  const [calibrationResult, setCalibrationResult] = useState(null);
+  const [calibrationDone, setCalibrationDone] = useState(false);
+  const [showCalibrationPrompt, setShowCalibrationPrompt] = useState(true);
+  const [noGuitarDetected, setNoGuitarDetected] = useState(false);
+  const calibrationCancelledRef = useRef(false);
+  const [showOverridePrompt, setShowOverridePrompt] = useState(false);
+  const [calibratedFilter, setCalibratedFilter] = useState(null);
+
+  // Save/load calibrated filter to/from localStorage
+  useEffect(() => {
+    if (calibrationDone && calibratedFilter) {
+      localStorage.setItem('calibratedFilter', JSON.stringify(calibratedFilter));
+    }
+  }, [calibrationDone, calibratedFilter]);
+  useEffect(() => {
+    const saved = localStorage.getItem('calibratedFilter');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setCalibratedFilter(parsed);
+        setCalibrationDone(true);
+      } catch {}
+    }
+  }, []);
 
   // Start model worker
   useEffect(() => {
@@ -47,87 +125,361 @@ function PlayAlongOverlay({ arpeggioNote }) {
     });
   }, []);
 
+  // Calibration handler (copied from GuitarObjDetection)
+  async function handleCalibration() {
+    if ((calibrationDone || calibrationResult) && !showOverridePrompt) {
+      setShowOverridePrompt(true);
+      return;
+    }
+    setShowOverridePrompt(false);
+    setCalibrating(true);
+    setCalibrationProgress('Starting calibration...');
+    setCalibrationResult(null);
+    setCalibrationDone(false);
+    setNoGuitarDetected(false);
+    calibrationCancelledRef.current = false;
+
+    // Use the same inference function as your main detection
+    const runInference = async (canvasOrVideo) => {
+      if (!modelWorkerId) return [];
+      let inputCanvas = canvasOrVideo;
+      if (inputCanvas instanceof HTMLVideoElement) {
+        if (!inputCanvas.videoWidth || !inputCanvas.videoHeight) return [];
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = inputCanvas.videoWidth;
+        tempCanvas.height = inputCanvas.videoHeight;
+        const ctx = tempCanvas.getContext('2d');
+        ctx.drawImage(inputCanvas, 0, 0, tempCanvas.width, tempCanvas.height);
+        inputCanvas = tempCanvas;
+      }
+      if (
+        !(inputCanvas instanceof HTMLCanvasElement) ||
+        !inputCanvas.width ||
+        !inputCanvas.height ||
+        !inputCanvas.getContext('2d')
+      ) {
+        console.warn('Calibration: Invalid canvas for inference', inputCanvas);
+        return [];
+      }
+      let imgBitmap = null;
+      try {
+        imgBitmap = await createImageBitmap(inputCanvas);
+      } catch (e) {
+        console.warn('Failed to create ImageBitmap for inference', e);
+        return [];
+      }
+      const img = new CVImage(imgBitmap);
+      return await inferEngine.infer(modelWorkerId, img);
+    };
+
+    // Helper to allow retaking the frame
+    let staticFrame = null;
+    const takeCalibrationFrame = () => {
+      if (!videoRef.current || !videoRef.current.videoWidth || !videoRef.current.videoHeight) return null;
+      const staticCanvas = document.createElement('canvas');
+      staticCanvas.width = videoRef.current.videoWidth;
+      staticCanvas.height = videoRef.current.videoHeight;
+      const staticCtx = staticCanvas.getContext('2d', { willReadFrequently: true });
+      staticCtx.drawImage(videoRef.current, 0, 0, staticCanvas.width, staticCanvas.height);
+      return staticCanvas;
+    };
+
+    // Take initial frame
+    staticFrame = takeCalibrationFrame();
+    if (!staticFrame) {
+      setCalibrationProgress('Failed to capture frame. Please try again.');
+      setCalibrating(false);
+      return;
+    }
+
+    // Run baseline detection to check for guitar and get baseline confidence
+    const baselinePreds = await runInference(staticFrame);
+    const baselineConfidence = (baselinePreds && baselinePreds.length > 0)
+      ? baselinePreds.reduce((a, b) => a + b.confidence, 0) / baselinePreds.length
+      : 0;
+    if (!baselinePreds || baselinePreds.length === 0) {
+      setNoGuitarDetected(true);
+      setCalibrationProgress('NO GUITAR DETECTED');
+      setCalibrating(false);
+      return;
+    }
+
+    setShowCalibrationPrompt(false);
+    setNoGuitarDetected(false);
+
+    // Calibration logic (refactored to allow cancellation and require 80% confidence)
+    let best = { filter: 'none', param: null, avgConfidence: baselineConfidence, baseline: baselineConfidence };
+    const totalSteps = CALIBRATION_FILTERS.reduce((sum, f) => sum + f.params.length, 0);
+    let currentStep = 0;
+    let foundAbove80 = false;
+    for (let i = 0; i < CALIBRATION_FILTERS.length; i++) {
+      const filter = CALIBRATION_FILTERS[i];
+      for (let j = 0; j < filter.params.length; j++) {
+        if (calibrationCancelledRef.current) {
+          setCalibrationProgress('Calibration cancelled.');
+          setCalibrating(false);
+          return;
+        }
+        const param = filter.params[j];
+        currentStep++;
+        const percent = Math.round((currentStep / totalSteps) * 100);
+        const text = `Applying ${filter.name} (${param})...`;
+        setCalibrationProgress({ percent, text });
+        const avgConfidence = await (async () => {
+          // Work on a copy of the static frame
+          const testCanvas = document.createElement('canvas');
+          testCanvas.width = staticFrame.width;
+          testCanvas.height = staticFrame.height;
+          const testCtx = testCanvas.getContext('2d', { willReadFrequently: true });
+          testCtx.drawImage(staticFrame, 0, 0, testCanvas.width, testCanvas.height);
+          if (filter.apply) filter.apply(testCtx, param);
+          try {
+            const predictions = await runInference(testCanvas);
+            if (predictions && predictions.length > 0) {
+              const avg = predictions.reduce((a, b) => a + b.confidence, 0) / predictions.length;
+              return avg;
+            }
+          } catch (e) {
+            console.warn('Calibration inference error:', e);
+          }
+          return 0;
+        })();
+        setCalibrationProgress({ percent, text: `Filter: ${filter.name} (${param}) - Avg confidence: ${(avgConfidence * 100).toFixed(1)}%` });
+        if (avgConfidence > best.avgConfidence) {
+          best = { filter: filter.name, param, avgConfidence: avgConfidence, baseline: baselineConfidence };
+        }
+        if (avgConfidence >= 0.8) {
+          foundAbove80 = true;
+        }
+      }
+    }
+    setCalibrationResult(best);
+    if (foundAbove80) {
+      setCalibrationProgress('Calibration complete! (Found filter with confidence >= 80%)');
+      setCalibratedFilter(best);
+      setCalibrationDone(true);
+      localStorage.setItem('calibratedFilter', JSON.stringify(best));
+    } else {
+      setCalibrationProgress('Calibration failed: No filter achieved confidence >= 80%. Please adjust lighting or guitar position and try again.');
+      setCalibratedFilter(null);
+      setCalibrationDone(false);
+    }
+    setCalibrating(false);
+  }
+
+  function handleStopCalibration() {
+    calibrationCancelledRef.current = true;
+    setCalibrating(false);
+    setCalibrationProgress('Calibration cancelled.');
+  }
+
+  function handleRetakeFrame() {
+    setShowCalibrationPrompt(true);
+    setNoGuitarDetected(false);
+    setCalibrationProgress('');
+    setCalibrationResult(null);
+    setCalibrationDone(false);
+  }
+
+  function handleOverrideConfirm(confirm) {
+    setShowOverridePrompt(false);
+    if (confirm) {
+      setShowCalibrationPrompt(true);
+      setNoGuitarDetected(false);
+      setCalibrationProgress('');
+      setCalibrationResult(null);
+      setCalibrationDone(false);
+    }
+  }
+
   // Inference loop
   useEffect(() => {
     if (!modelWorkerId) return;
     let running = true;
-    const detectFrame = () => {
+    const detectFrame = async () => {
       if (!running) return;
-      const img = new CVImage(videoRef.current);
+      // Get calibrated filterChain from localStorage
+      let filterChain = [];
+      try {
+        const saved = JSON.parse(localStorage.getItem('calibratedFilter') || 'null');
+        if (saved && Array.isArray(saved.filterChain)) filterChain = saved.filterChain;
+      } catch {}
+      // Draw video to temp canvas and apply filter chain
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = videoRef.current.videoWidth || FRETBOARD_WIDTH;
+      tempCanvas.height = videoRef.current.videoHeight || FRETBOARD_HEIGHT;
+      const ctx = tempCanvas.getContext('2d');
+      ctx.drawImage(videoRef.current, 0, 0, tempCanvas.width, tempCanvas.height);
+      if (filterChain.length > 0) {
+        applyFilterChainToCanvas(ctx, filterChain, CALIBRATION_FILTERS);
+      }
+      let imgBitmap = null;
+      try {
+        imgBitmap = await createImageBitmap(tempCanvas);
+      } catch (e) {
+        console.warn('Failed to create ImageBitmap for inference', e);
+        setTimeout(detectFrame, 1000 / 6);
+        return;
+      }
+      const img = new CVImage(imgBitmap);
       inferEngine.infer(modelWorkerId, img).then((predictions) => {
         // Only keep fret detections
-        const fretPreds = predictions.filter(pred => pred.class && pred.class.startsWith('Zone'));
-        setLastFrets(fretPreds);
-        drawOverlay(fretPreds);
+        setLastFrets(predictions);
+        drawOverlay(predictions);
         setTimeout(detectFrame, 1000 / 6); // ~6 FPS
       });
     };
     detectFrame();
     return () => { running = false; };
     // eslint-disable-next-line
-  }, [modelWorkerId, arpeggioNote]);
+  }, [modelWorkerId]);
 
-  // Draw overlay for current arpeggio note
-  function drawOverlay(fretPreds) {
+  // Overlay logic (copied from GuitarObjDetection, minus scale controls)
+  function drawOverlay(predictions) {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, FRETBOARD_WIDTH, FRETBOARD_HEIGHT);
-    if (!arpeggioNote) return;
-    if (!fretPreds || fretPreds.length === 0) {
-      console.log("No detected frets for overlay.");
-      return;
+
+    // Filter out hand detections and only show predictions with confidence > 0.8
+    const filteredPredictions = predictions.filter(pred => pred.class !== 'Hand' && pred.confidence > 0.8);
+
+    // Heuristic Rotation Correction
+    const fretCenters = filteredPredictions.map(pred => ({
+      x: pred.bbox.x,
+      y: pred.bbox.y
+    }));
+    let angle = 0;
+    if (fretCenters.length >= 2) {
+      const n = fretCenters.length;
+      const meanX = fretCenters.reduce((sum, c) => sum + c.x, 0) / n;
+      const meanY = fretCenters.reduce((sum, c) => sum + c.y, 0) / n;
+      const num = fretCenters.reduce((sum, c) => sum + (c.x - meanX) * (c.y - meanY), 0);
+      const den = fretCenters.reduce((sum, c) => sum + (c.x - meanX) ** 2, 0);
+      const slope = den !== 0 ? num / den : 0;
+      angle = Math.atan(slope);
     }
-    // Find the detected fret for the current arpeggio note's fretNum
-    const fretNum = arpeggioNote.fretNum;
-    const stringIdx = arpeggioNote.stringIdx;
-    const note = arpeggioNote.note;
-    const isRoot = arpeggioNote.isRoot;
-    // Find the detection with class Zone{fretNum}
-    const fretDet = fretPreds.find(pred => pred.class === `Zone${fretNum}`);
-    if (!fretDet) {
-      console.log(`No detected fret for Zone${fretNum}`);
-      return;
+
+    // Dynamic scaling for distance
+    let avgFretHeight = 60;
+    if (filteredPredictions.length > 0) {
+      avgFretHeight = filteredPredictions.reduce((sum, pred) => sum + pred.bbox.height, 0) / filteredPredictions.length;
     }
-    // Calculate string positions within the detected fret bbox
-    const { x, y, width, height } = fretDet.bbox;
-    // For each string, y = y - height/2 + (stringIdx * height/5)
-    const yString = y - height / 2 + (stringIdx * height) / 5;
-    const xFret = x;
-    // Draw dot and label (match GuitarObjDetection aesthetics)
-    ctx.beginPath();
-    ctx.arc(xFret, yString, isRoot ? 16 : 12, 0, 2 * Math.PI);
-    ctx.fillStyle = isRoot ? "#e53935" : "#1976d2"; // red for root, blue for others
-    ctx.globalAlpha = 0.95;
-    ctx.fill();
-    ctx.globalAlpha = 1;
-    ctx.strokeStyle = "#fff";
-    ctx.lineWidth = 3;
-    ctx.stroke();
-    ctx.font = isRoot ? "bold 20px Arial" : "bold 16px Arial";
-    ctx.fillStyle = "#fff";
-    ctx.textAlign = "center";
-    ctx.fillText(note, xFret, yString + 6);
-    // Debug log
-    console.log(`Overlaying note ${note} (string ${stringIdx + 1}, fret ${fretNum}) at (${xFret},${yString}) using detected Zone${fretNum}`);
-    // Optionally, draw detected fret bbox for debugging
-    ctx.save();
-    ctx.strokeStyle = "#00e676";
-    ctx.lineWidth = 2;
-    ctx.setLineDash([6, 6]);
-    ctx.strokeRect(x - width / 2, y - height / 2, width, height);
-    ctx.restore();
-    // Optionally, label the fret number
-    ctx.font = "bold 14px Arial";
-    ctx.fillStyle = "#00e676";
-    ctx.fillText(`Fret ${fretNum}`, xFret, y - height / 2 - 10);
-    // Debug: log all detected frets
-    fretPreds.forEach(pred => {
-      console.log(`Detected: ${pred.class} at (${pred.bbox.x},${pred.bbox.y})`);
-    });
+    const scaleFactor = Math.max(0.5, Math.min(1.5, avgFretHeight / 60));
+    const dotRadius = 6 * scaleFactor;
+    const fontSize = 9 * scaleFactor;
+
+    // Draw all detected frets/zones
+    for (let i = 0; i < filteredPredictions.length; i++) {
+      const prediction = filteredPredictions[i];
+      let fretNum = 0;
+      if (prediction.class.startsWith('Zone')) {
+        fretNum = parseInt(prediction.class.replace('Zone', ''));
+      } else if (prediction.class.startsWith('Fret')) {
+        fretNum = parseInt(prediction.class.replace('Fret', ''));
+      } else {
+        fretNum = i + 1;
+      }
+      if (isNaN(fretNum)) fretNum = i + 1;
+      if (fretNum < 1) continue;
+
+      let xCenter = prediction.bbox.x;
+      let yCenter = prediction.bbox.y;
+      let width = prediction.bbox.width;
+      let height = prediction.bbox.height;
+
+      for (let stringIdx = 0; stringIdx < 6; stringIdx++) {
+        let yString = yCenter - height / 2 + (stringIdx * height) / 5;
+        let xFret = xCenter;
+        let dx = 0;
+        let dy = yString - yCenter;
+        let xRot = xCenter + dx * Math.cos(angle) - dy * Math.sin(angle);
+        let yRot = yCenter + dx * Math.sin(angle) + dy * Math.cos(angle);
+
+        ctx.beginPath();
+        ctx.arc(xRot, yRot, dotRadius, 0, 2 * Math.PI);
+        ctx.fillStyle = '#1976d2';
+        ctx.fill();
+        ctx.closePath();
+
+        ctx.font = `${fontSize}px monospace`;
+        ctx.fillStyle = 'white';
+        ctx.fillText(`F${fretNum}`, xRot + 7 * scaleFactor, yRot + 3 * scaleFactor);
+      }
+    }
   }
 
   return (
     <div style={{ position: "relative", width: FRETBOARD_WIDTH, height: FRETBOARD_HEIGHT, margin: "0 auto" }}>
+      {showCalibrationPrompt && !calibrating && (
+        <div style={{ marginBottom: 24, textAlign: 'center', color: '#b388ff' }}>
+          <div style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 8 }}>Please put your guitar in frame before calibrating.</div>
+          <button className="start-btn" onClick={handleCalibration} disabled={calibrating}>
+            Start Calibration
+          </button>
+        </div>
+      )}
+      {showOverridePrompt && (
+        <div className="calibration-override-prompt" style={{ textAlign: 'center', marginBottom: 24 }}>
+          <div style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 8 }}>
+            Are you sure you want to recalibrate?
+          </div>
+          <button className="start-btn" onClick={() => handleOverrideConfirm(true)} style={{ marginRight: 12 }}>Yes, recalibrate</button>
+          <button className="stop-btn" onClick={() => handleOverrideConfirm(false)}>Cancel</button>
+        </div>
+      )}
+      {calibrating && (
+        <div style={{ marginBottom: 24, textAlign: 'center' }}>
+          <button className="stop-btn" onClick={handleStopCalibration} style={{ marginRight: 12 }}>
+            Stop Calibration
+          </button>
+          <div style={{ margin: '16px auto', width: 320, maxWidth: '90%' }}>
+            <div className="space-progress-bar-bg">
+              <div className="space-progress-bar-fill" style={{ width: `${(calibrationProgress && calibrationProgress.percent) || 0}%` }} />
+            </div>
+            <div style={{ marginTop: 6, color: '#b388ff', fontSize: 14, fontFamily: 'monospace' }}>
+              {typeof calibrationProgress === 'object' && calibrationProgress !== null ? calibrationProgress.text : calibrationProgress}
+            </div>
+          </div>
+        </div>
+      )}
+      {calibrationResult && calibrationDone && (
+        <div style={{ marginBottom: 24, textAlign: 'center' }}>
+          <button className="start-btn" onClick={handleRetakeFrame}>
+            Retake Calibration Frame
+          </button>
+          <div style={{ marginTop: 12, color: '#b388ff' }}>
+            <strong>Baseline (No Preprocessing):</strong> {calibrationResult.baseline ? (calibrationResult.baseline * 100).toFixed(1) + '%' : '--'}<br/>
+            <strong>Best Filter:</strong> {calibrationResult.filter} {calibrationResult.param !== null ? `(${calibrationResult.param})` : ''}<br/>
+            <strong>Avg Confidence After Preprocessing:</strong> {calibrationResult.avgConfidence ? (calibrationResult.avgConfidence * 100).toFixed(1) + '%' : '--'}
+          </div>
+        </div>
+      )}
+      {noGuitarDetected && (
+        <div style={{ color: 'red', marginTop: 12, fontWeight: 'bold', textAlign: 'center' }}>NO GUITAR DETECTED</div>
+      )}
+      {calibrationProgress && !calibrationDone && !calibrating && calibrationProgress.toString().includes('No filter achieved confidence') && (
+        <div style={{
+          color: 'red',
+          background: 'rgba(255,255,255,0.08)',
+          border: '2px solid #ff61a6',
+          borderRadius: 12,
+          padding: '16px 24px',
+          margin: '24px auto',
+          maxWidth: 420,
+          fontWeight: 'bold',
+          fontSize: 18,
+          textAlign: 'center',
+          boxShadow: '0 0 16px 2px #ff61a6'
+        }}>
+          Calibration failed: No filter achieved confidence ≥ 80%.<br/>
+          <span style={{ color: '#fff' }}>Please move to a location with better lighting and try again.</span>
+          <div style={{ marginTop: 16 }}>
+            <button className="start-btn" onClick={() => setShowOverridePrompt(true)}>
+              Retry Calibration
+            </button>
+          </div>
+        </div>
+      )}
       <video
         ref={videoRef}
         width={FRETBOARD_WIDTH}
