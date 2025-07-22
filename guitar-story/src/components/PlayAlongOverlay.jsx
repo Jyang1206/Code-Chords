@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useMemo, useState } from "react";
+import React, { useEffect, useRef, useMemo } from "react";
 import { InferenceEngine, CVImage } from "inferencejs";
 
 const ALL_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -13,91 +13,14 @@ function getNoteAtPosition(stringIdx, fretNum) {
   return ALL_NOTES[noteIdx];
 }
 
-// Helper to apply calibrated filter to a canvas
-function applyCalibratedFilterToCanvas(srcVideo, filterObj) {
-  if (!filterObj || !filterObj.filter || filterObj.filter === 'none') return null;
-  const tempCanvas = document.createElement('canvas');
-  tempCanvas.width = srcVideo.videoWidth || FRETBOARD_WIDTH;
-  tempCanvas.height = srcVideo.videoHeight || FRETBOARD_HEIGHT;
-  const ctx = tempCanvas.getContext('2d');
-  ctx.drawImage(srcVideo, 0, 0, tempCanvas.width, tempCanvas.height);
-  const imageData = ctx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-  const data = imageData.data;
-  switch (filterObj.filter) {
-    case 'grayscale':
-      for (let i = 0; i < data.length; i += 4) {
-        const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-        data[i] = data[i + 1] = data[i + 2] = avg;
-      }
-      break;
-    case 'brightness':
-      const brightness = filterObj.param !== null ? filterObj.param : 50;
-      for (let i = 0; i < data.length; i += 4) {
-        data[i] = Math.min(255, data[i] + brightness);
-        data[i + 1] = Math.min(255, data[i + 1] + brightness);
-        data[i + 2] = Math.min(255, data[i + 2] + brightness);
-      }
-      break;
-    case 'contrast':
-      const contrast = filterObj.param !== null ? filterObj.param : 50;
-      const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
-      for (let i = 0; i < data.length; i += 4) {
-        data[i] = Math.max(0, Math.min(255, factor * (data[i] - 128) + 128));
-        data[i + 1] = Math.max(0, Math.min(255, factor * (data[i + 1] - 128) + 128));
-        data[i + 2] = Math.max(0, Math.min(255, factor * (data[i + 2] - 128) + 128));
-      }
-      break;
-    case 'invert':
-      for (let i = 0; i < data.length; i += 4) {
-        data[i] = 255 - data[i];
-        data[i + 1] = 255 - data[i + 1];
-        data[i + 2] = 255 - data[i + 2];
-      }
-      break;
-    default:
-      break;
-  }
-  ctx.putImageData(imageData, 0, 0);
-  return tempCanvas;
-}
-
-function PlayAlongOverlay() {
+function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNotes = [] }) {
   const videoRef = useRef();
   const canvasRef = useRef();
   const inferEngine = useMemo(() => new InferenceEngine(), []);
-  const [modelWorkerId, setModelWorkerId] = useState(null);
-  const [modelLoading, setModelLoading] = useState(false);
-  const [lastFrets, setLastFrets] = useState([]);
+  const [modelWorkerId, setModelWorkerId] = React.useState(null);
+  const [modelLoading, setModelLoading] = React.useState(false);
+  const displayedNotesRef = useRef([]); // Store displayed notes for later reference
 
-  // Calibration state (copied from GuitarObjDetection)
-  const [calibrating, setCalibrating] = useState(false);
-  const [calibrationProgress, setCalibrationProgress] = useState('');
-  const [calibrationResult, setCalibrationResult] = useState(null);
-  const [calibrationDone, setCalibrationDone] = useState(false);
-  const [showCalibrationPrompt, setShowCalibrationPrompt] = useState(true);
-  const [noGuitarDetected, setNoGuitarDetected] = useState(false);
-  const calibrationCancelledRef = useRef(false);
-  const [showOverridePrompt, setShowOverridePrompt] = useState(false);
-  const [calibratedFilter, setCalibratedFilter] = useState(null);
-
-  // Save/load calibrated filter to/from localStorage
-  useEffect(() => {
-    if (calibrationDone && calibratedFilter) {
-      localStorage.setItem('calibratedFilter', JSON.stringify(calibratedFilter));
-    }
-  }, [calibrationDone, calibratedFilter]);
-  useEffect(() => {
-    const saved = localStorage.getItem('calibratedFilter');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setCalibratedFilter(parsed);
-        setCalibrationDone(true);
-      } catch {}
-    }
-  }, []);
-
-  // Start model worker
   useEffect(() => {
     if (!modelLoading) {
       setModelLoading(true);
@@ -111,7 +34,6 @@ function PlayAlongOverlay() {
     }
   }, [inferEngine, modelLoading]);
 
-  // Start webcam
   useEffect(() => {
     navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
       if (videoRef.current) {
@@ -123,174 +45,6 @@ function PlayAlongOverlay() {
     });
   }, []);
 
-  // Calibration handler (copied from GuitarObjDetection)
-  async function handleCalibration() {
-    if ((calibrationDone || calibrationResult) && !showOverridePrompt) {
-      setShowOverridePrompt(true);
-      return;
-    }
-    setShowOverridePrompt(false);
-    setCalibrating(true);
-    setCalibrationProgress('Starting calibration...');
-    setCalibrationResult(null);
-    setCalibrationDone(false);
-    setNoGuitarDetected(false);
-    calibrationCancelledRef.current = false;
-
-    // Use the same inference function as your main detection
-    const runInference = async (canvasOrVideo) => {
-      if (!modelWorkerId) return [];
-      let inputCanvas = canvasOrVideo;
-      if (inputCanvas instanceof HTMLVideoElement) {
-        if (!inputCanvas.videoWidth || !inputCanvas.videoHeight) return [];
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = inputCanvas.videoWidth;
-        tempCanvas.height = inputCanvas.videoHeight;
-        const ctx = tempCanvas.getContext('2d');
-        ctx.drawImage(inputCanvas, 0, 0, tempCanvas.width, tempCanvas.height);
-        inputCanvas = tempCanvas;
-      }
-      if (
-        !(inputCanvas instanceof HTMLCanvasElement) ||
-        !inputCanvas.width ||
-        !inputCanvas.height ||
-        !inputCanvas.getContext('2d')
-      ) {
-        console.warn('Calibration: Invalid canvas for inference', inputCanvas);
-        return [];
-      }
-      let imgBitmap = null;
-      try {
-        imgBitmap = await createImageBitmap(inputCanvas);
-      } catch (e) {
-        console.warn('Failed to create ImageBitmap for inference', e);
-        return [];
-      }
-      const img = new CVImage(imgBitmap);
-      return await inferEngine.infer(modelWorkerId, img);
-    };
-
-    // Helper to allow retaking the frame
-    let staticFrame = null;
-    const takeCalibrationFrame = () => {
-      if (!videoRef.current || !videoRef.current.videoWidth || !videoRef.current.videoHeight) return null;
-      const staticCanvas = document.createElement('canvas');
-      staticCanvas.width = videoRef.current.videoWidth;
-      staticCanvas.height = videoRef.current.videoHeight;
-      const staticCtx = staticCanvas.getContext('2d', { willReadFrequently: true });
-      staticCtx.drawImage(videoRef.current, 0, 0, staticCanvas.width, staticCanvas.height);
-      return staticCanvas;
-    };
-
-    // Take initial frame
-    staticFrame = takeCalibrationFrame();
-    if (!staticFrame) {
-      setCalibrationProgress('Failed to capture frame. Please try again.');
-      setCalibrating(false);
-      return;
-    }
-
-    // Run baseline detection to check for guitar and get baseline confidence
-    const baselinePreds = await runInference(staticFrame);
-    const baselineConfidence = (baselinePreds && baselinePreds.length > 0)
-      ? baselinePreds.reduce((a, b) => a + b.confidence, 0) / baselinePreds.length
-      : 0;
-    if (!baselinePreds || baselinePreds.length === 0) {
-      setNoGuitarDetected(true);
-      setCalibrationProgress('NO GUITAR DETECTED');
-      setCalibrating(false);
-      return;
-    }
-
-    setShowCalibrationPrompt(false);
-    setNoGuitarDetected(false);
-
-    // Calibration logic (refactored to allow cancellation and require 80% confidence)
-    let best = { filter: 'none', param: null, avgConfidence: baselineConfidence, baseline: baselineConfidence };
-    const totalSteps = CALIBRATION_FILTERS.reduce((sum, f) => sum + f.params.length, 0);
-    let currentStep = 0;
-    let foundAbove80 = false;
-    for (let i = 0; i < CALIBRATION_FILTERS.length; i++) {
-      const filter = CALIBRATION_FILTERS[i];
-      for (let j = 0; j < filter.params.length; j++) {
-        if (calibrationCancelledRef.current) {
-          setCalibrationProgress('Calibration cancelled.');
-          setCalibrating(false);
-          return;
-        }
-        const param = filter.params[j];
-        currentStep++;
-        const percent = Math.round((currentStep / totalSteps) * 100);
-        const text = `Applying ${filter.name} (${param})...`;
-        setCalibrationProgress({ percent, text });
-        const avgConfidence = await (async () => {
-          // Work on a copy of the static frame
-          const testCanvas = document.createElement('canvas');
-          testCanvas.width = staticFrame.width;
-          testCanvas.height = staticFrame.height;
-          const testCtx = testCanvas.getContext('2d', { willReadFrequently: true });
-          testCtx.drawImage(staticFrame, 0, 0, testCanvas.width, testCanvas.height);
-          if (filter.apply) filter.apply(testCtx, param);
-          try {
-            const predictions = await runInference(testCanvas);
-            if (predictions && predictions.length > 0) {
-              const avg = predictions.reduce((a, b) => a + b.confidence, 0) / predictions.length;
-              return avg;
-            }
-          } catch (e) {
-            console.warn('Calibration inference error:', e);
-          }
-          return 0;
-        })();
-        setCalibrationProgress({ percent, text: `Filter: ${filter.name} (${param}) - Avg confidence: ${(avgConfidence * 100).toFixed(1)}%` });
-        if (avgConfidence > best.avgConfidence) {
-          best = { filter: filter.name, param, avgConfidence: avgConfidence, baseline: baselineConfidence };
-        }
-        if (avgConfidence >= 0.8) {
-          foundAbove80 = true;
-        }
-      }
-    }
-    setCalibrationResult(best);
-    if (foundAbove80) {
-      setCalibrationProgress('Calibration complete! (Found filter with confidence >= 80%)');
-      setCalibratedFilter(best);
-      setCalibrationDone(true);
-      localStorage.setItem('calibratedFilter', JSON.stringify(best));
-    } else {
-      setCalibrationProgress('Calibration failed: No filter achieved confidence >= 80%. Please adjust lighting or guitar position and try again.');
-      setCalibratedFilter(null);
-      setCalibrationDone(false);
-    }
-    setCalibrating(false);
-  }
-
-  function handleStopCalibration() {
-    calibrationCancelledRef.current = true;
-    setCalibrating(false);
-    setCalibrationProgress('Calibration cancelled.');
-  }
-
-  function handleRetakeFrame() {
-    setShowCalibrationPrompt(true);
-    setNoGuitarDetected(false);
-    setCalibrationProgress('');
-    setCalibrationResult(null);
-    setCalibrationDone(false);
-  }
-
-  function handleOverrideConfirm(confirm) {
-    setShowOverridePrompt(false);
-    if (confirm) {
-      setShowCalibrationPrompt(true);
-      setNoGuitarDetected(false);
-      setCalibrationProgress('');
-      setCalibrationResult(null);
-      setCalibrationDone(false);
-    }
-  }
-
-  // Inference loop
   useEffect(() => {
     if (!modelWorkerId) return;
     let running = true;
@@ -298,27 +52,24 @@ function PlayAlongOverlay() {
       if (!running) return;
       const img = new CVImage(videoRef.current);
       inferEngine.infer(modelWorkerId, img).then((predictions) => {
-        // Only keep fret detections
-        setLastFrets(predictions);
         drawOverlay(predictions);
-        setTimeout(detectFrame, 1000 / 6); // ~6 FPS
+        setTimeout(detectFrame, 1000 / 6);
       });
     };
     detectFrame();
     return () => { running = false; };
     // eslint-disable-next-line
-  }, [modelWorkerId]);
+  }, [modelWorkerId, arpeggioNotes, currentStep]);
 
-  // Overlay logic (copied from GuitarObjDetection, minus scale controls)
   function drawOverlay(predictions) {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, FRETBOARD_WIDTH, FRETBOARD_HEIGHT);
-
-    // Filter out hand detections and only show predictions with confidence > 0.8
-    const filteredPredictions = predictions.filter(pred => pred.class !== 'Hand' && pred.confidence > 0.8);
-
-    // Heuristic Rotation Correction
+    // Debug logs for props
+    console.log('[DEBUG] highlightedNotes:', highlightedNotes);
+    console.log('[DEBUG] arpeggioNotes:', arpeggioNotes);
+    console.log('[DEBUG] currentStep:', currentStep);
+    const filteredPredictions = predictions.filter(pred => pred.class !== 'Hand');
     const fretCenters = filteredPredictions.map(pred => ({
       x: pred.bbox.x,
       y: pred.bbox.y
@@ -333,17 +84,21 @@ function PlayAlongOverlay() {
       const slope = den !== 0 ? num / den : 0;
       angle = Math.atan(slope);
     }
-
-    // Dynamic scaling for distance
-    let avgFretHeight = 60;
+    // --- Dynamic Scaling for Distance ---
+    let avgFretHeight = 60; // default
     if (filteredPredictions.length > 0) {
       avgFretHeight = filteredPredictions.reduce((sum, pred) => sum + pred.bbox.height, 0) / filteredPredictions.length;
     }
-    const scaleFactor = Math.max(0.5, Math.min(1.5, avgFretHeight / 60));
-    const dotRadius = 6 * scaleFactor;
-    const fontSize = 9 * scaleFactor;
-
-    // Draw all detected frets/zones
+    // Make everything smaller
+    const scaleFactor = Math.max(0.4, Math.min(1.0, avgFretHeight / 90));
+    const rootRadius = 4 * scaleFactor + 4;
+    const arpeggioRadius = 8 * scaleFactor + 6;
+    const defaultRadius = 5 * scaleFactor + 3;
+    const fontSize = 8 * scaleFactor + 7;
+    // Encapsulate all displayed notes
+    const displayedNotes = [];
+    const safeHighlightedNotes = Array.isArray(highlightedNotes) ? highlightedNotes : [];
+    const safeArpeggioNotes = Array.isArray(arpeggioNotes) ? arpeggioNotes : [];
     for (let i = 0; i < filteredPredictions.length; i++) {
       const prediction = filteredPredictions[i];
       let fretNum = 0;
@@ -356,31 +111,78 @@ function PlayAlongOverlay() {
       }
       if (isNaN(fretNum)) fretNum = i + 1;
       if (fretNum < 1) continue;
-
       let xCenter = prediction.bbox.x;
       let yCenter = prediction.bbox.y;
       let width = prediction.bbox.width;
       let height = prediction.bbox.height;
-
       for (let stringIdx = 0; stringIdx < 6; stringIdx++) {
+        // stringIdx=0 is top (6th string, low E), stringIdx=5 is bottom (1st string, high E)
         let yString = yCenter - height / 2 + (stringIdx * height) / 5;
         let xFret = xCenter;
         let dx = 0;
         let dy = yString - yCenter;
         let xRot = xCenter + dx * Math.cos(angle) - dy * Math.sin(angle);
         let yRot = yCenter + dx * Math.sin(angle) + dy * Math.cos(angle);
-
+        let noteName = getNoteAtPosition(stringIdx, fretNum);
+        // For arpeggio/highlight matching, map stringIdx so 0 is bottom (high E), 5 is top (low E)
+        const arpeggioStringIdx = 5 - stringIdx;
+        // Highlight if in highlightedNotes (compare using arpeggioStringIdx)
+        let isHighlighted = safeHighlightedNotes.some(n => n && n.fretNum === fretNum && n.stringIdx === arpeggioStringIdx);
+        let isArpeggio = false;
+        let isRoot = false;
+        if (safeArpeggioNotes && safeArpeggioNotes.length > 0 && currentStep < safeArpeggioNotes.length) {
+          const step = safeArpeggioNotes[currentStep];
+          isArpeggio = step && (step.fretNum === fretNum && step.stringIdx === arpeggioStringIdx);
+          isRoot = step && step.isRoot && isArpeggio;
+        }
+        // For open string, draw just right of Fret 1 (higher x value, estimate by angle)
+        let drawX = xRot;
+        if (fretNum === 1 && safeArpeggioNotes.some(n => n && n.fretNum === 0 && n.stringIdx === arpeggioStringIdx)) {
+          // Find the open string note for this string
+          const openStep = safeArpeggioNotes.find(n => n && n.fretNum === 0 && n.stringIdx === arpeggioStringIdx);
+          if (openStep) {
+            // Draw open string note just right of Fret 1
+            // Estimate offset: project along the fretboard's angle
+            const offset = width * 0.7;
+            drawX = xRot + offset * Math.cos(angle);
+            // If this is the open string note, highlight accordingly
+            isHighlighted = safeHighlightedNotes.some(n => n && n.fretNum === 0 && n.stringIdx === arpeggioStringIdx);
+            isArpeggio = (safeArpeggioNotes[currentStep]?.fretNum === 0 && safeArpeggioNotes[currentStep]?.stringIdx === arpeggioStringIdx);
+            isRoot = openStep.isRoot && isArpeggio;
+            noteName = getNoteAtPosition(stringIdx, 0);
+          }
+        }
+        // Only debug log for first fret when highlighting during Play
+        if (fretNum === 1 && isHighlighted && safeHighlightedNotes.length > 0) {
+          console.log(`[DEBUG PLAY HIGHLIGHT] stringIdx=${stringIdx} (arpeggioStringIdx=${arpeggioStringIdx}), fretNum=${fretNum}, noteName=${noteName}, isHighlighted=${isHighlighted}, highlightedNotes=`, safeHighlightedNotes);
+        }
+        // Store the note for later reference
+        displayedNotes.push({
+          fretNum: fretNum === 1 && safeArpeggioNotes.some(n => n && n.fretNum === 0 && n.stringIdx === arpeggioStringIdx) ? 0 : fretNum,
+          stringIdx,
+          noteName,
+          x: drawX,
+          y: yRot,
+          isArpeggio,
+          isRoot,
+          isHighlighted
+        });
         ctx.beginPath();
-        ctx.arc(xRot, yRot, dotRadius, 0, 2 * Math.PI);
-        ctx.fillStyle = '#1976d2';
+        ctx.arc(drawX, yRot, isHighlighted ? arpeggioRadius : (isRoot ? rootRadius : defaultRadius), 0, 2 * Math.PI);
+        ctx.fillStyle = isHighlighted ? '#FFD600' : (isRoot ? '#e53935' : '#1976d2');
+        ctx.globalAlpha = isHighlighted ? 1 : 0.85;
         ctx.fill();
-        ctx.closePath();
-
-        ctx.font = `${fontSize}px monospace`;
-        ctx.fillStyle = 'white';
-        ctx.fillText(`F${fretNum}`, xRot + 7 * scaleFactor, yRot + 3 * scaleFactor);
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = isHighlighted ? 3 : 1.5;
+        ctx.stroke();
+        ctx.font = isHighlighted ? `bold ${fontSize + 2}px Arial` : (isRoot ? `bold ${fontSize}px Arial` : `bold ${fontSize - 1}px Arial`);
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'center';
+        ctx.fillText(noteName, drawX, yRot + 4);
       }
     }
+    displayedNotesRef.current = displayedNotes;
   }
 
   return (
