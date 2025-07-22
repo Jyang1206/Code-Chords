@@ -19,11 +19,30 @@ export async function calibrateDetection(videoEl, runInference, filters, onProgr
     const confidences = [];
     const start = Date.now();
     while (Date.now() - start < 2000) { // 2 seconds per test
+      // Defensive: Only draw if video and canvas are valid
+      if (
+        !videoEl ||
+        !videoEl.videoWidth ||
+        !videoEl.videoHeight ||
+        !canvas ||
+        !canvas.width ||
+        !canvas.height
+      ) {
+        await new Promise(r => setTimeout(r, 100));
+        continue;
+      }
       ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
       if (filterApply) filterApply(ctx);
-      const predictions = await runInference(canvas);
-      if (predictions && predictions.length > 0) {
-        confidences.push(...predictions.map(p => p.confidence));
+      // Defensive: Only run inference if canvas is valid
+      if (canvas.width && canvas.height) {
+        try {
+          const predictions = await runInference(canvas);
+          if (predictions && predictions.length > 0) {
+            confidences.push(...predictions.map(p => p.confidence));
+          }
+        } catch (e) {
+          console.warn('Calibration inference error:', e);
+        }
       }
       await new Promise(r => setTimeout(r, 100)); // 10 fps
     }
@@ -38,12 +57,22 @@ export async function calibrateDetection(videoEl, runInference, filters, onProgr
   best.baseline = best.avgConfidence;
 
   // For each filter
-  for (const filter of filters) {
-    for (const param of filter.params) {
-      onProgress?.(`Testing ${filter.name} param ${param}...`);
-      const avgConf = await getAvgConfidence(ctx => filter.apply(ctx, param));
-      if (avgConf > best.avgConfidence) {
-        best = { filter: filter.name, param, avgConfidence: avgConf, baseline: best.baseline };
+  const totalSteps = filters.reduce((sum, f) => sum + f.params.length, 0);
+  let currentStep = 0;
+  for (let i = 0; i < filters.length; i++) {
+    const filter = filters[i];
+    for (let j = 0; j < filter.params.length; j++) {
+      const param = filter.params[j];
+      currentStep++;
+      const percent = Math.round((currentStep / totalSteps) * 100);
+      const text = `Applying ${filter.name} (${param})...`;
+      onProgress && onProgress({ percent, text });
+      console.log(`Applying filter: ${filter.name} (${param})`);
+      const avgConfidence = await getAvgConfidence(ctx => filter.apply(ctx, param));
+      console.log(`Avg confidence for ${filter.name} (${param}): ${avgConfidence}`);
+      onProgress && onProgress({ percent, text: `Filter: ${filter.name} (${param}) - Avg confidence: ${avgConfidence.toFixed(3)}` });
+      if (avgConfidence > best.avgConfidence) {
+        best = { filter: filter.name, param, avgConfidence: avgConfidence, baseline: best.baseline };
       }
     }
   }

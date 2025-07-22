@@ -74,6 +74,10 @@ function GuitarObjDetection() {
   const [filter, setFilter] = useState('none');
   const FILTERS = ['none', 'grayscale', 'brightness', 'contrast', 'invert'];
 
+  // Add state to track calibration status and selected filter
+  const [calibrationDone, setCalibrationDone] = useState(false);
+  const [calibratedFilter, setCalibratedFilter] = useState(null);
+
   // --- Streaming state ---
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamStatus, setStreamStatus] = useState("Ready to start video stream");
@@ -129,6 +133,11 @@ function GuitarObjDetection() {
         .then((id) => setModelWorkerId(id));
     }
   }, [inferEngine, modelLoading]);
+
+  // After model is loaded (wherever modelWorkerId or inferEngine is set):
+  if (modelWorkerId && inferEngine) {
+    console.log('Model loaded:', modelWorkerId);
+  }
 
   // Only start webcam when user clicks start
   useEffect(() => {
@@ -335,7 +344,8 @@ function GuitarObjDetection() {
     }
   };
 
-  const applyFilterAndPreprocess = () => {
+  // --- Modified applyFilterAndPreprocess to accept a filter param ---
+  const applyFilterAndPreprocess = (filterOverride = null) => {
     if (!preprocessedCanvasRef.current || !videoRef.current || videoRef.current.paused || videoRef.current.ended) {
       return;
     }
@@ -349,58 +359,62 @@ function GuitarObjDetection() {
     preprocessedCanvasRef.current.height = height;
     preprocessedCtx.drawImage(videoRef.current, 0, 0, width, height);
 
-    if (filter === 'none') return;
+    // Use the calibrated filter if provided
+    const filterToApply = filterOverride ? filterOverride.filter : filter;
+    const paramToApply = filterOverride ? filterOverride.param : null;
+
+    if (filterToApply === 'none') return;
     
     const imageData = preprocessedCtx.getImageData(0, 0, width, height);
     const data = imageData.data;
 
-    for (let i = 0; i < data.length; i += 4) {
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
-
-      switch (filter) {
-        case 'grayscale':
-          const avg = (r + g + b) / 3;
+    switch (filterToApply) {
+      case 'grayscale':
+        for (let i = 0; i < data.length; i += 4) {
+          const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
           data[i] = data[i + 1] = data[i + 2] = avg;
-          break;
-        case 'brightness':
-          const brightness = 50;
-          data[i] = Math.min(255, r + brightness);
-          data[i + 1] = Math.min(255, g + brightness);
-          data[i + 2] = Math.min(255, b + brightness);
-          break;
-        case 'contrast':
-          const contrast = 50;
-          const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
-          data[i] = Math.max(0, Math.min(255, factor * (r - 128) + 128));
-          data[i + 1] = Math.max(0, Math.min(255, factor * (g - 128) + 128));
-          data[i + 2] = Math.max(0, Math.min(255, factor * (b - 128) + 128));
-          break;
-        case 'invert':
-          data[i] = 255 - r;
-          data[i + 1] = 255 - g;
-          data[i + 2] = 255 - b;
-          break;
-        default:
-          break;
-      }
+        }
+        break;
+      case 'brightness':
+        const brightness = paramToApply !== null ? paramToApply : 50;
+        for (let i = 0; i < data.length; i += 4) {
+          data[i] = Math.min(255, data[i] + brightness);
+          data[i + 1] = Math.min(255, data[i + 1] + brightness);
+          data[i + 2] = Math.min(255, data[i + 2] + brightness);
+        }
+        break;
+      case 'contrast':
+        const contrast = paramToApply !== null ? paramToApply : 50;
+        const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+        for (let i = 0; i < data.length; i += 4) {
+          data[i] = Math.max(0, Math.min(255, factor * (data[i] - 128) + 128));
+          data[i + 1] = Math.max(0, Math.min(255, factor * (data[i + 1] - 128) + 128));
+          data[i + 2] = Math.max(0, Math.min(255, factor * (data[i + 2] - 128) + 128));
+        }
+        break;
+      case 'invert':
+        for (let i = 0; i < data.length; i += 4) {
+          data[i] = 255 - data[i];
+          data[i + 1] = 255 - data[i + 1];
+          data[i + 2] = 255 - data[i + 2];
+        }
+        break;
+      default:
+        break;
     }
     preprocessedCtx.putImageData(imageData, 0, 0);
   };
 
-  // Modified detectFrame to include preprocessing
+  // --- Modified detectFrame to use calibrated filter ---
   const detectFrame = (forceRedraw = false) => {
-    if (!modelWorkerId) {
-      setTimeout(() => detectFrame(forceRedraw), 100 / 3);
+    if (!modelWorkerId || !calibrationDone || calibrating) {
       return;
     }
-
     // Always update the preprocessed canvas
-    applyFilterAndPreprocess();
+    applyFilterAndPreprocess(calibratedFilter);
 
     if (forceRedraw) {
-      if (window._lastPredictions) {
+      if (window._lastPredictions && calibrationDone && !calibrating) {
         if (!canvasRef.current) return;
         drawOverlay(window._lastPredictions);
       }
@@ -409,10 +423,13 @@ function GuitarObjDetection() {
     }
 
     if (!canvasRef.current) return;
-    const img = new CVImage(videoRef.current);
+    const img = new CVImage(preprocessedCanvasRef.current);
     inferEngine.infer(modelWorkerId, img).then((predictions) => {
+      console.log('Predictions:', predictions);
       window._lastPredictions = predictions;
-      drawOverlay(predictions);
+      if (calibrationDone && !calibrating) {
+        drawOverlay(predictions);
+      }
       setTimeout(detectFrame, 100 / 3); // Inference loop
     });
   };
@@ -439,16 +456,40 @@ function GuitarObjDetection() {
   const [calibrationProgress, setCalibrationProgress] = useState('');
   const [calibrationResult, setCalibrationResult] = useState(null);
 
-  // Calibration handler
+  // --- Inference Loop Control ---
+  useEffect(() => {
+    // Only run detectFrame if streaming and calibration is done and not calibrating
+    if (isStreaming && calibrationDone && !calibrating) {
+      detectFrame();
+    }
+    // eslint-disable-next-line
+  }, [isStreaming, calibrationDone, calibrating, calibratedFilter, modelWorkerId]);
+
+  // --- Calibration handler ---
   async function handleCalibration() {
     setCalibrating(true);
     setCalibrationProgress('Starting calibration...');
     setCalibrationResult(null);
+    setCalibrationDone(false);
     // Use the same inference function as your main detection
-    const runInference = async (canvas) => {
-      // Use the same modelWorkerId and inferEngine as in detectFrame
+    const runInference = async (canvasOrVideo) => {
       if (!modelWorkerId) return [];
-      const img = new CVImage(canvas);
+      let inputCanvas = canvasOrVideo;
+      // If a video element is passed, draw it to a temp canvas
+      if (inputCanvas instanceof HTMLVideoElement) {
+        if (!inputCanvas.videoWidth || !inputCanvas.videoHeight) return [];
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = inputCanvas.videoWidth;
+        tempCanvas.height = inputCanvas.videoHeight;
+        const ctx = tempCanvas.getContext('2d');
+        ctx.drawImage(inputCanvas, 0, 0, tempCanvas.width, tempCanvas.height);
+        inputCanvas = tempCanvas;
+      }
+      if (!inputCanvas || !inputCanvas.width || !inputCanvas.height) {
+        console.warn('Calibration: Invalid canvas for inference', inputCanvas);
+        return [];
+      }
+      const img = new CVImage(inputCanvas);
       return await inferEngine.infer(modelWorkerId, img);
     };
     try {
@@ -456,12 +497,15 @@ function GuitarObjDetection() {
         videoRef.current,
         runInference,
         CALIBRATION_FILTERS,
-        (msg) => setCalibrationProgress(msg)
+        (msg) => setCalibrationProgress({ percent: msg.percent, text: msg.text })
       );
       setCalibrationResult(result);
       setCalibrationProgress('Calibration complete!');
+      setCalibratedFilter(result);
+      setCalibrationDone(true);
     } catch (e) {
       setCalibrationProgress('Calibration failed: ' + e.message);
+      setCalibrationDone(false);
     }
     setCalibrating(false);
   }
@@ -475,7 +519,17 @@ function GuitarObjDetection() {
             <button className="start-btn" onClick={handleCalibration} disabled={calibrating}>
               {calibrating ? 'Calibrating...' : 'Start Calibration'}
             </button>
-            {calibrationProgress && <div style={{ marginTop: 8 }}>{calibrationProgress}</div>}
+            {/* Space-themed progress bar */}
+            {calibrating && (
+              <div style={{ margin: '16px auto', width: 320, maxWidth: '90%' }}>
+                <div className="space-progress-bar-bg">
+                  <div className="space-progress-bar-fill" style={{ width: `${(calibrationProgress && calibrationProgress.percent) || 0}%` }} />
+                </div>
+                <div style={{ marginTop: 6, color: 'var(--space-accent)', fontSize: 14, fontFamily: 'monospace' }}>
+                  {typeof calibrationProgress === 'object' && calibrationProgress !== null ? calibrationProgress.text : calibrationProgress}
+                </div>
+              </div>
+            )}
             {calibrationResult && (
               <div style={{ marginTop: 12, color: 'var(--space-accent)' }}>
                 <strong>Best Filter:</strong> {calibrationResult.filter} {calibrationResult.param !== null ? `(${calibrationResult.param})` : ''}<br/>
