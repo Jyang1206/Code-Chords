@@ -2,7 +2,18 @@ import { InferenceEngine, CVImage } from "inferencejs";
 import { useEffect, useRef, useState, useMemo, useContext } from "react";
 import { ThemeContext } from "../App";
 import "../css/GuitarObjDetection.css";
-import AudioPitchDetector from "./AudioPitchDetector";
+import AudioPitchDetector from "../utils/AudioPitchDetector";
+import {
+  adjustBrightnessContrast,
+  gammaCorrection,
+  gaussianBlur,
+  sharpen,
+  grayscale,
+  histogramEqualization,
+  clahe,
+  colorNormalization,
+  autoWhiteBalance
+} from "../utils/imagePreprocessing";
 
 // --- Fretboard Logic ---
 const ALL_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -57,6 +68,9 @@ function GuitarObjDetection() {
   const videoRef = useRef();
   const canvasRef = useRef();
 
+  // Create an offscreen canvas for preprocessing
+  const offscreenCanvasRef = useRef();
+
   // --- Streaming state ---
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamStatus, setStreamStatus] = useState("Ready to start video stream");
@@ -69,14 +83,36 @@ function GuitarObjDetection() {
   const [selectedScale, setSelectedScale] = useState('major');
   const scaleNotes = useMemo(() => getScaleNotes(selectedRoot, selectedScale), [selectedRoot, selectedScale]);
 
+  // --- Preprocessing Controls State ---
+  const [preprocessingOptions, setPreprocessingOptions] = useState({
+    adjustBrightnessContrast: false,
+    gammaCorrection: false,
+    gaussianBlur: false,
+    sharpen: false,
+    grayscale: false,
+    histogramEqualization: false,
+    clahe: false,
+    colorNormalization: false,
+    autoWhiteBalance: false,
+  });
+
+  const handlePreprocessingChange = (option) => {
+    setPreprocessingOptions(prev => ({ ...prev, [option]: !prev[option] }));
+  };
+
   // --- Fix: Use refs to always access latest state in async callbacks ---
   const selectedRootRef = useRef(selectedRoot);
   const selectedScaleRef = useRef(selectedScale);
   const scaleNotesRef = useRef(scaleNotes);
+  const preprocessingOptionsRef = useRef(preprocessingOptions);
   useEffect(() => { selectedRootRef.current = selectedRoot; }, [selectedRoot]);
   useEffect(() => { selectedScaleRef.current = selectedScale; }, [selectedScale]);
   useEffect(() => { scaleNotesRef.current = scaleNotes; }, [scaleNotes]);
+  useEffect(() => { preprocessingOptionsRef.current = preprocessingOptions; }, [preprocessingOptions]);
   // --- End fix ---
+
+  // --- Confidence Tracking ---
+  const confidenceStatsRef = useRef({ sum: 0, count: 0 });
 
   useEffect(() => {
     if (!modelLoading) {
@@ -200,9 +236,45 @@ function GuitarObjDetection() {
       return;
     }
 
-    const img = new CVImage(videoRef.current);
+    // 1. Draw current video frame to an offscreen canvas for preprocessing
+    let offscreen = offscreenCanvasRef.current;
+    if (!offscreen) {
+      offscreen = document.createElement('canvas');
+      offscreen.width = videoRef.current.videoWidth;
+      offscreen.height = videoRef.current.videoHeight;
+      offscreenCanvasRef.current = offscreen;
+    }
+    const offCtx = offscreen.getContext('2d');
+    offCtx.drawImage(videoRef.current, 0, 0, offscreen.width, offscreen.height);
+
+    // 2. Apply active preprocessing filters based on state
+    const options = preprocessingOptionsRef.current;
+    if (options.adjustBrightnessContrast) adjustBrightnessContrast(offCtx, offscreen, 10, 1.1);
+    if (options.gammaCorrection) gammaCorrection(offCtx, offscreen, 1.2);
+    if (options.gaussianBlur) gaussianBlur(offCtx, offscreen);
+    if (options.sharpen) sharpen(offCtx, offscreen);
+    if (options.grayscale) grayscale(offCtx, offscreen);
+    if (options.histogramEqualization) histogramEqualization(offCtx, offscreen);
+    if (options.clahe) clahe(offCtx, offscreen);
+    if (options.colorNormalization) colorNormalization(offCtx, offscreen);
+    if (options.autoWhiteBalance) autoWhiteBalance(offCtx, offscreen);
+
+    // 3. Create CVImage from preprocessed offscreen canvas
+    const img = new CVImage(offscreen);
+
+    // 4. Run inference as before
     inferEngine.infer(modelWorkerId, img).then((predictions) => {
       window._lastPredictions = predictions;
+      // --- Confidence Tracking ---
+      if (predictions && predictions.length > 0) {
+        const avgConf = predictions.reduce((sum, p) => sum + p.confidence, 0) / predictions.length;
+        const stats = confidenceStatsRef.current;
+        stats.sum += avgConf;
+        stats.count += 1;
+        const runningAvg = stats.sum / stats.count;
+        console.log(`[Detection] Frame avg confidence: ${avgConf.toFixed(3)} | Running avg: ${runningAvg.toFixed(3)}`);
+      }
+      // --- End Confidence Tracking ---
       drawOverlay(predictions);
       setTimeout(detectFrame, 100 / 3);
     });
@@ -450,6 +522,23 @@ function GuitarObjDetection() {
             <div className="guitar-scale-notes">
               Notes: {scaleNotes.join(', ')}
             </div>
+          </div>
+        </div>
+
+        {/* --- Preprocessing Controls --- */}
+        <div className="guitar-preprocessing-controls">
+          <h3>Preprocessing Controls</h3>
+          <div className="guitar-preprocessing-toggles">
+            {Object.keys(preprocessingOptions).map(option => (
+              <button
+                key={option}
+                className={`guitar-preprocessing-btn${preprocessingOptions[option] ? ' active' : ''}`}
+                onClick={() => handlePreprocessingChange(option)}
+              >
+                {/* Format name for display, e.g., 'autoWhiteBalance' -> 'Auto White Balance' */}
+                {option.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+              </button>
+            ))}
           </div>
         </div>
       </div>
