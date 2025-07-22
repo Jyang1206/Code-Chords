@@ -1,6 +1,6 @@
 import React, { useRef, useState } from "react";
 import YouTube from "react-youtube";
-import "./YouTubePlayer.css";
+import "../css/YouTubePlayer.css";
 
 const getYouTubeId = (url) => {
   // Extracts the video ID from a YouTube URL

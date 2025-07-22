@@ -17,6 +17,28 @@
   --cosmic-star: #ffee91;
   --cosmic-nebula: #7ed6df;
   --cosmic-shadow: #23234b;
+  --space-bg: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
+  --space-bg-light: linear-gradient(120deg, #a18cd1 0%, #fbc2eb 100%);
+  --space-star: #ffee91;
+  --space-accent: #a18cd1;
+  --space-accent2: #fbc2eb;
+  --space-nebula: #7ed6df;
+  --space-shadow: #23234b;
+  --space-purple: #764ba2;
+  --space-blue: #667eea;
+  --space-gold: #ffee91;
+  --space-pink: #fbc2eb;
+  --space-card-bg: rgba(30, 30, 60, 0.85);
+  --space-card-bg-light: rgba(255,255,255,0.85);
+  --space-border: #a18cd1;
+  --space-glow: 0 0 16px #a18cd1, 0 0 32px #764ba2;
+  --space-btn-bg: linear-gradient(135deg, #667eea, #764ba2);
+  --space-btn-bg-light: linear-gradient(135deg, #a18cd1, #fbc2eb);
+  --space-btn-hover: linear-gradient(135deg, #5a6eea, #6c3ba2);
+  --space-btn-hover-light: linear-gradient(135deg, #a18cd1, #fbc2eb);
+  --space-text: #e0e6f7;
+  --space-text-light: #23234b;
+  --space-star-bg: url('https://www.transparenttextures.com/patterns/stardust.png');
 }
 
 * {
@@ -34,27 +56,24 @@ body {
   width: 100%;
   min-height: 100vh;
   position: relative;
-  background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%) fixed;
-  color: #e0e6f7;
+  background: var(--space-bg);
+  color: var(--space-text);
   min-height: 100vh;
-  background-image: url('https://www.transparenttextures.com/patterns/stardust.png'),
-    linear-gradient(180deg, rgba(20,30,48,0.7) 0%, rgba(36,9,54,0.8) 100%);
+  background-image: var(--space-star-bg), var(--space-bg);
   background-blend-mode: lighten, normal;
 }
 
 body.light-mode, .light-mode #root {
-  background: linear-gradient(120deg, #a18cd1 0%, #fbc2eb 100%) fixed;
-  color: #23234b;
-  background-image: url('https://www.transparenttextures.com/patterns/stardust.png'),
-    linear-gradient(120deg, #fbc2eb 0%, #a6c1ee 100%);
+  background: var(--space-bg-light);
+  color: var(--space-text-light);
+  background-image: var(--space-star-bg), var(--space-bg-light);
   background-blend-mode: lighten, normal;
 }
 
 body.dark-mode, .dark-mode #root {
-  background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%) fixed;
-  color: #e0e6f7;
-  background-image: url('https://www.transparenttextures.com/patterns/stardust.png'),
-    linear-gradient(180deg, rgba(20,30,48,0.7) 0%, rgba(36,9,54,0.8) 100%);
+  background: var(--space-bg);
+  color: var(--space-text);
+  background-image: var(--space-star-bg), var(--space-bg);
   background-blend-mode: lighten, normal;
 }
 
@@ -112,4 +131,68 @@ button:focus-visible {
   button {
     background-color: #f9f9f9;
   }
+}
+
+/* Universal light mode overrides for all major panels, cards, overlays, and buttons */
+.light-mode .guitar-scale-controls,
+.light-mode .guitar-audio-note-panel,
+.light-mode .settings-content,
+.light-mode .card,
+.light-mode .lessons-content,
+.light-mode .learnsongs-content,
+.light-mode .tuner-container,
+.light-mode .ytp-space-container,
+.light-mode .song-card,
+.light-mode .cosmic-profile,
+.light-mode .cosmic-login-form,
+.light-mode .navbar,
+.light-mode .camera-permission-message {
+  background: var(--space-card-bg-light) !important;
+  color: var(--space-shadow) !important;
+  box-shadow: 0 2px 12px var(--space-accent2);
+}
+
+.light-mode .guitar-scale-btn,
+.light-mode .start-btn,
+.light-mode .stop-btn,
+.light-mode .cosmic-login-btn,
+.light-mode .favorite-btn,
+.light-mode .rating-select {
+  background: var(--space-btn-bg-light) !important;
+  color: var(--space-shadow) !important;
+  border-color: var(--space-accent2) !important;
+}
+
+.light-mode .guitar-scale-btn:hover,
+.light-mode .start-btn:hover,
+.light-mode .stop-btn:hover,
+.light-mode .cosmic-login-btn:hover,
+.light-mode .favorite-btn:hover {
+  background: var(--space-btn-hover-light) !important;
+  color: var(--space-accent) !important;
+}
+
+.light-mode .guitar-scale-label-overlay,
+.light-mode .audio-note-label,
+.light-mode .navbar-brand {
+  color: var(--space-accent) !important;
+}
+
+.light-mode .guitar-scale-btn.active,
+.light-mode .song-card:hover,
+.light-mode .navbar-light {
+  background: var(--space-accent2) !important;
+  color: var(--space-shadow) !important;
+}
+
+.light-mode .user-rating,
+.light-mode .audio-note-value,
+.light-mode .ytp-space-speed {
+  color: var(--space-accent) !important;
+}
+
+.light-mode .guitar-scale-notes,
+.light-mode .song-info p,
+.light-mode .read-the-docs {
+  color: var(--space-accent2) !important;
 }
