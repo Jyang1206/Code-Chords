@@ -9,44 +9,32 @@
  * @returns {Promise<{filter: string, param: any, avgConfidence: number, baseline: number}>}
  */
 export async function calibrateDetection(videoEl, runInference, filters, onProgress) {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  canvas.width = videoEl.videoWidth;
-  canvas.height = videoEl.videoHeight;
+  // Capture a single frame from the webcam
+  const staticCanvas = document.createElement('canvas');
+  staticCanvas.width = videoEl.videoWidth;
+  staticCanvas.height = videoEl.videoHeight;
+  const staticCtx = staticCanvas.getContext('2d', { willReadFrequently: true });
+  staticCtx.drawImage(videoEl, 0, 0, staticCanvas.width, staticCanvas.height);
 
-  // Helper to run inference and get average confidence
+  // Helper to run inference and get average confidence for a given filter
   async function getAvgConfidence(filterApply) {
-    const confidences = [];
-    const start = Date.now();
-    while (Date.now() - start < 2000) { // 2 seconds per test
-      // Defensive: Only draw if video and canvas are valid
-      if (
-        !videoEl ||
-        !videoEl.videoWidth ||
-        !videoEl.videoHeight ||
-        !canvas ||
-        !canvas.width ||
-        !canvas.height
-      ) {
-        await new Promise(r => setTimeout(r, 100));
-        continue;
+    // Work on a copy of the static frame
+    const testCanvas = document.createElement('canvas');
+    testCanvas.width = staticCanvas.width;
+    testCanvas.height = staticCanvas.height;
+    const testCtx = testCanvas.getContext('2d', { willReadFrequently: true });
+    testCtx.drawImage(staticCanvas, 0, 0, testCanvas.width, testCanvas.height);
+    if (filterApply) filterApply(testCtx);
+    try {
+      const predictions = await runInference(testCanvas);
+      if (predictions && predictions.length > 0) {
+        const avg = predictions.reduce((a, b) => a + b.confidence, 0) / predictions.length;
+        return avg;
       }
-      ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
-      if (filterApply) filterApply(ctx);
-      // Defensive: Only run inference if canvas is valid
-      if (canvas.width && canvas.height) {
-        try {
-          const predictions = await runInference(canvas);
-          if (predictions && predictions.length > 0) {
-            confidences.push(...predictions.map(p => p.confidence));
-          }
-        } catch (e) {
-          console.warn('Calibration inference error:', e);
-        }
-      }
-      await new Promise(r => setTimeout(r, 100)); // 10 fps
+    } catch (e) {
+      console.warn('Calibration inference error:', e);
     }
-    return confidences.length ? confidences.reduce((a, b) => a + b, 0) / confidences.length : 0;
+    return 0;
   }
 
   let best = { filter: 'none', param: null, avgConfidence: 0 };
