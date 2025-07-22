@@ -26,7 +26,7 @@
   border-radius: 4px;
   transition: background-color 0.2s;
   color: var(--space-star);
-  background: rgba(255,255,255,0.08);
+  background: rgba(16, 1, 1, 0.08);
   box-shadow: 0 1px 4px var(--space-shadow);
 }
 
