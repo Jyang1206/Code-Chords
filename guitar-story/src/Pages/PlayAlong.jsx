@@ -3,19 +3,19 @@ import PlayAlongOverlay from "../components/PlayAlongOverlay";
 
 const ARPEGGIOS = {
   "C Major Triad": [
-    { stringIdx: 5, fretNum: 3, note: "C", isRoot: true }, // 3rd fret, 5th string (A string)
-    { stringIdx: 4, fretNum: 2, note: "E" },               // 2nd fret, 4th string (D string)
-    { stringIdx: 3, fretNum: 0, note: "G" },               // open 3rd string (G string)
+    { stringIdx: 4, fretNum: 3, note: "C", isRoot: true }, // 3rd fret, 5th string (A string)
+    { stringIdx: 3, fretNum: 2, note: "E" },               // 2nd fret, 4th string (D string)
+    { stringIdx: 2, fretNum: 0, note: "G" },               // open 3rd string (G string)
   ],
   "D Major Triad": [
     { stringIdx: 3, fretNum: 0, note: "D", isRoot: true }, // open 4th string (D string)
-    { stringIdx: 2, fretNum: 2, note: "A" },               // 2nd fret, 2nd string (B string)
-    { stringIdx: 1, fretNum: 2, note: "F#" },              // 2nd fret, 1st string (E string)
+    { stringIdx: 2, fretNum: 2, note: "A" },               // 2nd fret, 3rd string (G string)
+    { stringIdx: 1, fretNum: 3, note: "F#" },              // 3rd fret, 2nd string (B string)
   ],
   "G Major Triad": [
-    { stringIdx: 5, fretNum: 2, note: "B" },               // 2nd fret, 5th string (A string)
-    { stringIdx: 4, fretNum: 0, note: "D" },               // open 4th string (D string)
-    { stringIdx: 3, fretNum: 0, note: "G", isRoot: true }, // open 3rd string (G string)
+    { stringIdx: 4, fretNum: 2, note: "B" },               // 2nd fret, 5th string (A string)
+    { stringIdx: 3, fretNum: 0, note: "D" },               // open 4th string (D string)
+    { stringIdx: 2, fretNum: 0, note: "G", isRoot: true }, // open 3rd string (G string)
   ],
 };
 
@@ -81,7 +81,11 @@ function PlayAlong() {
         </button>
       </div>
       <div style={{ position: "relative", width: 640, height: 480, margin: "0 auto" }}>
-        <PlayAlongOverlay arpeggioNote={isPlaying && currentStep ? currentStep : null} />
+        <PlayAlongOverlay
+          highlightedNotes={isPlaying && currentStep ? [{ fretNum: currentStep.fretNum, stringIdx: currentStep.stringIdx }] : []}
+          arpeggioNotes={arpeggioSteps}
+          currentStep={currentStepIdx}
+        />
       </div>
       <div style={{ fontSize: "1.5em", marginTop: "2em" }}>
         {isPlaying && currentStep
