@@ -1,7 +1,5 @@
 import React, { useEffect, useRef, useMemo } from "react";
 import { InferenceEngine, CVImage } from "inferencejs";
-import { CALIBRATION_FILTERS } from '../utils/calibrationUtils';
-import { applyFilterChainToCanvas } from '../utils/imagePreprocessing';
 
 const ALL_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const OPEN_STRINGS = ['E', 'A', 'D', 'G', 'B', 'E']; // 6th to 1st string
@@ -50,32 +48,9 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
   useEffect(() => {
     if (!modelWorkerId) return;
     let running = true;
-    const detectFrame = async () => {
+    const detectFrame = () => {
       if (!running) return;
-      // Get calibrated filterChain from localStorage
-      let filterChain = [];
-      try {
-        const saved = JSON.parse(localStorage.getItem('calibratedFilter') || 'null');
-        if (saved && Array.isArray(saved.filterChain)) filterChain = saved.filterChain;
-      } catch {}
-      // Draw video to temp canvas and apply filter chain
-      const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = videoRef.current.videoWidth || FRETBOARD_WIDTH;
-      tempCanvas.height = videoRef.current.videoHeight || FRETBOARD_HEIGHT;
-      const ctx = tempCanvas.getContext('2d');
-      ctx.drawImage(videoRef.current, 0, 0, tempCanvas.width, tempCanvas.height);
-      if (filterChain.length > 0) {
-        applyFilterChainToCanvas(ctx, filterChain, CALIBRATION_FILTERS);
-      }
-      let imgBitmap = null;
-      try {
-        imgBitmap = await createImageBitmap(tempCanvas);
-      } catch (e) {
-        console.warn('Failed to create ImageBitmap for inference', e);
-        setTimeout(detectFrame, 1000 / 6);
-        return;
-      }
-      const img = new CVImage(imgBitmap);
+      const img = new CVImage(videoRef.current);
       inferEngine.infer(modelWorkerId, img).then((predictions) => {
         drawOverlay(predictions);
         setTimeout(detectFrame, 1000 / 6);
@@ -212,76 +187,6 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
 
   return (
     <div style={{ position: "relative", width: FRETBOARD_WIDTH, height: FRETBOARD_HEIGHT, margin: "0 auto" }}>
-      {showCalibrationPrompt && !calibrating && (
-        <div style={{ marginBottom: 24, textAlign: 'center', color: '#b388ff' }}>
-          <div style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 8 }}>Please put your guitar in frame before calibrating.</div>
-          <button className="start-btn" onClick={handleCalibration} disabled={calibrating}>
-            Start Calibration
-          </button>
-        </div>
-      )}
-      {showOverridePrompt && (
-        <div className="calibration-override-prompt" style={{ textAlign: 'center', marginBottom: 24 }}>
-          <div style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 8 }}>
-            Are you sure you want to recalibrate?
-          </div>
-          <button className="start-btn" onClick={() => handleOverrideConfirm(true)} style={{ marginRight: 12 }}>Yes, recalibrate</button>
-          <button className="stop-btn" onClick={() => handleOverrideConfirm(false)}>Cancel</button>
-        </div>
-      )}
-      {calibrating && (
-        <div style={{ marginBottom: 24, textAlign: 'center' }}>
-          <button className="stop-btn" onClick={handleStopCalibration} style={{ marginRight: 12 }}>
-            Stop Calibration
-          </button>
-          <div style={{ margin: '16px auto', width: 320, maxWidth: '90%' }}>
-            <div className="space-progress-bar-bg">
-              <div className="space-progress-bar-fill" style={{ width: `${(calibrationProgress && calibrationProgress.percent) || 0}%` }} />
-            </div>
-            <div style={{ marginTop: 6, color: '#b388ff', fontSize: 14, fontFamily: 'monospace' }}>
-              {typeof calibrationProgress === 'object' && calibrationProgress !== null ? calibrationProgress.text : calibrationProgress}
-            </div>
-          </div>
-        </div>
-      )}
-      {calibrationResult && calibrationDone && (
-        <div style={{ marginBottom: 24, textAlign: 'center' }}>
-          <button className="start-btn" onClick={handleRetakeFrame}>
-            Retake Calibration Frame
-          </button>
-          <div style={{ marginTop: 12, color: '#b388ff' }}>
-            <strong>Baseline (No Preprocessing):</strong> {calibrationResult.baseline ? (calibrationResult.baseline * 100).toFixed(1) + '%' : '--'}<br/>
-            <strong>Best Filter:</strong> {calibrationResult.filter} {calibrationResult.param !== null ? `(${calibrationResult.param})` : ''}<br/>
-            <strong>Avg Confidence After Preprocessing:</strong> {calibrationResult.avgConfidence ? (calibrationResult.avgConfidence * 100).toFixed(1) + '%' : '--'}
-          </div>
-        </div>
-      )}
-      {noGuitarDetected && (
-        <div style={{ color: 'red', marginTop: 12, fontWeight: 'bold', textAlign: 'center' }}>NO GUITAR DETECTED</div>
-      )}
-      {calibrationProgress && !calibrationDone && !calibrating && calibrationProgress.toString().includes('No filter achieved confidence') && (
-        <div style={{
-          color: 'red',
-          background: 'rgba(255,255,255,0.08)',
-          border: '2px solid #ff61a6',
-          borderRadius: 12,
-          padding: '16px 24px',
-          margin: '24px auto',
-          maxWidth: 420,
-          fontWeight: 'bold',
-          fontSize: 18,
-          textAlign: 'center',
-          boxShadow: '0 0 16px 2px #ff61a6'
-        }}>
-          Calibration failed: No filter achieved confidence ≥ 80%.<br/>
-          <span style={{ color: '#fff' }}>Please move to a location with better lighting and try again.</span>
-          <div style={{ marginTop: 16 }}>
-            <button className="start-btn" onClick={() => setShowOverridePrompt(true)}>
-              Retry Calibration
-            </button>
-          </div>
-        </div>
-      )}
       <video
         ref={videoRef}
         width={FRETBOARD_WIDTH}
