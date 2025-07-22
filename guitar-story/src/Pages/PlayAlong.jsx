@@ -34,8 +34,8 @@ const CHORDS_ORIGINAL = {
     { stringIdx: 5, fretNum: 0 }, // 1st string (high E)
   ],
   "D Major": [
-    { stringIdx: 0, fretNum: 0 }, // 6th string (low E, not played)
-    { stringIdx: 1, fretNum: 0 }, // 5th string (A, not played)
+    { stringIdx: 0, fretNum: 0, mute: true }, // 6th string (low E, not played)
+    { stringIdx: 1, fretNum: 0, mute: true }, // 5th string (A, not played)
     { stringIdx: 2, fretNum: 0 }, // 4th string (D)
     { stringIdx: 3, fretNum: 2 }, // 3rd string (G)
     { stringIdx: 4, fretNum: 3 }, // 2nd string (B)
@@ -46,7 +46,9 @@ const CHORDS_ORIGINAL = {
 const CHORDS = Object.fromEntries(
   Object.entries(CHORDS_ORIGINAL).map(([chord, notes]) => [
     chord,
-    notes.map(n => ({ ...n, stringIdx: 5 - n.stringIdx }))
+    notes
+      .filter(n => !n.mute)
+      .map(n => ({ ...n, stringIdx: 5 - n.stringIdx }))
   ])
 );
 
