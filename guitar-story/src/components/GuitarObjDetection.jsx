@@ -14,6 +14,7 @@ import {
   colorNormalization,
   autoWhiteBalance
 } from "../utils/imagePreprocessing";
+import { calibrateDetection, CALIBRATION_FILTERS } from '../utils/calibrationUtils';
 
 // --- Fretboard Logic ---
 const ALL_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -433,10 +434,57 @@ function GuitarObjDetection() {
     };
   }, [isStreaming, filter]);
 
+  // --- Calibration State ---
+  const [calibrating, setCalibrating] = useState(false);
+  const [calibrationProgress, setCalibrationProgress] = useState('');
+  const [calibrationResult, setCalibrationResult] = useState(null);
+
+  // Calibration handler
+  async function handleCalibration() {
+    setCalibrating(true);
+    setCalibrationProgress('Starting calibration...');
+    setCalibrationResult(null);
+    // Use the same inference function as your main detection
+    const runInference = async (canvas) => {
+      // Use the same modelWorkerId and inferEngine as in detectFrame
+      if (!modelWorkerId) return [];
+      const img = new CVImage(canvas);
+      return await inferEngine.infer(modelWorkerId, img);
+    };
+    try {
+      const result = await calibrateDetection(
+        videoRef.current,
+        runInference,
+        CALIBRATION_FILTERS,
+        (msg) => setCalibrationProgress(msg)
+      );
+      setCalibrationResult(result);
+      setCalibrationProgress('Calibration complete!');
+    } catch (e) {
+      setCalibrationProgress('Calibration failed: ' + e.message);
+    }
+    setCalibrating(false);
+  }
 
   return (
     <div className={`guitar-obj-detection${lightMode ? ' light' : ' dark'}`}>
       <div className="guitar-obj-detection-content">
+        {/* Calibration UI */}
+        {isStreaming && (
+          <div style={{ marginBottom: 24, textAlign: 'center' }}>
+            <button className="start-btn" onClick={handleCalibration} disabled={calibrating}>
+              {calibrating ? 'Calibrating...' : 'Start Calibration'}
+            </button>
+            {calibrationProgress && <div style={{ marginTop: 8 }}>{calibrationProgress}</div>}
+            {calibrationResult && (
+              <div style={{ marginTop: 12, color: 'var(--space-accent)' }}>
+                <strong>Best Filter:</strong> {calibrationResult.filter} {calibrationResult.param !== null ? `(${calibrationResult.param})` : ''}<br/>
+                <strong>Avg Confidence:</strong> {calibrationResult.avgConfidence.toFixed(3)}<br/>
+                <strong>Baseline:</strong> {calibrationResult.baseline.toFixed(3)}
+              </div>
+            )}
+          </div>
+        )}
         <div className="main-view-flex-container">
           <div className="guitar-video-container">
             {/* Video/Canvas or Placeholder */}
@@ -556,7 +604,7 @@ function GuitarObjDetection() {
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>
           {!isStreaming ? (
             <button className="start-btn" onClick={() => setIsStreaming(true)}>
-              Start Stream
+              Begin Practice
             </button>
           ) : (
             <button className="stop-btn" onClick={() => setIsStreaming(false)}>
