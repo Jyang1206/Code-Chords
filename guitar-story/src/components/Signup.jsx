@@ -12,7 +12,7 @@ export default function Signup({ onSwitch }) {
     try {
       await createUserWithEmailAndPassword(auth, email, password);
     } catch (err) {
-      setError(err.message);
+      setError(err.message);  
     }
   };
 

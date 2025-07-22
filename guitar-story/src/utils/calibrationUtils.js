@@ -1,54 +1,94 @@
 // src/utils/calibrationUtils.js
 
 /**
- * Runs calibration to find the best preprocessing filter/parameter for detection confidence.
- * @param {HTMLVideoElement} videoEl - The user's webcam video element.
- * @param {Function} runInference - Function that takes an image/canvas and returns a Promise of predictions.
- * @param {Array} filters - Array of filter configs: { name, params: [values], apply: (ctx, param) => void }
- * @param {Function} onProgress - Callback for UI updates.
- * @returns {Promise<{filter: string, param: any, avgConfidence: number, baseline: number}>}
+ * Runs chained calibration: for each filter, test all settings in combination with the previous best chain.
+ * Only add a filter to the chain if it increases confidence. Save the final chain as the calibrated filter.
+ * Returns { filterChain: [{filter, param}], avgConfidence, baseline }
  */
 export async function calibrateDetection(videoEl, runInference, filters, onProgress) {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  canvas.width = videoEl.videoWidth;
-  canvas.height = videoEl.videoHeight;
+  // Capture a single frame from the webcam
+  const staticCanvas = document.createElement('canvas');
+  staticCanvas.width = videoEl.videoWidth;
+  staticCanvas.height = videoEl.videoHeight;
+  const staticCtx = staticCanvas.getContext('2d', { willReadFrequently: true });
+  staticCtx.drawImage(videoEl, 0, 0, staticCanvas.width, staticCanvas.height);
 
-  // Helper to run inference and get average confidence
-  async function getAvgConfidence(filterApply) {
-    const confidences = [];
-    const start = Date.now();
-    while (Date.now() - start < 2000) { // 2 seconds per test
-      ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
-      if (filterApply) filterApply(ctx);
-      const predictions = await runInference(canvas);
-      if (predictions && predictions.length > 0) {
-        confidences.push(...predictions.map(p => p.confidence));
+  // Helper to apply a chain of filters
+  function applyFilterChain(ctx, filterChain) {
+    for (const f of filterChain) {
+      const filterObj = filters.find(fl => fl.name === f.filter);
+      if (filterObj && filterObj.apply) {
+        filterObj.apply(ctx, f.param);
       }
-      await new Promise(r => setTimeout(r, 100)); // 10 fps
     }
-    return confidences.length ? confidences.reduce((a, b) => a + b, 0) / confidences.length : 0;
   }
 
-  let best = { filter: 'none', param: null, avgConfidence: 0 };
+  // Helper to run inference and get average confidence for a given filter chain
+  async function getAvgConfidence(filterChain) {
+    // Work on a copy of the static frame
+    const testCanvas = document.createElement('canvas');
+    testCanvas.width = staticCanvas.width;
+    testCanvas.height = staticCanvas.height;
+    const testCtx = testCanvas.getContext('2d', { willReadFrequently: true });
+    testCtx.drawImage(staticCanvas, 0, 0, testCanvas.width, testCanvas.height);
+    if (filterChain && filterChain.length > 0) applyFilterChain(testCtx, filterChain);
+    try {
+      const predictions = await runInference(testCanvas);
+      if (predictions && predictions.length > 0) {
+        const avg = predictions.reduce((a, b) => a + b.confidence, 0) / predictions.length;
+        return avg;
+      }
+    } catch (e) {
+      console.warn('Calibration inference error:', e);
+    }
+    return 0;
+  }
 
   // Baseline (no filter)
   onProgress?.('Testing baseline...');
-  best.avgConfidence = await getAvgConfidence(null);
-  best.baseline = best.avgConfidence;
+  const baseline = await getAvgConfidence([]);
+  let bestChain = [];
+  let bestConfidence = baseline;
+  console.log(`[Calibration] Baseline confidence: ${(baseline * 100).toFixed(2)}%`);
 
-  // For each filter
-  for (const filter of filters) {
-    for (const param of filter.params) {
-      onProgress?.(`Testing ${filter.name} param ${param}...`);
-      const avgConf = await getAvgConfidence(ctx => filter.apply(ctx, param));
-      if (avgConf > best.avgConfidence) {
-        best = { filter: filter.name, param, avgConfidence: avgConf, baseline: best.baseline };
+  // Chained filter search
+  let currentChain = [];
+  for (let i = 0; i < filters.length; i++) {
+    const filter = filters[i];
+    let bestForThisFilter = null;
+    let bestForThisConfidence = bestConfidence;
+    for (let j = 0; j < filter.params.length; j++) {
+      const param = filter.params[j];
+      const testChain = [...currentChain, { filter: filter.name, param }];
+      const chainStr = testChain.map(f => `${f.filter}${f.param !== null ? `(${f.param})` : ''}`).join(' -> ');
+      onProgress && onProgress({ percent: Math.round((i / filters.length) * 100), text: `Testing chain: ${chainStr}` });
+      console.log(`[Calibration] Testing chain: ${chainStr}`);
+      const avgConfidence = await getAvgConfidence(testChain);
+      onProgress && onProgress({ percent: Math.round((i / filters.length) * 100), text: `Chain: ${chainStr} - Avg confidence: ${(avgConfidence*100).toFixed(2)}%` });
+      console.log(`[Calibration] Chain: ${chainStr} - Avg confidence: ${(avgConfidence*100).toFixed(2)}%`);
+      if (avgConfidence > bestForThisConfidence) {
+        bestForThisConfidence = avgConfidence;
+        bestForThisFilter = { filter: filter.name, param };
       }
     }
+    // Only add this filter if it improved confidence
+    if (bestForThisFilter && bestForThisConfidence > bestConfidence) {
+      currentChain.push(bestForThisFilter);
+      bestConfidence = bestForThisConfidence;
+      const chainStr = currentChain.map(f => `${f.filter}${f.param !== null ? `(${f.param})` : ''}`).join(' -> ');
+      console.log(`[Calibration] Added filter to chain: ${chainStr} (Confidence: ${(bestConfidence*100).toFixed(2)}%)`);
+    } else {
+      console.log(`[Calibration] Skipped filter '${filter.name}' (no improvement)`);
+    }
   }
-
-  return best;
+  const finalChainStr = currentChain.length > 0 ? currentChain.map(f => `${f.filter}${f.param !== null ? `(${f.param})` : ''}`).join(' -> ') : 'none';
+  console.log(`[Calibration] Final filter chain: ${finalChainStr}`);
+  console.log(`[Calibration] Final confidence: ${(bestConfidence*100).toFixed(2)}% | Baseline: ${(baseline*100).toFixed(2)}%`);
+  return {
+    filterChain: currentChain,
+    avgConfidence: bestConfidence,
+    baseline
+  };
 }
 
 // Example filter configs for use in your calibration component

@@ -108,4 +108,20 @@ export function autoWhiteBalance(ctx, canvas) {
     }
   }
   ctx.putImageData(imageData, 0, 0);
+}
+
+/**
+ * Applies a chain of filters to a canvas context.
+ * @param {CanvasRenderingContext2D} ctx - The canvas context to apply filters to.
+ * @param {Array} filterChain - Array of {filter, param} objects.
+ * @param {Array} filters - Array of filter configs (with .name and .apply).
+ */
+export function applyFilterChainToCanvas(ctx, filterChain, filters) {
+  if (!filterChain || !Array.isArray(filterChain)) return;
+  for (const f of filterChain) {
+    const filterObj = filters.find(fl => fl.name === f.filter);
+    if (filterObj && filterObj.apply) {
+      filterObj.apply(ctx, f.param);
+    }
+  }
 } 
