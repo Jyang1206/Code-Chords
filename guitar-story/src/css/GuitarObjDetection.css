@@ -297,6 +297,70 @@
   padding: 20px;
 }
 
+/* Side-by-side layout for main view and preprocessed view */
+.main-view-flex-container {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.guitar-video-container {
+  flex: 3; /* Give more space to the main video */
+}
+
+.preprocessed-view-container {
+  flex: 2; /* Smaller container for the preprocessed view */
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: var(--space-card-bg);
+  padding: 16px;
+  border-radius: 16px;
+  box-shadow: 0 4px 24px var(--space-shadow);
+}
+
+.preprocessed-canvas {
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  background: #000;
+}
+
+.filter-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.filter-controls label {
+  font-weight: 600;
+  color: var(--space-accent);
+}
+
+.filter-select {
+  flex: 1;
+  padding: 8px 12px;
+  background: var(--space-shadow);
+  color: var(--space-star);
+  border: 1.5px solid var(--space-border);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 1rem;
+}
+
+.light-mode .preprocessed-view-container {
+  background: var(--space-card-bg-light);
+}
+.light-mode .filter-controls label {
+  color: var(--space-accent);
+}
+.light-mode .filter-select {
+  background: #fff;
+  color: var(--space-shadow);
+  border-color: var(--space-accent);
+}
+
 /* Responsive design */
 @media (max-width: 900px) {
   .guitar-video-container, .guitar-scale-controls {
