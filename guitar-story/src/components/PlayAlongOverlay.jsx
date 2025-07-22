@@ -65,6 +65,10 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, FRETBOARD_WIDTH, FRETBOARD_HEIGHT);
+    // Debug logs for props
+    console.log('[DEBUG] highlightedNotes:', highlightedNotes);
+    console.log('[DEBUG] arpeggioNotes:', arpeggioNotes);
+    console.log('[DEBUG] currentStep:', currentStep);
     const filteredPredictions = predictions.filter(pred => pred.class !== 'Hand');
     const fretCenters = filteredPredictions.map(pred => ({
       x: pred.bbox.x,
@@ -93,6 +97,8 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
     const fontSize = 8 * scaleFactor + 7;
     // Encapsulate all displayed notes
     const displayedNotes = [];
+    const safeHighlightedNotes = Array.isArray(highlightedNotes) ? highlightedNotes : [];
+    const safeArpeggioNotes = Array.isArray(arpeggioNotes) ? arpeggioNotes : [];
     for (let i = 0; i < filteredPredictions.length; i++) {
       const prediction = filteredPredictions[i];
       let fretNum = 0;
@@ -121,34 +127,38 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
         // For arpeggio/highlight matching, map stringIdx so 0 is bottom (high E), 5 is top (low E)
         const arpeggioStringIdx = 5 - stringIdx;
         // Highlight if in highlightedNotes (compare using arpeggioStringIdx)
-        let isHighlighted = highlightedNotes.some(n => n.fretNum === fretNum && n.stringIdx === arpeggioStringIdx);
+        let isHighlighted = safeHighlightedNotes.some(n => n && n.fretNum === fretNum && n.stringIdx === arpeggioStringIdx);
         let isArpeggio = false;
         let isRoot = false;
-        if (arpeggioNotes && arpeggioNotes.length > 0 && currentStep < arpeggioNotes.length) {
-          const step = arpeggioNotes[currentStep];
-          isArpeggio = (step.fretNum === fretNum && step.stringIdx === arpeggioStringIdx);
-          isRoot = step.isRoot && isArpeggio;
+        if (safeArpeggioNotes && safeArpeggioNotes.length > 0 && currentStep < safeArpeggioNotes.length) {
+          const step = safeArpeggioNotes[currentStep];
+          isArpeggio = step && (step.fretNum === fretNum && step.stringIdx === arpeggioStringIdx);
+          isRoot = step && step.isRoot && isArpeggio;
         }
         // For open string, draw just right of Fret 1 (higher x value, estimate by angle)
         let drawX = xRot;
-        if (fretNum === 1 && arpeggioNotes.some(n => n.fretNum === 0 && n.stringIdx === arpeggioStringIdx)) {
+        if (fretNum === 1 && safeArpeggioNotes.some(n => n && n.fretNum === 0 && n.stringIdx === arpeggioStringIdx)) {
           // Find the open string note for this string
-          const openStep = arpeggioNotes.find(n => n.fretNum === 0 && n.stringIdx === arpeggioStringIdx);
+          const openStep = safeArpeggioNotes.find(n => n && n.fretNum === 0 && n.stringIdx === arpeggioStringIdx);
           if (openStep) {
             // Draw open string note just right of Fret 1
             // Estimate offset: project along the fretboard's angle
             const offset = width * 0.7;
             drawX = xRot + offset * Math.cos(angle);
             // If this is the open string note, highlight accordingly
-            isHighlighted = highlightedNotes.some(n => n.fretNum === 0 && n.stringIdx === arpeggioStringIdx);
-            isArpeggio = (arpeggioNotes[currentStep]?.fretNum === 0 && arpeggioNotes[currentStep]?.stringIdx === arpeggioStringIdx);
+            isHighlighted = safeHighlightedNotes.some(n => n && n.fretNum === 0 && n.stringIdx === arpeggioStringIdx);
+            isArpeggio = (safeArpeggioNotes[currentStep]?.fretNum === 0 && safeArpeggioNotes[currentStep]?.stringIdx === arpeggioStringIdx);
             isRoot = openStep.isRoot && isArpeggio;
             noteName = getNoteAtPosition(stringIdx, 0);
           }
         }
+        // Only debug log for first fret when highlighting during Play
+        if (fretNum === 1 && isHighlighted && safeHighlightedNotes.length > 0) {
+          console.log(`[DEBUG PLAY HIGHLIGHT] stringIdx=${stringIdx} (arpeggioStringIdx=${arpeggioStringIdx}), fretNum=${fretNum}, noteName=${noteName}, isHighlighted=${isHighlighted}, highlightedNotes=`, safeHighlightedNotes);
+        }
         // Store the note for later reference
         displayedNotes.push({
-          fretNum: fretNum === 1 && arpeggioNotes.some(n => n.fretNum === 0 && n.stringIdx === arpeggioStringIdx) ? 0 : fretNum,
+          fretNum: fretNum === 1 && safeArpeggioNotes.some(n => n && n.fretNum === 0 && n.stringIdx === arpeggioStringIdx) ? 0 : fretNum,
           stringIdx,
           noteName,
           x: drawX,
