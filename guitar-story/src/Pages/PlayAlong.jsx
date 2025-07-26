@@ -147,10 +147,18 @@ const TabOverlay = ({ playNotes, currentStepIdx, isPlaying }) => {
           <div style={{
             fontSize: '12px',
             color: '#ccc',
-            fontWeight: '500'
+            fontWeight: '500',
+            marginBottom: '2px'
           }}>
             {note.stringIdx === 0 ? '6' : note.stringIdx === 1 ? '5' : note.stringIdx === 2 ? '4' : 
              note.stringIdx === 3 ? '3' : note.stringIdx === 4 ? '2' : '1'}-{note.fretNum}
+          </div>
+          <div style={{
+            fontSize: '10px',
+            color: '#888',
+            fontWeight: '400'
+          }}>
+            {(note.duration || 1).toFixed(1)}s
           </div>
         </div>
       ))}
@@ -316,7 +324,7 @@ function PlayAlong() {
     }
   };
 
-  // Update startPlayback to use playNotes
+  // Update startPlayback to use duration-based timing
   const startPlayback = () => {
     setIsPlaying(true);
     setCurrentStepIdx(0);
@@ -327,20 +335,30 @@ function PlayAlong() {
     setChordAccuracy(0);
     setCompletedNotes(new Set());
     noteTimestampsRef.current = {};
-    playTimer.current = setInterval(() => {
-      setCurrentStepIdx(idx => {
-        if (idx < playNotes.length - 1) {
-          return idx + 1;
-        } else {
-          clearInterval(playTimer.current);
-          setIsPlaying(false);
-          setTimeout(() => {
-            updateFinalScoreboard();
-          }, 100);
-          return idx;
-        }
-      });
-    }, 1200);
+    
+    // Duration-based playback
+    const playNextNote = (stepIndex) => {
+      if (stepIndex >= playNotes.length) {
+        // Song/chord completed
+        setIsPlaying(false);
+        setTimeout(() => {
+          updateFinalScoreboard();
+        }, 100);
+        return;
+      }
+      
+      const currentNote = playNotes[stepIndex];
+      const durationMs = (currentNote.duration || 1) * 1200; // Convert duration to milliseconds (1 = 1.2 seconds)
+      
+      // Set timeout for next note based on current note's duration
+      setTimeout(() => {
+        setCurrentStepIdx(stepIndex + 1);
+        playNextNote(stepIndex + 1);
+      }, durationMs);
+    };
+    
+    // Start the duration-based playback
+    playNextNote(0);
   };
 
   // Update final scoreboard when chord is completed
