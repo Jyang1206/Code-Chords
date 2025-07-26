@@ -7,46 +7,48 @@ import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 
 const CHORDS = {
   "C Major": [
-    { stringIdx: 5, fretNum: 3, note: "C", isRoot: true }, // 3rd fret, 5th string (A string)
-    { stringIdx: 4, fretNum: 2, note: "E" },               // 2nd fret, 4th string (D string)
-    { stringIdx: 3, fretNum: 0, note: "G" },               // open 3rd string (G string)
-    { stringIdx: 2, fretNum: 1, note: "C" },               // 1st fret, 2nd string (B string)
-    { stringIdx: 1, fretNum: 0, note: "E" },               // open 1st string (E string)
+    { stringIdx: 5, fretNum: 3, note: "C", isRoot: true }, 
+    { stringIdx: 4, fretNum: 2, note: "E" },             
+    { stringIdx: 3, fretNum: 0, note: "G" },               
+    { stringIdx: 2, fretNum: 1, note: "C" },              
+    { stringIdx: 1, fretNum: 0, note: "E" },               
   ],
   "D Major": [
-    { stringIdx: 5, fretNum: 5, note: "D", isRoot: true }, // 5th fret, 5th string (A string)
-    { stringIdx: 4, fretNum: 5, note: "A" },               // 5th fret, 4th string (D string)
-    { stringIdx: 3, fretNum: 4, note: "D" },               // 4th fret, 3rd string (G string)
-    { stringIdx: 2, fretNum: 3, note: "F#" },              // 3rd fret, 2nd string (B string)
-    { stringIdx: 1, fretNum: 5, note: "A" },               // 5th fret, 1st string (E string)
+    { stringIdx: 4, fretNum: 0, note: "D", isRoot: true }, 
+    { stringIdx: 3, fretNum: 2, note: "A" },            
+    { stringIdx: 2, fretNum: 3, note: "F#" },      
+    { stringIdx: 1, fretNum: 2, note: "D" },              
   ],
   "G Major": [
-    { stringIdx: 5, fretNum: 3, note: "G", isRoot: true }, // 3rd fret, 5th string (A string)
-    { stringIdx: 4, fretNum: 2, note: "B" },               // 2nd fret, 4th string (D string)
-    { stringIdx: 3, fretNum: 0, note: "G" },               // open 3rd string (G string)
-    { stringIdx: 2, fretNum: 0, note: "B" },               // open 2nd string (B string)
-    { stringIdx: 1, fretNum: 3, note: "G" },               // 3rd fret, 1st string (E string)
+    { stringIdx: 6, fretNum: 3, note: "G", isRoot: true }, 
+    { stringIdx: 5, fretNum: 2, note: "B" },              
+    { stringIdx: 4, fretNum: 0, note: "D" },          
+    { stringIdx: 3, fretNum: 0, note: "G" },               
+    { stringIdx: 2, fretNum: 3, note: "B" },              
+    { stringIdx: 1, fretNum: 3, note: "G" },               
   ],
   "A Minor": [
-    { stringIdx: 5, fretNum: 0, note: "A", isRoot: true }, // open 5th string (A string)
-    { stringIdx: 4, fretNum: 2, note: "E" },               // 2nd fret, 4th string (D string)
-    { stringIdx: 3, fretNum: 2, note: "A" },               // 2nd fret, 3rd string (G string)
-    { stringIdx: 2, fretNum: 1, note: "C" },               // 1st fret, 2nd string (B string)
-    { stringIdx: 1, fretNum: 0, note: "E" },               // open 1st string (E string)
+    { stringIdx: 5, fretNum: 0, note: "A", isRoot: true }, 
+    { stringIdx: 4, fretNum: 2, note: "E" },               
+    { stringIdx: 3, fretNum: 2, note: "A" },               
+    { stringIdx: 2, fretNum: 1, note: "C" },              
+    { stringIdx: 1, fretNum: 0, note: "E" },              
   ],
   "E Major": [
-    { stringIdx: 5, fretNum: 0, note: "E", isRoot: true }, // open 6th string (E string)
-    { stringIdx: 4, fretNum: 2, note: "B" },               // 2nd fret, 4th string (D string)
-    { stringIdx: 3, fretNum: 1, note: "E" },               // 1st fret, 3rd string (G string)
-    { stringIdx: 2, fretNum: 0, note: "B" },               // open 2nd string (B string)
-    { stringIdx: 1, fretNum: 0, note: "E" },               // open 1st string (E string)
+    { stringIdx: 6, fretNum: 0, note: "E", isRoot: true }, 
+    { stringIdx: 5, fretNum: 2, note: "A" },               
+    { stringIdx: 4, fretNum: 2, note: "B" },               
+    { stringIdx: 3, fretNum: 1, note: "E" },               
+    { stringIdx: 2, fretNum: 0, note: "B" },             
+    { stringIdx: 1, fretNum: 0, note: "E" },               
   ],
   "F Major": [
-    { stringIdx: 5, fretNum: 1, note: "F", isRoot: true }, // 1st fret, 6th string (E string)
-    { stringIdx: 4, fretNum: 3, note: "C" },               // 3rd fret, 4th string (D string)
-    { stringIdx: 3, fretNum: 2, note: "F" },               // 2nd fret, 3rd string (G string)
-    { stringIdx: 2, fretNum: 1, note: "A" },               // 1st fret, 2nd string (B string)
-    { stringIdx: 1, fretNum: 1, note: "F" },               // 1st fret, 1st string (E string)
+    { stringIdx: 6, fretNum: 1, note: "F", isRoot: true }, 
+    { stringIdx: 5, fretNum: 3, note: "C" },               
+    { stringIdx: 4, fretNum: 3, note: "F" },              
+    { stringIdx: 3, fretNum: 2, note: "A" },             
+    { stringIdx: 2, fretNum: 1, note: "C" },               
+    { stringIdx: 1, fretNum: 1, note: "F" },             
   ],
 };
 
