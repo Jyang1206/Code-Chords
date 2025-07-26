@@ -1,17 +1,67 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import YouTube from "react-youtube";
+import { useSearchHistory } from "../contexts/SearchHistoryContext";
+import { useNavigate, useLocation } from "react-router-dom";
+import { extractVideoId } from "../utils/youtubeUtils";
 import "../css/YouTubePlayer.css";
-
-const getYouTubeId = (url) => {
-  // Extracts the video ID from a YouTube URL
-  const regExp = /^.*(?:youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-  const match = url.match(regExp);
-  return match && match[1].length === 11 ? match[1] : null;
-};
 
 const YouTubePlayer = ({ url }) => {
   const playerRef = useRef(null);
   const [playbackRate, setPlaybackRate] = useState(1);
+  const { addToHistory } = useSearchHistory();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const lastSavedUrlRef = useRef("");
+  const [isSaving, setIsSaving] = useState(false);
+  const saveTimeoutRef = useRef(null);
+
+  // Save to history only when URL changes and is valid
+  useEffect(() => {
+    // Clear any existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Skip if URL is empty or invalid
+    if (!url || !extractVideoId(url)) {
+      return;
+    }
+
+    // Skip if this URL was already saved
+    if (lastSavedUrlRef.current === url) {
+      return;
+    }
+
+    // Skip if URL was passed from search history (to avoid duplicate saves)
+    if (location.state?.youtubeUrl === url) {
+      return;
+    }
+
+    // Skip if already saving
+    if (isSaving) {
+      return;
+    }
+
+    // Add a small delay to prevent rapid successive calls
+    saveTimeoutRef.current = setTimeout(async () => {
+      setIsSaving(true);
+      try {
+        await addToHistory(url);
+        lastSavedUrlRef.current = url;
+      } catch (error) {
+        console.error('Error saving to history:', error);
+      } finally {
+        setIsSaving(false);
+      }
+    }, 100); // 100ms delay
+
+    // Cleanup timeout on unmount or URL change
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [url, addToHistory, location.state, isSaving]);
 
   const onReady = (event) => {
     playerRef.current = event.target;
@@ -26,10 +76,24 @@ const YouTubePlayer = ({ url }) => {
     }
   };
 
-  const videoId = getYouTubeId(url);
+  const handleViewHistory = () => {
+    navigate('/search-history');
+  };
+
+  const videoId = extractVideoId(url);
 
   return (
     <div className="ytp-space-container">
+      <div className="ytp-space-header">
+        <h3>YouTube Practice</h3>
+        <button 
+          className="history-btn"
+          onClick={handleViewHistory}
+        >
+          📺 View History
+        </button>
+      </div>
+      
       <div className="ytp-space-player">
         {videoId ? (
           <YouTube
