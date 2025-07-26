@@ -391,6 +391,17 @@ function PlayAlong() {
     }
   }, [isPlaying, overlayActive]);
   const [animationTime, setAnimationTime] = useState(Date.now());
+  const [visualFeedback, setVisualFeedback] = useState(null);
+
+  // Clear visual feedback after 1.5 seconds
+  useEffect(() => {
+    if (visualFeedback) {
+      const timer = setTimeout(() => {
+        setVisualFeedback(null);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [visualFeedback]);
 
   // Add playbackStartTime ref
   const playbackStartTimeRef = useRef(null);
@@ -464,8 +475,8 @@ function PlayAlong() {
     return Math.round((correct / totalNotes) * 100);
   };
 
-  // Handle correct note played
-  const handleCorrectNote = async () => {
+  // Handle correct note played with timing-based scoring
+  const handleCorrectNote = async (timingAccuracy = 0) => {
     if (!currentUser) return;
     
     // Create a unique identifier for this note (stringIdx + fretNum combination)
@@ -493,9 +504,47 @@ function PlayAlong() {
       return;
     }
     
-    console.log(`[SCORE DEBUG] Correct note detected: ${noteId}, adding 10 points`);
+    // Calculate timing-based score
+    let scorePoints = 10; // Base points
+    let timingBonus = 0;
+    let timingFeedback = "Good";
+    let feedbackColor = "#4caf50"; // Default green
     
-    const scorePoints = 10; // Base points for correct note
+    if (timingAccuracy !== 0) {
+      const absTiming = Math.abs(timingAccuracy);
+      if (absTiming <= 10) { // Perfect timing (±10ms)
+        timingBonus = 15;
+        timingFeedback = "Perfect!";
+        feedbackColor = "#006400"; // Dark green
+        scorePoints += timingBonus;
+      } else if (absTiming <= 20) { // Excellent timing (±20ms)
+        timingBonus = 12;
+        timingFeedback = "Excellent!";
+        feedbackColor = "#4caf50"; // Green
+        scorePoints += timingBonus;
+      } else if (absTiming <= 40) { // Good timing (±40ms)
+        timingBonus = 8;
+        timingFeedback = "Good!";
+        feedbackColor = "#2196f3"; // Blue
+        scorePoints += timingBonus;
+      } else if (absTiming <= 80) { // Okay timing (±80ms)
+        timingBonus = 3;
+        timingFeedback = "Okay";
+        feedbackColor = "#ffeb3b"; // Yellow
+        scorePoints += timingBonus;
+      } else if (absTiming <= 100) { // Miss timing (±100ms)
+        timingFeedback = "Miss";
+        feedbackColor = "#ff5722"; // Light red
+        // No bonus for miss timing
+      } else { // Very late timing (>100ms)
+        timingFeedback = "Too Late";
+        feedbackColor = "#f44336"; // Red
+        // No bonus for very late timing
+      }
+    }
+    
+    console.log(`[SCORE DEBUG] Correct note detected: ${noteId}, timing: ${timingAccuracy}ms, feedback: ${timingFeedback}, total points: ${scorePoints}`);
+    
     const newScore = currentScore + scorePoints;
     setCurrentScore(newScore);
     
@@ -520,6 +569,15 @@ function PlayAlong() {
     
     setChordAccuracy(newAccuracy);
 
+    // Show visual feedback
+    setVisualFeedback({
+      type: 'correct',
+      message: timingFeedback,
+      points: scorePoints,
+      timing: timingAccuracy,
+      color: feedbackColor
+    });
+
     // Save individual score entry (for tracking purposes)
     try {
       console.log(`[DB DEBUG] Adding individual score:`, {
@@ -527,7 +585,8 @@ function PlayAlong() {
         displayName: currentUser.displayName || currentUser.email.split('@')[0] || 'Anonymous',
         score: scorePoints,
         chord: selectedChord,
-        isCorrect: true
+        isCorrect: true,
+        timingAccuracy: timingAccuracy
       });
       
       const result = await ScoreboardService.addScore(
@@ -570,17 +629,24 @@ function PlayAlong() {
     console.log(`Incorrect note ${noteId}, accuracy: ${newAccuracy}% (${currentCorrect}/${totalNotesInChord})`);
     setChordAccuracy(newAccuracy);
     
+    // Show visual feedback for incorrect note
+    setVisualFeedback({
+      type: 'incorrect',
+      message: 'Wrong Note',
+      points: 0,
+      timing: 0,
+      color: '#f44336'
+    });
+    
     // Also send incorrect note to database (with 0 points)
     if (currentUser) {
       ScoreboardService.addScore(
         currentUser.uid,
         currentUser.displayName || currentUser.email.split('@')[0] || 'Anonymous',
-        0, // No points for incorrect note
+        0,
         selectedChord,
-        false // Mark as incorrect
-      ).catch(error => {
-        console.error('Error saving incorrect note:', error);
-      });
+        false
+      );
     }
   };
 
@@ -1300,8 +1366,80 @@ function PlayAlong() {
           </div>
         </div>
 
+        {/* Visual Feedback Overlay */}
+        {visualFeedback && (
+          <>
+            <style>{`
+              @keyframes feedbackPop {
+                0% {
+                  transform: translate(-50%, -50%) scale(0.5);
+                  opacity: 0;
+                }
+                50% {
+                  transform: translate(-50%, -50%) scale(1.1);
+                  opacity: 1;
+                }
+                100% {
+                  transform: translate(-50%, -50%) scale(1);
+                  opacity: 1;
+                }
+              }
+            `}</style>
+            <div style={{
+              position: 'fixed',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              zIndex: 9999,
+              pointerEvents: 'none'
+            }}>
+              <div style={{
+                background: visualFeedback.type === 'correct' 
+                  ? `linear-gradient(135deg, ${visualFeedback.color}, ${visualFeedback.color}dd)` 
+                  : 'linear-gradient(135deg, #f44336, #d32f2f)',
+                color: 'white',
+                padding: '20px 30px',
+                borderRadius: '15px',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+                textAlign: 'center',
+                minWidth: '200px',
+                animation: 'feedbackPop 0.6s ease-out',
+                border: visualFeedback.type === 'correct' && visualFeedback.color === '#006400' 
+                  ? '2px solid #004d00' 
+                  : 'none'
+              }}>
+                <div style={{
+                  fontSize: '32px',
+                  fontWeight: 'bold',
+                  marginBottom: '8px',
+                  textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)'
+                }}>
+                  {visualFeedback.message}
+                </div>
+                {visualFeedback.type === 'correct' && visualFeedback.points > 0 && (
+                  <div style={{
+                    fontSize: '24px',
+                    fontWeight: '600',
+                    marginBottom: '4px'
+                  }}>
+                    +{visualFeedback.points} pts
+                  </div>
+                )}
+                {visualFeedback.timing !== 0 && (
+                  <div style={{
+                    fontSize: '16px',
+                    opacity: 0.9
+                  }}>
+                    {visualFeedback.timing > 0 ? '+' : ''}{visualFeedback.timing}ms
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
         {/* Countdown Overlay */}
-        {showCountdown && (
+        {showCountdown && countdown > 0 && (
           <div style={{
             position: 'fixed',
             top: 0,
