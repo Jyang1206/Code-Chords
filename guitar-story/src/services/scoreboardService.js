@@ -11,7 +11,7 @@ import {
   getDoc,
   serverTimestamp 
 } from 'firebase/firestore';
-import { db } from '../firebase';
+import { firestore as db } from '../firebase';
 import { auth } from '../firebase';
 
 // Collection names

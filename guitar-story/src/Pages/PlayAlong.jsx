@@ -2,7 +2,7 @@ import React, { useState, useRef } from "react";
 import PlayAlongOverlay from "../components/PlayAlongOverlay";
 import { useAuth } from "../contexts/AuthContext";
 import { ScoreboardService } from "../services/scoreboardService";
-import { db } from "../firebase";
+import { firestore as db } from "../firebase";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 
 const ARPEGGIOS = {

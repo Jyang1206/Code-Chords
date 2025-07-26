@@ -67,8 +67,8 @@ function Settings() {
             }} 
             onClick={() => signOut(auth)}
           >
-            Sign Out
-          </button>
+        Sign Out
+      </button>
           
           <div style={{
             marginTop: "2rem",
