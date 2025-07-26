@@ -7,7 +7,10 @@ import Settings from "./Pages/Settings";
 import Tuner from "./Pages/Tuner";
 import PlayAlong from "./Pages/PlayAlong";
 import Scoreboard from "./Pages/Scoreboard";
-import { Routes, Route, useLocation } from "react-router-dom";
+import Login from "./components/Login";
+import Signup from "./components/Signup";
+import ResetPassword from "./Pages/ResetPassword";
+import { Routes, Route, useLocation, Navigate } from "react-router-dom";
 import NavBar from "./components/NavBar";
 import { AuthProvider } from "./contexts/AuthContext";
 import RequireAuth from "./components/RequireAuth";
@@ -40,12 +43,17 @@ function AppContent() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/debug" element={<DebugRoute />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/reset_password" element={<ResetPassword />} />
           <Route path="/practice" element={<RequireAuth><Practice /></RequireAuth>} />
           <Route path="/learnsongs" element={<RequireAuth><LearnSongs /></RequireAuth>} />
           <Route path="/playalong" element={<RequireAuth><PlayAlong /></RequireAuth>} />
           <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
           <Route path="/tuner" element={<RequireAuth><Tuner /></RequireAuth>} />
           <Route path="/scoreboard" element={<RequireAuth><Scoreboard /></RequireAuth>} />
+          {/* Redirect any unknown route to home */}
+          <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </main>
     </div>

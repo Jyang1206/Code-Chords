@@ -1,42 +1,43 @@
 body.learnsongs-page {
-  background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
-  color: #f3f3f3;
+  background: var(--space-bg);
+  color: var(--space-text);
   min-height: 100vh;
-  background-image: url('https://www.transparenttextures.com/patterns/stardust.png');
+  background-image: var(--space-star-bg), var(--space-bg);
+  background-blend-mode: lighten, normal;
 }
 body.light-mode {
-  background: linear-gradient(120deg, #fbc2eb 0%, #a6c1ee 100%);
-  color: #23234b;
+  background: var(--space-bg-light);
+  color: var(--space-text-light);
 }
 body.light-mode .learnsongs-content {
-  background: rgba(255, 255, 255, 0.85);
-  color: #23234b;
+  background: var(--space-card-bg-light);
+  color: var(--space-shadow);
 }
 body.light-mode .learnsongs-content h1 {
-  color: #23234b;
-  text-shadow: 0 0 10px #fff, 0 0 20px #a6c1ee;
+  color: var(--space-shadow);
+  text-shadow: 0 0 10px #fff, 0 0 20px var(--space-accent2);
 }
 body.light-mode .learnsongs-content p {
-  color: #23234b;
+  color: var(--space-shadow);
   text-shadow: 0 0 4px #fff;
 }
 .learnsongs-content {
   padding: 2rem;
   border-radius: 16px;
-  background: rgba(0, 30, 255, 0.247);
-  box-shadow: 0 0 40px 5px #23234b;
+  background: var(--space-card-bg);
+  box-shadow: 0 0 40px 5px var(--space-shadow);
   margin: 2rem auto;
   max-width: 700px;
 }
 .learnsongs-content h1 {
   font-size: 2.5rem;
-  color: #ffee91;
-  text-shadow: 0 0 10px #f9d923, 0 0 20px #fff700;
+  color: var(--space-star);
+  text-shadow: 0 0 10px var(--space-accent), 0 0 20px var(--space-star);
 }
 .learnsongs-content p {
   font-size: 1.2rem;
-  color: #eb8585;
-  text-shadow: 0 0 4px #23234b;
+  color: var(--space-text);
+  text-shadow: 0 0 4px var(--space-shadow);
 } 
 .home {
   padding: 2rem 0;

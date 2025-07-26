@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import "../css/GuitarTuner.css";
 // You need to install pitchy: npm install pitchy
 // import { createPitchDetector } from "pitchy";
-import AudioPitchDetector from "./AudioPitchDetector";
+import AudioPitchDetector from "../utils/AudioPitchDetector";
 
 // Standard guitar string frequencies (Hz)
 const GUITAR_STRINGS = [

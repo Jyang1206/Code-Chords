@@ -2,17 +2,17 @@
     position: relative;
     border-radius: 8px;
     overflow: hidden;
-    background-color: var(--cosmic-shadow);
+    background: var(--space-card-bg);
     transition: transform 0.2s;
     height: 100%;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 2px 12px var(--cosmic-accent2);
+    box-shadow: 0 2px 12px var(--space-accent2);
   }
   
   .song-card:hover {
     transform: translateY(-5px);
-    box-shadow: 0 4px 24px var(--cosmic-accent);
+    box-shadow: 0 4px 24px var(--space-accent);
   }
   
   .song-poster {
@@ -36,7 +36,7 @@
     background: linear-gradient(
       to bottom,
       rgba(161, 140, 209, 0.1),
-      rgba(36, 9, 54, 0.8)
+      var(--space-shadow)
     );
     opacity: 0;
     transition: opacity 0.2s;
@@ -54,10 +54,10 @@
     position: absolute;
     top: 1rem;
     right: 1rem;
-    color: var(--cosmic-shadow);
+    color: var(--space-shadow);
     font-size: 1.5rem;
     padding: 0.5rem;
-    background-color: var(--cosmic-accent2);
+    background: var(--space-accent2);
     border-radius: 50%;
     width: 40px;
     height: 40px;
@@ -68,17 +68,17 @@
   }
   
   .favorite-btn:hover {
-    background-color: var(--cosmic-accent);
-    color: var(--cosmic-star);
+    background: var(--space-accent);
+    color: var(--space-star);
   }
   
   .favorite-btn.active {
-    color: var(--cosmic-star);
+    color: var(--space-star);
   }
   
   .rating-select {
-    background-color: rgba(0, 0, 0, 0.7);
-    color: white;
+    background: var(--space-shadow);
+    color: var(--space-star);
     border: none;
     padding: 0.5rem;
     border-radius: 4px;
@@ -97,15 +97,16 @@
   .song-info h3 {
     font-size: 1rem;
     margin: 0;
+    color: var(--space-accent);
   }
   
   .song-info p {
-    color: #999;
+    color: var(--space-accent2);
     font-size: 0.9rem;
   }
   
   .user-rating {
-    color: var(--cosmic-star);
+    color: var(--space-star);
     font-size: 0.9rem;
     margin-top: auto;
   }
@@ -125,3 +126,32 @@
       font-size: 1.2rem;
     }
   }
+
+/* Light mode overrides for SongCard.css */
+.light-mode .song-card {
+  background: var(--space-card-bg-light) !important;
+  color: var(--space-shadow) !important;
+  box-shadow: 0 2px 12px var(--space-accent2);
+}
+.light-mode .song-card:hover {
+  background: var(--space-accent2) !important;
+  color: var(--space-shadow) !important;
+}
+.light-mode .favorite-btn,
+.light-mode .rating-select {
+  background: var(--space-btn-bg-light) !important;
+  color: var(--space-shadow) !important;
+}
+.light-mode .favorite-btn:hover {
+  background: var(--space-btn-hover-light) !important;
+  color: var(--space-accent) !important;
+}
+.light-mode .song-info h3 {
+  color: var(--space-accent) !important;
+}
+.light-mode .song-info p {
+  color: var(--space-accent2) !important;
+}
+.light-mode .user-rating {
+  color: var(--space-accent) !important;
+}

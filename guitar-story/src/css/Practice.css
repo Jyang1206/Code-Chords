@@ -4,7 +4,7 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.8);
+    background: var(--space-bg);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -14,8 +14,8 @@
 .loading-spinner {
     width: 50px;
     height: 50px;
-    border: 5px solid #f3f3f3;
-    border-top: 5px solid #3498db;
+    border: 5px solid var(--space-star);
+    border-top: 5px solid var(--space-accent);
     border-radius: 50%;
     animation: spin 1s linear infinite;
 }
@@ -24,7 +24,7 @@
     100% { transform: rotate(360deg); }
 }
 .loading-text {
-    color: white;
+    color: var(--space-star);
     margin-top: 20px;
     font-family: 'Roboto', sans-serif;
 }
@@ -34,14 +34,14 @@
 
 /* Camera permission message styling */
 .camera-permission-message {
-  background: #23272f;
-  color: #fff;
+  background: var(--space-card-bg);
+  color: var(--space-star);
   border-radius: 12px;
   padding: 1.5em 2em;
   margin: 2em auto 1.5em auto;
   max-width: 480px;
   text-align: center;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+  box-shadow: 0 2px 12px var(--space-shadow);
   font-size: 1.1em;
   letter-spacing: 0.2px;
 }

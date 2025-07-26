@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import "../css/Login.css";
+import { Link } from 'react-router-dom';
 
 export default function Login({ onSwitch }) {
   const [email, setEmail] = useState("");
@@ -49,7 +50,7 @@ export default function Login({ onSwitch }) {
           required
           className="cosmic-login-input"
           disabled={loading}
-        /><br/>
+        />        <br/>
         <button 
           type="submit" 
           className="cosmic-login-btn"
@@ -57,6 +58,11 @@ export default function Login({ onSwitch }) {
         >
           {loading ? "Logging in..." : "Login"}
         </button>
+        <div className="cosmic-login-switch">
+          <Link className="cosmic-login-link" to="/reset_password">
+            Forgot Password?
+          </Link>
+        </div>
         <p className="cosmic-login-switch">
           Don't have an account?{" "}
           <button type="button" className="cosmic-login-link" onClick={onSwitch}>Sign up</button>

@@ -5,60 +5,27 @@ import { ScoreboardService } from "../services/scoreboardService";
 import { db } from "../firebase";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 
-const CHORDS_ORIGINAL = {
-  "C Major": [
-    { stringIdx: 1, fretNum: 3 }, // 5th string (A)
-    { stringIdx: 2, fretNum: 2 }, // 4th string (D)
-    { stringIdx: 3, fretNum: 0 }, // 3rd string (G)
-    { stringIdx: 4, fretNum: 1 }, // 2nd string (B)
-    { stringIdx: 5, fretNum: 0 }, // 1st string (high E)
+const ARPEGGIOS = {
+  "C Major Triad": [
+    { stringIdx: 5, fretNum: 3, note: "C", isRoot: true }, // 3rd fret, 5th string (A string)
+    { stringIdx: 4, fretNum: 2, note: "E" },               // 2nd fret, 4th string (D string)
+    { stringIdx: 3, fretNum: 0, note: "G" },               // open 3rd string (G string)
   ],
-  "G Major": [
-    { stringIdx: 0, fretNum: 3 }, // 6th string (low E)
-    { stringIdx: 1, fretNum: 2 }, // 5th string (A)
-    { stringIdx: 2, fretNum: 0 }, // 4th string (D)
-    { stringIdx: 3, fretNum: 0 }, // 3rd string (G)
-    { stringIdx: 4, fretNum: 0 }, // 2nd string (B)
-    { stringIdx: 5, fretNum: 3 }, // 1st string (high E)
+  "D Major Triad": [
+    { stringIdx: 3, fretNum: 0, note: "D", isRoot: true }, // open 4th string (D string)
+    { stringIdx: 2, fretNum: 2, note: "A" },               // 2nd fret, 2nd string (B string)
+    { stringIdx: 1, fretNum: 2, note: "F#" },              // 2nd fret, 1st string (E string)
   ],
-  "E Major": [
-    { stringIdx: 0, fretNum: 0 }, // 6th string (low E)
-    { stringIdx: 1, fretNum: 2 }, // 5th string (A)
-    { stringIdx: 2, fretNum: 2 }, // 4th string (D)
-    { stringIdx: 3, fretNum: 1 }, // 3rd string (G)
-    { stringIdx: 4, fretNum: 0 }, // 2nd string (B)
-    { stringIdx: 5, fretNum: 0 }, // 1st string (high E)
-  ],
-  "A Major": [
-    { stringIdx: 0, fretNum: 0 }, // 6th string (low E)
-    { stringIdx: 1, fretNum: 0 }, // 5th string (A)
-    { stringIdx: 2, fretNum: 2 }, // 4th string (D)
-    { stringIdx: 3, fretNum: 2 }, // 3rd string (G)
-    { stringIdx: 4, fretNum: 2 }, // 2nd string (B)
-    { stringIdx: 5, fretNum: 0 }, // 1st string (high E)
-  ],
-  "D Major": [
-    { stringIdx: 0, fretNum: 0, mute: true }, // 6th string (low E, not played)
-    { stringIdx: 1, fretNum: 0, mute: true }, // 5th string (A, not played)
-    { stringIdx: 2, fretNum: 0 }, // 4th string (D)
-    { stringIdx: 3, fretNum: 2 }, // 3rd string (G)
-    { stringIdx: 4, fretNum: 3 }, // 2nd string (B)
-    { stringIdx: 5, fretNum: 2 }, // 1st string (high E)
+  "G Major Triad": [
+    { stringIdx: 5, fretNum: 2, note: "B" },               // 2nd fret, 5th string (A string)
+    { stringIdx: 4, fretNum: 0, note: "D" },               // open 4th string (D string)
+    { stringIdx: 3, fretNum: 0, note: "G", isRoot: true }, // open 3rd string (G string)
   ],
 };
 
-const CHORDS = Object.fromEntries(
-  Object.entries(CHORDS_ORIGINAL).map(([chord, notes]) => [
-    chord,
-    notes
-      .filter(n => !n.mute)
-      .map(n => ({ ...n, stringIdx: 5 - n.stringIdx }))
-  ])
-);
-
 function PlayAlong() {
   const { user } = useAuth();
-  const [selectedChord, setSelectedChord] = useState("C Major");
+  const [selectedArpeggio, setSelectedArpeggio] = useState("C Major Triad");
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
   const [currentScore, setCurrentScore] = useState(0);
@@ -67,8 +34,8 @@ function PlayAlong() {
   const [completedNotes, setCompletedNotes] = useState(new Set()); // Track which notes have been completed
   const playTimer = useRef(null);
 
-  const chordNotes = CHORDS[selectedChord];
-  const currentStep = chordNotes[currentStepIdx] || null;
+  const arpeggioSteps = ARPEGGIOS[selectedArpeggio];
+  const currentStep = arpeggioSteps[currentStepIdx] || null;
 
   // Calculate accuracy based on current chord's total notes
   const calculateAccuracy = (correct, totalNotes) => {
@@ -90,19 +57,19 @@ function PlayAlong() {
     const newScore = currentScore + scorePoints;
     setCurrentScore(newScore);
     
-    // Update session stats for this chord
+    // Update session stats for this arpeggio
     const newCorrect = sessionStats.correct + 1;
-    const totalNotesInChord = chordNotes.length;
-    const newAccuracy = calculateAccuracy(newCorrect, totalNotesInChord);
+    const totalNotesInArpeggio = arpeggioSteps.length;
+    const newAccuracy = calculateAccuracy(newCorrect, totalNotesInArpeggio);
     
-    console.log(`Correct note ${currentStepIdx}! Progress: ${newCorrect}/${totalNotesInChord} (${newAccuracy}%)`);
+    console.log(`Correct note ${currentStepIdx}! Progress: ${newCorrect}/${totalNotesInArpeggio} (${newAccuracy}%)`);
     
     // Mark this note as completed
     setCompletedNotes(prev => new Set([...prev, currentStepIdx]));
     
     setSessionStats(prev => ({
       correct: newCorrect,
-      total: totalNotesInChord
+      total: totalNotesInArpeggio
     }));
     
     setChordAccuracy(newAccuracy);
@@ -113,7 +80,7 @@ function PlayAlong() {
         user.uid,
         user.email || user.displayName || 'Anonymous',
         scorePoints,
-        selectedChord,
+        selectedArpeggio,
         true
       );
       
@@ -139,11 +106,11 @@ function PlayAlong() {
     setCompletedNotes(prev => new Set([...prev, currentStepIdx]));
     
     // Don't increment correct count, but still track total attempts
-    const totalNotesInChord = chordNotes.length;
+    const totalNotesInArpeggio = arpeggioSteps.length;
     const currentCorrect = sessionStats.correct;
-    const newAccuracy = calculateAccuracy(currentCorrect, totalNotesInChord);
+    const newAccuracy = calculateAccuracy(currentCorrect, totalNotesInArpeggio);
     
-    console.log(`Incorrect note ${currentStepIdx}, accuracy: ${newAccuracy}% (${currentCorrect}/${totalNotesInChord})`);
+    console.log(`Incorrect note ${currentStepIdx}, accuracy: ${newAccuracy}% (${currentCorrect}/${totalNotesInArpeggio})`);
     setChordAccuracy(newAccuracy);
     
     // Also send incorrect note to database (with 0 points)
@@ -152,7 +119,7 @@ function PlayAlong() {
         user.uid,
         user.email || user.displayName || 'Anonymous',
         0, // No points for incorrect note
-        selectedChord,
+        selectedArpeggio,
         false // Mark as incorrect
       ).catch(error => {
         console.error('Error saving incorrect note:', error);
@@ -164,22 +131,22 @@ function PlayAlong() {
     setIsPlaying(true);
     setCurrentStepIdx(0);
     setCurrentScore(0);
-    setSessionStats({ correct: 0, total: chordNotes.length });
+    setSessionStats({ correct: 0, total: arpeggioSteps.length });
     setChordAccuracy(0);
     setCompletedNotes(new Set()); // Reset completed notes
     playTimer.current = setInterval(() => {
       setCurrentStepIdx(idx => {
-        if (idx < chordNotes.length - 1) {
+        if (idx < arpeggioSteps.length - 1) {
           return idx + 1;
         } else {
           clearInterval(playTimer.current);
           setIsPlaying(false);
-          // Update final scoreboard when chord is completed
+          // Update final scoreboard when arpeggio is completed
           updateFinalScoreboard();
           return idx;
         }
       });
-    }, 1200);
+    }, 1200); // 1.2s per note for demo
   };
 
   // Update final scoreboard when chord is completed
@@ -189,18 +156,18 @@ function PlayAlong() {
     const finalAccuracy = calculateAccuracy(sessionStats.correct, sessionStats.total);
     const bonusPoints = Math.round((finalAccuracy / 100) * 50); // Bonus points based on accuracy
     const totalPoints = currentScore + bonusPoints;
-    const chordLength = chordNotes.length; // Total notes in the chord
+    const arpeggioLength = arpeggioSteps.length; // Total notes in the arpeggio
     
-    console.log(`Chord completed! Final stats: ${sessionStats.correct}/${sessionStats.total} (${finalAccuracy}%), Total points: ${totalPoints}, Chord length: ${chordLength}`);
+    console.log(`Arpeggio completed! Final stats: ${sessionStats.correct}/${sessionStats.total} (${finalAccuracy}%), Total points: ${totalPoints}, Arpeggio length: ${arpeggioLength}`);
     
     try {
       // Use session data to update stats correctly
-      // Always use chord length for total notes, regardless of how many were played
+      // Always use arpeggio length for total notes, regardless of how many were played
       const result = await ScoreboardService.updateUserStatsWithSessionData(
         user.uid,
         user.email || user.displayName || 'Anonymous',
         sessionStats.correct, // Use the correct count from session
-        chordLength,          // Always use chord length for total notes
+        arpeggioLength,       // Always use arpeggio length for total notes
         totalPoints
       );
       
@@ -409,7 +376,7 @@ function PlayAlong() {
     // Update stats when stopping, based on notes that have passed
     if (user && currentStepIdx > 0) {
       const notesPassed = currentStepIdx; // Number of notes that have passed
-      const chordLength = chordNotes.length;
+      const arpeggioLength = arpeggioSteps.length;
       const correctCount = sessionStats.correct;
       const totalPoints = currentScore;
       
@@ -420,7 +387,7 @@ function PlayAlong() {
         user.uid,
         user.email || user.displayName || 'Anonymous',
         correctCount,
-        notesPassed, // Use notes passed instead of chord length
+        notesPassed, // Use notes passed instead of arpeggio length
         totalPoints
       ).then(() => {
         console.log('Stats updated after stopping playback');
@@ -430,7 +397,7 @@ function PlayAlong() {
     }
   };
 
-  return (
+    return (
     <div style={{
       minHeight: "100vh",
       background: "linear-gradient(135deg, #0c0e1a 0%, #1a1b2e 50%, #2d1b69 100%)",
@@ -484,7 +451,7 @@ function PlayAlong() {
             fontWeight: "300",
             letterSpacing: "1px"
           }}>
-            Master guitar chords with real-time guidance
+            Master guitar arpeggios with real-time guidance
           </p>
         </div>
 
@@ -556,7 +523,7 @@ function PlayAlong() {
             alignItems: "center",
             gap: "1.5rem"
           }}>
-            {/* Chord Selector */}
+            {/* Arpeggio Selector */}
             <div style={{
               display: "flex",
               flexDirection: "column",
@@ -569,11 +536,11 @@ function PlayAlong() {
                 color: "#90caf9",
                 letterSpacing: "1px"
               }}>
-                SELECT CHORD
+                SELECT ARPEGGIO
               </label>
               <select
-                value={selectedChord}
-                onChange={e => setSelectedChord(e.target.value)}
+                value={selectedArpeggio}
+                onChange={e => setSelectedArpeggio(e.target.value)}
                 style={{
                   fontSize: "1.1rem",
                   padding: "0.8rem 1.5rem",
@@ -590,7 +557,7 @@ function PlayAlong() {
                 }}
                 disabled={isPlaying}
               >
-                {Object.keys(CHORDS).map(name => (
+                {Object.keys(ARPEGGIOS).map(name => (
                   <option key={name} value={name} style={{ background: "#1a1b2e", color: "#fff" }}>
                     {name}
                   </option>
@@ -689,7 +656,7 @@ function PlayAlong() {
               >
                 🏆 Test Leaderboard
               </button>
-
+              
               <button
                 onClick={createLeaderboardWithTestData}
                 style={{
@@ -723,7 +690,7 @@ function PlayAlong() {
               >
                 📊 Test Note Counting
               </button>
-
+              
               <button
                 onClick={testChordCompletionWithoutPlaying}
                 style={{
@@ -738,9 +705,9 @@ function PlayAlong() {
                   marginLeft: "0.5rem"
                 }}
               >
-                🎵 Test Chord Completion (No Play)
+                🎵 Test Arpeggio Completion (No Play)
               </button>
-
+              
               <button
                 onClick={testStopPlayback}
                 style={{
@@ -778,7 +745,7 @@ function PlayAlong() {
           }}>
             <PlayAlongOverlay
               highlightedNotes={isPlaying && currentStep ? [currentStep] : []}
-              arpeggioNotes={chordNotes}
+              arpeggioNotes={arpeggioSteps}
               currentStep={isPlaying ? currentStepIdx : -1}
               onCorrectNote={handleCorrectNote}
               onIncorrectNote={handleIncorrectNote}
@@ -803,8 +770,8 @@ function PlayAlong() {
             transition: "all 0.3s ease"
           }}>
             {isPlaying && currentStep
-              ? `Playing: String ${6 - currentStep.stringIdx} • Fret ${currentStep.fretNum}`
-              : `Selected: ${selectedChord}`}
+              ? `Playing: ${currentStep.note} (String ${currentStep.stringIdx + 1}, Fret ${currentStep.fretNum})`
+              : `Selected: ${selectedArpeggio}`}
           </div>
           {isPlaying && (
             <div style={{
@@ -813,7 +780,7 @@ function PlayAlong() {
               marginTop: "0.5rem",
               fontWeight: "400"
             }}>
-              Step {currentStepIdx + 1} of {chordNotes.length}
+              Step {currentStepIdx + 1} of {arpeggioSteps.length}
             </div>
           )}
         </div>
