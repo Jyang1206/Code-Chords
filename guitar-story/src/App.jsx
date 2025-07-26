@@ -31,7 +31,7 @@ function AppContent() {
   // Debug logging
   console.log('Current location:', location.pathname);
   console.log('AuthProvider should be working');
-  
+
   return (
     <div style={{
       minHeight: "100vh",
