@@ -91,6 +91,83 @@ const SONGS = {
   ]
 };
 
+// --- TAB OVERLAY COMPONENT ---
+const TabOverlay = ({ playNotes, currentStepIdx, isPlaying }) => {
+  const upcomingNotes = playNotes.slice(currentStepIdx, currentStepIdx + 5); // Show next 5 notes
+  
+  return (
+    <div style={{
+      position: 'absolute',
+      bottom: '20px',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      background: 'rgba(0, 0, 0, 0.8)',
+      borderRadius: '12px',
+      padding: '12px 20px',
+      backdropFilter: 'blur(10px)',
+      border: '1px solid rgba(144, 202, 249, 0.3)',
+      zIndex: 1000,
+      minWidth: '300px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px'
+    }}>
+      <div style={{
+        fontSize: '14px',
+        color: '#90caf9',
+        fontWeight: '600',
+        marginRight: '8px'
+      }}>
+        Next:
+      </div>
+      {upcomingNotes.map((note, index) => (
+        <div
+          key={`${currentStepIdx + index}-${note.stringIdx}-${note.fretNum}`}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            padding: '8px 12px',
+            background: index === 0 ? 'rgba(144, 202, 249, 0.2)' : 'rgba(255, 255, 255, 0.1)',
+            borderRadius: '8px',
+            border: index === 0 ? '2px solid #90caf9' : '1px solid rgba(255, 255, 255, 0.2)',
+            minWidth: '40px',
+            transition: 'all 0.3s ease',
+            opacity: index === 0 ? 1 : 0.7
+          }}
+        >
+          <div style={{
+            fontSize: '16px',
+            fontWeight: '700',
+            color: index === 0 ? '#fff' : '#90caf9',
+            marginBottom: '2px'
+          }}>
+            {note.note}
+          </div>
+          <div style={{
+            fontSize: '12px',
+            color: '#ccc',
+            fontWeight: '500'
+          }}>
+            {note.stringIdx === 0 ? '6' : note.stringIdx === 1 ? '5' : note.stringIdx === 2 ? '4' : 
+             note.stringIdx === 3 ? '3' : note.stringIdx === 4 ? '2' : '1'}-{note.fretNum}
+          </div>
+        </div>
+      ))}
+      {upcomingNotes.length < 5 && (
+        <div style={{
+          fontSize: '14px',
+          color: '#666',
+          fontStyle: 'italic',
+          marginLeft: '8px'
+        }}>
+          End
+        </div>
+      )}
+    </div>
+  );
+};
+
 function PlayAlong() {
   console.log('PlayAlong component is rendering!');
   const { currentUser } = useAuth();
@@ -1031,6 +1108,15 @@ function PlayAlong() {
             </div>
           )}
         </div>
+
+        {/* Tab Overlay */}
+        {isPlaying && (
+          <TabOverlay 
+            playNotes={playNotes}
+            currentStepIdx={currentStepIdx}
+            isPlaying={isPlaying}
+          />
+        )}
       </div>
     </div>
   );
