@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useMemo } from "react";
 import { InferenceEngine, CVImage } from "inferencejs";
-import AudioPitchDetector from "./AudioPitchDetector";
+import AudioPitchDetector from "../utils/AudioPitchDetector";
 
 const ALL_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const OPEN_STRINGS = ['E', 'A', 'D', 'G', 'B', 'E']; // 6th to 1st string
