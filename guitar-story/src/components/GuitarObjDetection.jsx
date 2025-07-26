@@ -1,6 +1,5 @@
 import { InferenceEngine, CVImage } from "inferencejs";
 import { useEffect, useRef, useState, useMemo } from "react";
-import { ThemeContext } from "../App";
 import "../css/GuitarObjDetection.css";
 import AudioPitchDetector from "./AudioPitchDetector";
 
@@ -258,120 +257,304 @@ function GuitarObjDetection() {
   };
 
   return (
-    <div className="guitar-obj-detection">
-      <div className="guitar-video-container">
-        <video
-          id="video"
-          ref={videoRef}
-          className="guitar-video"
-          playsInline
-          muted
-        />
-        <canvas
-          id="canvas"
-          ref={canvasRef}
-          className="guitar-canvas"
-        />
-        {/* Overlay scale label on video */}
-        <div className="guitar-scale-label-overlay">
-          {selectedRootRef.current} {selectedScaleRef.current.replace('_', ' ')}
-        </div>
-        {/* Audio note display using AudioPitchDetector */}
-        <AudioPitchDetector>
-          {({ note, frequency, listening, start, stop, error }) => {
-            // Extract note name (strip octave)
-            const noteName = note ? note.replace(/\d+$/, "") : null;
-            // Check if note is in scale
-            const currentScaleNotes = scaleNotesRef.current;
-            const isInScale = noteName && currentScaleNotes.includes(noteName);
+    <div style={{
+      background: "linear-gradient(135deg, #0c0e1a 0%, #1a1b2e 50%, #2d1b69 100%)",
+      color: "#fff",
+      fontFamily: "'Orbitron', 'Montserrat', 'Arial', sans-serif",
+      minHeight: "100vh",
+      padding: "2rem"
+    }}>
+      <div style={{
+        maxWidth: "1200px",
+        margin: "0 auto"
+      }}>
+        <h1 style={{
+          textAlign: "center",
+          fontSize: "2.5rem",
+          fontWeight: "700",
+          background: "linear-gradient(45deg, #90caf9, #7e57c2)",
+          backgroundClip: "text",
+          WebkitBackgroundClip: "text",
+          WebkitTextFillColor: "transparent",
+          marginBottom: "2rem"
+        }}>
+          Guitar Object Detection
+        </h1>
+        
+        <div style={{
+          background: "rgba(255, 255, 255, 0.05)",
+          backdropFilter: "blur(10px)",
+          borderRadius: "20px",
+          padding: "2rem",
+          border: "1px solid rgba(255, 255, 255, 0.1)",
+          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)"
+        }}>
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 300px",
+            gap: "2rem"
+          }}>
+            {/* Video Container */}
+            <div style={{
+              position: "relative",
+              background: "rgba(0, 0, 0, 0.3)",
+              borderRadius: "15px",
+              overflow: "hidden",
+              minHeight: "400px"
+            }}>
+              <video
+                id="video"
+                ref={videoRef}
+                style={{
+                  width: "100%",
+                  height: "auto",
+                  display: "block"
+                }}
+                playsInline
+                muted
+              />
+              <canvas
+                id="canvas"
+                ref={canvasRef}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: "100%",
+                  pointerEvents: "none"
+                }}
+              />
+              {/* Scale label overlay */}
+              <div style={{
+                position: "absolute",
+                top: "1rem",
+                left: "1rem",
+                background: "rgba(0, 0, 0, 0.7)",
+                color: "#90caf9",
+                padding: "0.5rem 1rem",
+                borderRadius: "8px",
+                fontSize: "1rem",
+                fontWeight: "600"
+              }}>
+                {selectedRootRef.current} {selectedScaleRef.current.replace('_', ' ')}
+              </div>
+              
+              {/* Audio note display using AudioPitchDetector */}
+              <AudioPitchDetector>
+                {({ note, frequency, listening, start, stop, error }) => {
+                  // Extract note name (strip octave)
+                  const noteName = note ? note.replace(/\d+$/, "") : null;
+                  // Check if note is in scale
+                  const currentScaleNotes = scaleNotesRef.current;
+                  const isInScale = noteName && currentScaleNotes.includes(noteName);
 
-            // --- Keep last detected note/frequency for 2 seconds ---
-            const [displayNote, setDisplayNote] = useState(null);
-            const [displayFreq, setDisplayFreq] = useState(null);
-            const [displayTimeout, setDisplayTimeout] = useState(null);
-            // Update displayNote/freq on new detection
-            useEffect(() => {
-              if (note && frequency) {
-                setDisplayNote(note);
-                setDisplayFreq(frequency);
-                if (displayTimeout) clearTimeout(displayTimeout);
-                // If not in scale, display for 4s, else 2s
-                const timeoutMs = (!isInScale && noteName) ? 4000 : 2000;
-                const timeout = setTimeout(() => {
-                  setDisplayNote(null);
-                  setDisplayFreq(null);
-                }, timeoutMs);
-                setDisplayTimeout(timeout);
-              } else if (!note && !frequency && displayTimeout == null && (displayNote || displayFreq)) {
-                // If no note, start a timeout to clear after 2s (in case missed above)
-                const timeout = setTimeout(() => {
-                  setDisplayNote(null);
-                  setDisplayFreq(null);
-                }, 2000);
-                setDisplayTimeout(timeout);
-              }
-              // Cleanup on unmount or note change
-              return () => {
-                if (displayTimeout) clearTimeout(displayTimeout);
-              };
-            }, [note, frequency, isInScale, noteName]);
-            // --- End keep last note logic ---
+                  // --- Keep last detected note/frequency for 2 seconds ---
+                  const [displayNote, setDisplayNote] = useState(null);
+                  const [displayFreq, setDisplayFreq] = useState(null);
+                  const [displayTimeout, setDisplayTimeout] = useState(null);
+                  // Update displayNote/freq on new detection
+                  useEffect(() => {
+                    if (note && frequency) {
+                      setDisplayNote(note);
+                      setDisplayFreq(frequency);
+                      if (displayTimeout) clearTimeout(displayTimeout);
+                      // If not in scale, display for 4s, else 2s
+                      const timeoutMs = (!isInScale && noteName) ? 4000 : 2000;
+                      const timeout = setTimeout(() => {
+                        setDisplayNote(null);
+                        setDisplayFreq(null);
+                      }, timeoutMs);
+                      setDisplayTimeout(timeout);
+                    } else if (!note && !frequency && displayTimeout == null && (displayNote || displayFreq)) {
+                      // If no note, start a timeout to clear after 2s (in case missed above)
+                      const timeout = setTimeout(() => {
+                        setDisplayNote(null);
+                        setDisplayFreq(null);
+                      }, 2000);
+                      setDisplayTimeout(timeout);
+                    }
+                    // Cleanup on unmount or note change
+                    return () => {
+                      if (displayTimeout) clearTimeout(displayTimeout);
+                    };
+                  }, [note, frequency, isInScale, noteName]);
+                  // --- End keep last note logic ---
 
-            return (
-              <div className="guitar-audio-note-panel">
-                <div className="audio-note-label">🎤 Detected Note</div>
-                <div className="audio-note-value">{displayNote || '--'}</div>
-                <div className="audio-freq-value">{displayFreq ? displayFreq.toFixed(2) + ' Hz' : '--'}</div>
-                {!isInScale && noteName && (
-                  <div className="audio-warning">
-                    Note {noteName} is not in the {selectedRootRef.current} {selectedScaleRef.current.replace('_',' ')} scale!
+                  return (
+                    <div style={{
+                      position: "absolute",
+                      top: "1rem",
+                      right: "1rem",
+                      background: "rgba(255, 255, 255, 0.1)",
+                      backdropFilter: "blur(10px)",
+                      borderRadius: "12px",
+                      padding: "1rem",
+                      border: "1px solid rgba(255, 255, 255, 0.2)",
+                      minWidth: "200px"
+                    }}>
+                      <div style={{ fontSize: "0.9rem", color: "#90caf9", marginBottom: "0.5rem" }}>
+                        🎤 Detected Note
+                      </div>
+                      <div style={{ fontSize: "1.2rem", fontWeight: "600", color: "#fff", marginBottom: "0.25rem" }}>
+                        {displayNote || '--'}
+                      </div>
+                      <div style={{ fontSize: "0.8rem", color: "#b0bec5", marginBottom: "0.5rem" }}>
+                        {displayFreq ? displayFreq.toFixed(2) + ' Hz' : '--'}
+                      </div>
+                      {!isInScale && noteName && (
+                        <div style={{ fontSize: "0.8rem", color: "#ff6b6b", marginBottom: "0.5rem" }}>
+                          Note {noteName} is not in the {selectedRootRef.current} {selectedScaleRef.current.replace('_',' ')} scale!
+                        </div>
+                      )}
+                      {error && <div style={{ fontSize: "0.8rem", color: "#ff6b6b", marginBottom: "0.5rem" }}>{error}</div>}
+                      <div style={{ textAlign: "center" }}>
+                        {!listening ? (
+                          <button 
+                            style={{
+                              fontSize: "0.9rem",
+                              padding: "0.5rem 1rem",
+                              borderRadius: "8px",
+                              border: "none",
+                              fontWeight: "600",
+                              cursor: "pointer",
+                              transition: "all 0.3s ease",
+                              background: "linear-gradient(45deg, #1976d2, #7e57c2)",
+                              color: "#fff",
+                              boxShadow: "0 2px 8px rgba(25, 118, 210, 0.3)"
+                            }}
+                            onClick={start}
+                          >
+                            Start Audio
+                          </button>
+                        ) : (
+                          <button 
+                            style={{
+                              fontSize: "0.9rem",
+                              padding: "0.5rem 1rem",
+                              borderRadius: "8px",
+                              border: "none",
+                              fontWeight: "600",
+                              cursor: "pointer",
+                              transition: "all 0.3s ease",
+                              background: "linear-gradient(45deg, #e53935, #c62828)",
+                              color: "#fff",
+                              boxShadow: "0 2px 8px rgba(229, 57, 53, 0.3)"
+                            }}
+                            onClick={stop}
+                          >
+                            Stop Audio
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }}
+              </AudioPitchDetector>
+            </div>
+            
+            {/* Scale Controls */}
+            <div style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "1.5rem"
+            }}>
+              <div style={{
+                background: "rgba(255, 255, 255, 0.05)",
+                borderRadius: "15px",
+                padding: "1.5rem",
+                border: "1px solid rgba(255, 255, 255, 0.1)"
+              }}>
+                <h3 style={{
+                  fontSize: "1.2rem",
+                  fontWeight: "600",
+                  color: "#90caf9",
+                  margin: "0 0 1rem 0",
+                  textAlign: "center"
+                }}>
+                  Scale Controls
+                </h3>
+                
+                {/* Root Notes */}
+                <div style={{ marginBottom: "1rem" }}>
+                  <label style={{ display: "block", marginBottom: "0.5rem", color: "#b0bec5" }}>
+                    Root Note:
+                  </label>
+                  <div style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: "0.5rem"
+                  }}>
+                    {ROOT_NOTES.map(note => (
+                      <button
+                        key={note}
+                        style={{
+                          padding: "0.5rem 1rem",
+                          borderRadius: "8px",
+                          border: "1px solid rgba(144, 202, 249, 0.3)",
+                          background: selectedRoot === note 
+                            ? "rgba(144, 202, 249, 0.2)" 
+                            : "rgba(255, 255, 255, 0.1)",
+                          color: "#fff",
+                          cursor: "pointer",
+                          transition: "all 0.3s ease",
+                          fontSize: "0.9rem"
+                        }}
+                        onClick={() => setSelectedRoot(note)}
+                      >
+                        {note}
+                      </button>
+                    ))}
                   </div>
-                )}
-                {error && <div className="audio-warning">{error}</div>}
-                <div className="audio-controls">
-                  {!listening ? (
-                    <button className="start-btn" onClick={start}>Start Audio</button>
-                  ) : (
-                    <button className="stop-btn" onClick={stop}>Stop Audio</button>
-                  )}
+                </div>
+                
+                {/* Scale Types */}
+                <div style={{ marginBottom: "1rem" }}>
+                  <label style={{ display: "block", marginBottom: "0.5rem", color: "#b0bec5" }}>
+                    Scale Type:
+                  </label>
+                  <div style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.5rem"
+                  }}>
+                    {SCALE_TYPES.map(type => (
+                      <button
+                        key={type}
+                        style={{
+                          padding: "0.5rem 1rem",
+                          borderRadius: "8px",
+                          border: "1px solid rgba(144, 202, 249, 0.3)",
+                          background: selectedScale === type 
+                            ? "rgba(144, 202, 249, 0.2)" 
+                            : "rgba(255, 255, 255, 0.1)",
+                          color: "#fff",
+                          cursor: "pointer",
+                          transition: "all 0.3s ease",
+                          fontSize: "0.9rem",
+                          textAlign: "left"
+                        }}
+                        onClick={() => setSelectedScale(type)}
+                      >
+                        {type.replace('_', ' ')}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Current Scale Display */}
+                <div style={{
+                  background: "rgba(144, 202, 249, 0.1)",
+                  borderRadius: "8px",
+                  padding: "1rem",
+                  border: "1px solid rgba(144, 202, 249, 0.3)"
+                }}>
+                  <div style={{ fontSize: "0.9rem", color: "#b0bec5" }}>
+                    Notes: {scaleNotes.join(', ')}
+                  </div>
                 </div>
               </div>
-            );
-          }}
-        </AudioPitchDetector>
-      </div>
-      {/* Scale Controls UI */}
-      <div className="guitar-scale-controls">
-        <h3>Scale Controls</h3>
-        <div className="guitar-scale-btns-row">
-          <div className="guitar-root-notes">
-            <label>Root Note: </label>
-            {ROOT_NOTES.map(note => (
-              <button
-                key={note}
-                className={`guitar-scale-btn${selectedRoot === note ? ' active' : ''}`}
-                onClick={() => setSelectedRoot(note)}
-              >
-                {note}
-              </button>
-            ))}
-          </div>
-          <div className="guitar-scale-types">
-            <label>Scale Type: </label>
-            {SCALE_TYPES.map(type => (
-              <button
-                key={type}
-                className={`guitar-scale-btn${selectedScale === type ? ' active' : ''}`}
-                onClick={() => setSelectedScale(type)}
-              >
-                {type.replace('_', ' ')}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="guitar-current-scale">
-          <div className="guitar-scale-notes">
-            Notes: {scaleNotes.join(', ')}
+            </div>
           </div>
         </div>
       </div>

@@ -14,7 +14,13 @@ function getNoteAtPosition(stringIdx, fretNum) {
   return ALL_NOTES[noteIdx];
 }
 
-function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNotes = [] }) {
+function PlayAlongOverlay({ 
+  arpeggioNotes = [], 
+  currentStep = 0, 
+  highlightedNotes = [],
+  onCorrectNote,
+  onIncorrectNote
+}) {
   const videoRef = useRef();
   const canvasRef = useRef();
   const inferEngine = useMemo(() => new InferenceEngine(), []);
@@ -223,10 +229,12 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
           const playedNote = note.replace(/\d+$/, "");
           if (playedNote === expectedNote) {
             setLastFeedback("correct");
+            onCorrectNote && onCorrectNote();
           } else {
             setLastFeedback("incorrect");
+            onIncorrectNote && onIncorrectNote();
           }
-        }, [note, expectedNote]);
+        }, [note, expectedNote, onCorrectNote, onIncorrectNote]);
         return (
           <div style={{ position: "relative", width: FRETBOARD_WIDTH, height: FRETBOARD_HEIGHT, margin: "0 auto" }}>
             <video

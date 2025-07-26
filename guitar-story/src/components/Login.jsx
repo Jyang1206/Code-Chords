@@ -1,19 +1,29 @@
 import React, { useState } from "react";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../firebase";
+import { useAuth } from "../contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 import "../css/Login.css";
 
 export default function Login({ onSwitch }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const { login } = useAuth();
+  const navigate = useNavigate();
 
   const handleLogin = async e => {
     e.preventDefault();
+    
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      setError("");
+      setLoading(true);
+      await login(email, password);
+      navigate("/"); // Redirect to home after successful login
     } catch (err) {
-      setError(err.message);
+      setError("Failed to log in. Please check your credentials.");
+      console.error("Login error:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -29,6 +39,7 @@ export default function Login({ onSwitch }) {
           onChange={e => setEmail(e.target.value)}
           required
           className="cosmic-login-input"
+          disabled={loading}
         /><br/>
         <input
           type="password"
@@ -37,8 +48,15 @@ export default function Login({ onSwitch }) {
           onChange={e => setPassword(e.target.value)}
           required
           className="cosmic-login-input"
+          disabled={loading}
         /><br/>
-        <button type="submit" className="cosmic-login-btn">Login</button>
+        <button 
+          type="submit" 
+          className="cosmic-login-btn"
+          disabled={loading}
+        >
+          {loading ? "Logging in..." : "Login"}
+        </button>
         <p className="cosmic-login-switch">
           Don't have an account?{" "}
           <button type="button" className="cosmic-login-link" onClick={onSwitch}>Sign up</button>
