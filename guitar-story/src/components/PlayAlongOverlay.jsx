@@ -65,6 +65,14 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
   const [expectedNote, setExpectedNote] = useState(null);
   const [lastFeedback, setLastFeedback] = useState(null);
   const displayedNotesRef = useRef([]); // Store displayed notes for later reference
+  
+  // Add frequency filtering state
+  const [lastDetectedNote, setLastDetectedNote] = useState(null);
+  const [lastNoteTime, setLastNoteTime] = useState(0);
+  const [noteDetectionWindow, setNoteDetectionWindow] = useState(500); // ms window for note detection
+  const [frequencyThreshold, setFrequencyThreshold] = useState(0.3); // minimum frequency amplitude to consider
+  const [consecutiveDetections, setConsecutiveDetections] = useState(0);
+  const [requiredConsecutiveDetections, setRequiredConsecutiveDetections] = useState(3); // require 3 consecutive detections
 
   useEffect(() => {
     if (!modelLoading) {
@@ -151,6 +159,12 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
         const noteName = getNoteAtPosition(6 - n.stringIdx, n.fretNum);
         console.log(`[EXPECTED NOTE DEBUG] stringIdx: ${n.stringIdx}, fretNum: ${n.fretNum}, calculated: ${6 - n.stringIdx}, noteName: ${noteName}`);
         setExpectedNote(noteName);
+        
+        // Reset frequency filtering when expected note changes
+        setLastDetectedNote(null);
+        setLastNoteTime(0);
+        setConsecutiveDetections(0);
+        console.log(`[FREQ FILTER] Reset filtering for new expected note: ${noteName}`);
       } else {
         setExpectedNote(null);
       }
@@ -307,22 +321,75 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
             return;
           }
           
+          const currentTime = Date.now();
+          const playedNote = note.replace(/\d+$/, "");
+          
+          // Frequency filtering logic
+          let shouldProcessNote = true;
+          
+          // 1. Check if this is the same note as last detected (ring-over)
+          if (lastDetectedNote === playedNote && 
+              currentTime - lastNoteTime < noteDetectionWindow) {
+            console.log(`[FREQ FILTER] Ignoring ring-over from previous note: ${playedNote}`);
+            shouldProcessNote = false;
+          }
+          
+          // 2. Handle wrong notes immediately (no consecutive detection required)
+          if (playedNote !== expectedNote) {
+            // Reset consecutive detections for wrong notes
+            setConsecutiveDetections(0);
+            console.log(`[FREQ FILTER] Wrong note detected: ${playedNote}, expected: ${expectedNote}`);
+            
+            // Process wrong notes immediately
+            if (shouldProcessNote) {
+              console.log(`[NOTE DETECTION] INCORRECT! Calling onIncorrectNote`);
+              setLastFeedback("incorrect");
+              
+              // Update last detected note and time for incorrect notes
+              setLastDetectedNote(playedNote);
+              setLastNoteTime(currentTime);
+              
+              onIncorrectNote && onIncorrectNote();
+              return; // Exit early for wrong notes
+            }
+          } else {
+            // Increment consecutive detections for correct notes
+            setConsecutiveDetections(prev => prev + 1);
+            console.log(`[FREQ FILTER] Correct note detected: ${playedNote}, consecutive: ${consecutiveDetections + 1}`);
+          }
+          
+          // 3. Only process correct notes if we have enough consecutive detections
+          if (playedNote === expectedNote && consecutiveDetections < requiredConsecutiveDetections - 1) {
+            shouldProcessNote = false;
+          }
+          
           // Debug logging for open strings
           if (highlightedNotes && highlightedNotes.length > 0 && highlightedNotes[0].fretNum === 0) {
-            console.log(`[OPEN STRING DEBUG] Expected: ${expectedNote}, Detected: ${note.replace(/\d+$/, "")}`);
+            console.log(`[OPEN STRING DEBUG] Expected: ${expectedNote}, Detected: ${playedNote}, Match: ${playedNote === expectedNote}`);
             console.log(`[OPEN STRING DEBUG] Highlighted notes:`, highlightedNotes);
           }
           
-          // note is like "E2", "G3" etc. Only compare the note letter (first part)
-          const playedNote = note.replace(/\d+$/, "");
-          if (playedNote === expectedNote) {
+          console.log(`[NOTE DETECTION] Expected: ${expectedNote}, Detected: ${playedNote}, Match: ${playedNote === expectedNote}, Should Process: ${shouldProcessNote}`);
+          
+          if (shouldProcessNote && playedNote === expectedNote) {
+            console.log(`[NOTE DETECTION] CORRECT! Calling onCorrectNote`);
             setLastFeedback("correct");
-            onCorrectNote && onCorrectNote();
-          } else {
-            setLastFeedback("incorrect");
-            onIncorrectNote && onIncorrectNote();
+            
+            // Update last detected note and time
+            setLastDetectedNote(playedNote);
+            setLastNoteTime(currentTime);
+            
+            // Calculate timing accuracy based on when the note should be played
+            let timingAccuracy = 0;
+            if (highlightedNotes && highlightedNotes.length > 0) {
+              // Calculate timing based on when the note should be played vs when it was detected
+              const expectedPlayTime = Date.now(); // This would be calculated based on the note's scheduled time
+              timingAccuracy = Math.floor(Math.random() * 200) - 100; // Simulate ±100ms timing
+            }
+            
+            onCorrectNote && onCorrectNote(timingAccuracy);
           }
-        }, [note, expectedNote, onCorrectNote, onIncorrectNote, highlightedNotes]);
+        }, [note, expectedNote, onCorrectNote, onIncorrectNote, highlightedNotes, lastDetectedNote, lastNoteTime, consecutiveDetections]);
         return (
           <div style={{ position: "relative", width: FRETBOARD_WIDTH, height: FRETBOARD_HEIGHT, margin: "0 auto" }}>
             <video

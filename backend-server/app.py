@@ -22,5 +22,5 @@ def health():
     return jsonify({'status': 'healthy'})
 
 if __name__ == '__main__':
-    print(f"Starting server on port {PORT}")
-    app.run(debug=True, host='0.0.0.0', port=PORT)
+        print(f"Starting server on port {PORT}")
+        app.run(debug=True, host='0.0.0.0', port=PORT)

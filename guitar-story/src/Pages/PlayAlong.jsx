@@ -172,6 +172,193 @@ const TabOverlay = ({ playNotes, currentStepIdx, isPlaying }) => {
   );
 };
 
+  // --- GUITAR HERO INTERFACE COMPONENT ---
+  const GuitarHeroInterface = ({ playNotes, currentStepIdx, isPlaying, playbackStartTimeRef, playbackTime, firstNoteTravelIn = 0 }) => {
+    const STRING_COUNT = 6;
+    const FRET_COUNT = 12;
+    const NOTE_WIDTH = 44; // Slightly smaller
+    const NOTE_HEIGHT = 28; // Slightly smaller
+    const STRING_HEIGHT = 30;
+    const FRET_WIDTH = 60;
+    const SPAWN_X = 1000; // Right side spawn point
+    const PLAY_ZONE_X = 100; // Left side Play zone
+    const TRAVEL_DISTANCE = SPAWN_X - PLAY_ZONE_X;
+
+    // Calculate visible notes with precise travel
+    const getVisibleNotes = () => {
+      if (!isPlaying || !playbackStartTimeRef.current) return [];
+      const now = playbackTime;
+      const visibleNotes = [];
+      const TRAVEL_TIME = 1200; // 1.0s travel time
+      let cumulativeTime = 0;
+      
+      for (let i = 0; i < playNotes.length; i++) {
+        const note = playNotes[i];
+        const duration = (note.duration || 1) * 1200; // Duration in ms
+        
+        // Each note spawns at cumulativeTime and takes TRAVEL_TIME to reach Play
+        const noteSpawnTime = cumulativeTime;
+        const notePlayTime = noteSpawnTime + TRAVEL_TIME;
+        const timeUntilPlay = notePlayTime - now;
+        
+        // Show note if it's within the travel window
+        if (timeUntilPlay <= TRAVEL_TIME && timeUntilPlay >= -1000) {
+          // progress: 1 (spawn, right), 0 (at Play zone, left)
+          const progress = Math.max(0, Math.min(1, timeUntilPlay / TRAVEL_TIME));
+          const xPosition = SPAWN_X - (TRAVEL_DISTANCE * (1 - progress));
+          const y = (STRING_COUNT - note.stringIdx) * STRING_HEIGHT + 10 - NOTE_HEIGHT / 2 + 1;
+          const isCurrent = Math.abs(timeUntilPlay) < 200;
+          visibleNotes.push({
+            ...note,
+            x: xPosition,
+            y,
+            isCurrent,
+            progress,
+            timeUntilPlay
+          });
+        }
+        
+        // Next note spawns after current note's duration
+        cumulativeTime += duration;
+      }
+      
+      return visibleNotes;
+    };
+    const visibleNotes = getVisibleNotes();
+    const playZoneHeight = STRING_COUNT * STRING_HEIGHT;
+    const playZoneTop = 10;
+    return (
+      <div style={{
+        position: 'relative',
+        width: `${SPAWN_X + 200}px`,
+        height: `${STRING_COUNT * STRING_HEIGHT + 20}px`,
+        background: 'linear-gradient(180deg, #1a1b2e 0%, #0a0a0a 100%)',
+        border: '2px solid rgba(144, 202, 249, 0.3)',
+        borderRadius: '12px',
+        overflow: 'hidden',
+        margin: '32px auto 0 auto'
+      }}>
+        {/* Guitar strings */}
+        {Array.from({ length: STRING_COUNT }, (_, i) => (
+          <div
+            key={`string-${i}`}
+            style={{
+              position: 'absolute',
+              left: 0,
+              top: i * STRING_HEIGHT + 10,
+              width: '100%',
+              height: '2px',
+              background: i === 0 || i === 5 ? '#90caf9' : '#444',
+              zIndex: 1
+            }}
+          />
+        ))}
+        {/* Fret markers */}
+        {Array.from({ length: FRET_COUNT }, (_, i) => (
+          <div
+            key={`fret-${i}`}
+            style={{
+              position: 'absolute',
+              left: 50 + i * FRET_WIDTH,
+              top: 0,
+              width: '2px',
+              height: '100%',
+              background: i === 3 || i === 5 || i === 7 || i === 9 ? '#90caf9' : '#333',
+              zIndex: 1
+            }}
+          />
+        ))}
+        {/* Play zone on the left */}
+        <div style={{
+          position: 'absolute',
+          left: PLAY_ZONE_X - 25,
+          top: 0,
+          width: '50px',
+          height: `${playZoneHeight}px`,
+          border: '3px solid #90caf9',
+          borderRadius: '25px',
+          background: 'rgba(144, 202, 249, 0.1)',
+          zIndex: 10,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexDirection: 'column'
+        }}>
+          <div style={{
+            fontSize: '14px',
+            color: '#90caf9',
+            fontWeight: 'bold',
+            writingMode: 'vertical-rl',
+            transform: 'rotate(180deg)'
+          }}>
+            PLAY
+          </div>
+        </div>
+        {/* Moving notes */}
+        {visibleNotes.map((note, index) => (
+          <div
+            key={`note-${index}`}
+            style={{
+              position: 'absolute',
+              left: note.x,
+              top: note.y,
+              width: NOTE_WIDTH,
+              height: NOTE_HEIGHT,
+              background: note.isCurrent ? '#90caf9' : '#222',
+              borderRadius: '8px',
+              border: note.isCurrent ? '3px solid #fff' : '2px solid #90caf9',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: note.isCurrent ? '#222' : '#90caf9',
+              fontSize: '1.3rem',
+              fontWeight: 'bold',
+              zIndex: 5,
+              boxShadow: note.isCurrent ? '0 0 20px 4px #90caf9' : '0 0 8px #222',
+              transform: note.isCurrent ? 'scale(1.15)' : 'scale(1)',
+              transition: 'transform 0.1s, background 0.2s, color 0.2s, border 0.2s'
+            }}
+          >
+            {note.fretNum}
+          </div>
+        ))}
+        {/* String labels */}
+        {Array.from({ length: STRING_COUNT }, (_, i) => (
+          <div
+            key={`label-${i}`}
+            style={{
+              position: 'absolute',
+              left: 10,
+              top: i * STRING_HEIGHT + 5,
+              color: '#90caf9',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              zIndex: 2
+            }}
+          >
+            {STRING_COUNT - i}
+          </div>
+        ))}
+        {/* Fret labels */}
+        {Array.from({ length: FRET_COUNT }, (_, i) => (
+          <div
+            key={`fret-label-${i}`}
+            style={{
+              position: 'absolute',
+              left: 50 + i * FRET_WIDTH - 10,
+              top: 5,
+              color: '#666',
+              fontSize: '11px',
+              zIndex: 2
+            }}
+          >
+            {i}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
 function PlayAlong() {
   console.log('PlayAlong component is rendering!');
   const { currentUser } = useAuth();
@@ -188,11 +375,89 @@ function PlayAlong() {
   const latestSessionStatsRef = useRef({ correct: 0, total: 0 }); // Track latest session stats
   const noteTimestampsRef = useRef({}); // Track timestamps for song playback
 
+  // Add countdown state
+  const [countdown, setCountdown] = useState(0);
+  const [showCountdown, setShowCountdown] = useState(false);
+  // Let the last note linger before stopping overlay
+  const [overlayActive, setOverlayActive] = useState(true);
+  useEffect(() => {
+    if (!isPlaying && overlayActive) {
+      // Wait 2s after last note before hiding overlay
+      const timeout = setTimeout(() => setOverlayActive(false), 2000);
+      return () => clearTimeout(timeout);
+    }
+    if (isPlaying && !overlayActive) {
+      setOverlayActive(true);
+    }
+  }, [isPlaying, overlayActive]);
+  const [animationTime, setAnimationTime] = useState(Date.now());
+  const [visualFeedback, setVisualFeedback] = useState(null);
+
+  // Clear visual feedback after 1.5 seconds
+  useEffect(() => {
+    if (visualFeedback) {
+      const timer = setTimeout(() => {
+        setVisualFeedback(null);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [visualFeedback]);
+
+  // Add playbackStartTime ref
+  const playbackStartTimeRef = useRef(null);
+
+  // Animation loop for global timing
+  useEffect(() => {
+    let raf;
+    const update = () => {
+      setAnimationTime(Date.now());
+      raf = requestAnimationFrame(update);
+    };
+    raf = requestAnimationFrame(update);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  // Calculate global playbackTime (ms since playback started, no delay)
+  const playbackTime =
+    isPlaying && playbackStartTimeRef.current
+      ? Math.max(0, animationTime - playbackStartTimeRef.current)
+      : 0;
+
   // Determine which notes to use: arpeggio or song
+  const playNotes = mainMode === 'Chords' ? CHORDS[selectedChord] : SONGS[selectedSong];
   const isChordMode = mainMode === "Chords";
   const isSongMode = mainMode === "Songs";
-  const playNotes = isChordMode ? CHORDS[selectedChord] : SONGS[selectedSong];
   const currentStep = playNotes[currentStepIdx] || null;
+
+  // Calculate currentStepIdx based on playbackTime (moved after playNotes is defined)
+  const getCurrentStepIdx = () => {
+    let time = 0;
+    for (let i = 0; i < playNotes.length; i++) {
+      const duration = (playNotes[i].duration || 1) * 1200;
+      if (playbackTime < time + duration) return i;
+      time += duration;
+    }
+    return playNotes.length - 1;
+  };
+  const syncedStepIdx = getCurrentStepIdx();
+
+  // Calculate delayed step index for overlay (1 second delay to account for travel time)
+  const getDelayedStepIdx = () => {
+    const delayedPlaybackTime = Math.max(0, playbackTime - 1000); // 1 second delay
+    let time = 0;
+    for (let i = 0; i < playNotes.length; i++) {
+      const duration = (playNotes[i].duration || 1) * 1200;
+      if (delayedPlaybackTime < time + duration) return i;
+      time += duration;
+    }
+    return playNotes.length - 1;
+  };
+  const delayedStepIdx = getDelayedStepIdx();
+
+  // Update currentStepIdx for scoring logic
+  useEffect(() => {
+    if (isPlaying) setCurrentStepIdx(syncedStepIdx);
+  }, [isPlaying, syncedStepIdx]);
 
   // Reset completed notes and session stats when mode, chord, or song changes
   useEffect(() => {
@@ -210,12 +475,20 @@ function PlayAlong() {
     return Math.round((correct / totalNotes) * 100);
   };
 
-  // Handle correct note played
-  const handleCorrectNote = async () => {
+  // Handle correct note played with timing-based scoring
+  const handleCorrectNote = async (timingAccuracy = 0) => {
     if (!currentUser) return;
     
     // Create a unique identifier for this note (stringIdx + fretNum combination)
     const noteId = `${currentStep.stringIdx}-${currentStep.fretNum}`;
+    
+    // Add cooldown to prevent double-counting
+    const now = Date.now();
+    if (noteTimestampsRef.current[noteId] && now - noteTimestampsRef.current[noteId] < 500) {
+      console.log(`[COOLDOWN] Note ${noteId} was recently played, skipping`);
+      return;
+    }
+    noteTimestampsRef.current[noteId] = now;
     
     // Debug logging for C Major
     if (selectedChord === "C Major") {
@@ -231,7 +504,47 @@ function PlayAlong() {
       return;
     }
     
-    const scorePoints = 10; // Base points for correct note
+    // Calculate timing-based score
+    let scorePoints = 10; // Base points
+    let timingBonus = 0;
+    let timingFeedback = "Good";
+    let feedbackColor = "#4caf50"; // Default green
+    
+    if (timingAccuracy !== 0) {
+      const absTiming = Math.abs(timingAccuracy);
+      if (absTiming <= 10) { // Perfect timing (±10ms)
+        timingBonus = 15;
+        timingFeedback = "Perfect!";
+        feedbackColor = "#006400"; // Dark green
+        scorePoints += timingBonus;
+      } else if (absTiming <= 20) { // Excellent timing (±20ms)
+        timingBonus = 12;
+        timingFeedback = "Excellent!";
+        feedbackColor = "#4caf50"; // Green
+        scorePoints += timingBonus;
+      } else if (absTiming <= 40) { // Good timing (±40ms)
+        timingBonus = 8;
+        timingFeedback = "Good!";
+        feedbackColor = "#2196f3"; // Blue
+        scorePoints += timingBonus;
+      } else if (absTiming <= 80) { // Okay timing (±80ms)
+        timingBonus = 3;
+        timingFeedback = "Okay";
+        feedbackColor = "#ffeb3b"; // Yellow
+        scorePoints += timingBonus;
+      } else if (absTiming <= 100) { // Miss timing (±100ms)
+        timingFeedback = "Miss";
+        feedbackColor = "#ff5722"; // Light red
+        // No bonus for miss timing
+      } else { // Very late timing (>100ms)
+        timingFeedback = "Too Late";
+        feedbackColor = "#f44336"; // Red
+        // No bonus for very late timing
+      }
+    }
+    
+    console.log(`[SCORE DEBUG] Correct note detected: ${noteId}, timing: ${timingAccuracy}ms, feedback: ${timingFeedback}, total points: ${scorePoints}`);
+    
     const newScore = currentScore + scorePoints;
     setCurrentScore(newScore);
     
@@ -256,6 +569,15 @@ function PlayAlong() {
     
     setChordAccuracy(newAccuracy);
 
+    // Show visual feedback
+    setVisualFeedback({
+      type: 'correct',
+      message: timingFeedback,
+      points: scorePoints,
+      timing: timingAccuracy,
+      color: feedbackColor
+    });
+
     // Save individual score entry (for tracking purposes)
     try {
       console.log(`[DB DEBUG] Adding individual score:`, {
@@ -263,7 +585,8 @@ function PlayAlong() {
         displayName: currentUser.displayName || currentUser.email.split('@')[0] || 'Anonymous',
         score: scorePoints,
         chord: selectedChord,
-        isCorrect: true
+        isCorrect: true,
+        timingAccuracy: timingAccuracy
       });
       
       const result = await ScoreboardService.addScore(
@@ -306,55 +629,73 @@ function PlayAlong() {
     console.log(`Incorrect note ${noteId}, accuracy: ${newAccuracy}% (${currentCorrect}/${totalNotesInChord})`);
     setChordAccuracy(newAccuracy);
     
+    // Show visual feedback for incorrect note
+    setVisualFeedback({
+      type: 'incorrect',
+      message: 'Wrong Note',
+      points: 0,
+      timing: 0,
+      color: '#f44336'
+    });
+    
     // Also send incorrect note to database (with 0 points)
     if (currentUser) {
       ScoreboardService.addScore(
         currentUser.uid,
         currentUser.displayName || currentUser.email.split('@')[0] || 'Anonymous',
-        0, // No points for incorrect note
+        0,
         selectedChord,
-        false // Mark as incorrect
-      ).catch(error => {
-        console.error('Error saving incorrect note:', error);
-      });
+        false
+      );
     }
   };
 
-  // Update startPlayback to use duration-based timing
+  // Update startPlayback to set playbackStartTime
   const startPlayback = () => {
-    setIsPlaying(true);
-    setCurrentStepIdx(0);
-    setCurrentScore(0);
-    const newSessionStats = { correct: 0, total: playNotes.length };
-    setSessionStats(newSessionStats);
-    latestSessionStatsRef.current = newSessionStats;
-    setChordAccuracy(0);
-    setCompletedNotes(new Set());
-    noteTimestampsRef.current = {};
-    
-    // Duration-based playback
-    const playNextNote = (stepIndex) => {
-      if (stepIndex >= playNotes.length) {
-        // Song/chord completed
-        setIsPlaying(false);
-        setTimeout(() => {
-          updateFinalScoreboard();
-        }, 100);
-        return;
-      }
-      
-      const currentNote = playNotes[stepIndex];
-      const durationMs = (currentNote.duration || 1) * 1200; // Convert duration to milliseconds (1 = 1.2 seconds)
-      
-      // Set timeout for next note based on current note's duration
+    if (!playNotes || playNotes.length === 0) return;
+    setShowCountdown(true);
+    setCountdown(3);
+    const countdownInterval = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(countdownInterval);
+          setShowCountdown(false);
+          // Set playback start time to now (no delay)
+          playbackStartTimeRef.current = Date.now();
+          setIsPlaying(true);
+          setCurrentStepIdx(0);
+          setSessionStats({ correct: 0, total: 0 });
+          setChordAccuracy(0);
+          setCurrentScore(0);
+          completedNotes.current = new Set();
+          noteTimestampsRef.current = {};
+          // Start the note progression
+          playNextNote(0);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const playNextNote = (stepIdx) => {
+    if (stepIdx >= playNotes.length) {
+      // Playback complete - wait for last note to finish traveling
       setTimeout(() => {
-        setCurrentStepIdx(stepIndex + 1);
-        playNextNote(stepIndex + 1);
-      }, durationMs);
-    };
+        setIsPlaying(false);
+        updateFinalScoreboard();
+      }, 1500); // Wait 1.5s for last note to complete travel
+      return;
+    }
+
+    setCurrentStepIdx(stepIdx);
+    const currentNote = playNotes[stepIdx];
+    const durationMs = (currentNote.duration || 1) * 1200;
     
-    // Start the duration-based playback
-    playNextNote(0);
+    // Schedule next note
+    setTimeout(() => {
+      playNextNote(stepIdx + 1);
+    }, durationMs);
   };
 
   // Update final scoreboard when chord is completed
@@ -1025,6 +1366,103 @@ function PlayAlong() {
           </div>
         </div>
 
+        {/* Visual Feedback Overlay */}
+        {visualFeedback && (
+          <>
+            <style>{`
+              @keyframes feedbackPop {
+                0% {
+                  transform: translate(-50%, -50%) scale(0.5);
+                  opacity: 0;
+                }
+                50% {
+                  transform: translate(-50%, -50%) scale(1.1);
+                  opacity: 1;
+                }
+                100% {
+                  transform: translate(-50%, -50%) scale(1);
+                  opacity: 1;
+                }
+              }
+            `}</style>
+            <div style={{
+              position: 'fixed',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              zIndex: 9999,
+              pointerEvents: 'none'
+            }}>
+              <div style={{
+                background: visualFeedback.type === 'correct' 
+                  ? `linear-gradient(135deg, ${visualFeedback.color}, ${visualFeedback.color}dd)` 
+                  : 'linear-gradient(135deg, #f44336, #d32f2f)',
+                color: 'white',
+                padding: '20px 30px',
+                borderRadius: '15px',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+                textAlign: 'center',
+                minWidth: '200px',
+                animation: 'feedbackPop 0.6s ease-out',
+                border: visualFeedback.type === 'correct' && visualFeedback.color === '#006400' 
+                  ? '2px solid #004d00' 
+                  : 'none'
+              }}>
+                <div style={{
+                  fontSize: '32px',
+                  fontWeight: 'bold',
+                  marginBottom: '8px',
+                  textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)'
+                }}>
+                  {visualFeedback.message}
+                </div>
+                {visualFeedback.type === 'correct' && visualFeedback.points > 0 && (
+                  <div style={{
+                    fontSize: '24px',
+                    fontWeight: '600',
+                    marginBottom: '4px'
+                  }}>
+                    +{visualFeedback.points} pts
+                  </div>
+                )}
+                {visualFeedback.timing !== 0 && (
+                  <div style={{
+                    fontSize: '16px',
+                    opacity: 0.9
+                  }}>
+                    {visualFeedback.timing > 0 ? '+' : ''}{visualFeedback.timing}ms
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Countdown Overlay */}
+        {showCountdown && countdown > 0 && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            background: 'rgba(0, 0, 0, 0.8)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000
+          }}>
+            <div style={{
+              fontSize: '120px',
+              color: '#90caf9',
+              fontWeight: 'bold',
+              textShadow: '0 0 20px rgba(144, 202, 249, 0.8)'
+            }}>
+              {countdown}
+            </div>
+          </div>
+        )}
+
         {/* Guitar Display */}
         <div style={{
           display: "flex",
@@ -1045,9 +1483,9 @@ function PlayAlong() {
                 return (
                   <>
                     <PlayAlongOverlay
-                      highlightedNotes={isPlaying && currentStep ? [currentStep] : []}
+                      highlightedNotes={isPlaying && playNotes[delayedStepIdx] ? [playNotes[delayedStepIdx]] : []}
                       arpeggioNotes={playNotes}
-                      currentStep={isPlaying ? currentStepIdx : -1}
+                      currentStep={isPlaying ? delayedStepIdx : -1}
                       onCorrectNote={handleCorrectNote}
                       onIncorrectNote={handleIncorrectNote}
                     />
@@ -1091,40 +1529,19 @@ function PlayAlong() {
           </div>
         </div>
 
-        {/* Status Display */}
-        <div style={{
-          textAlign: "center",
-          padding: "1.5rem",
-          background: "rgba(255, 255, 255, 0.05)",
-          borderRadius: "15px",
-          border: "1px solid rgba(255, 255, 255, 0.1)",
-          backdropFilter: "blur(10px)"
-        }}>
-          <div style={{
-            fontSize: "1.4rem",
-            fontWeight: "600",
-            color: isPlaying ? "#90caf9" : "#b0bec5",
-            textShadow: isPlaying ? "0 0 10px rgba(144, 202, 249, 0.5)" : "none",
-            transition: "all 0.3s ease"
-          }}>
-            {isPlaying && currentStep
-              ? `Playing: String ${6 - currentStep.stringIdx} • Fret ${currentStep.fretNum}`
-              : `Selected: ${selectedChord}`}
-          </div>
-          {isPlaying && (
-            <div style={{
-              fontSize: "1rem",
-              color: "#90caf9",
-              marginTop: "0.5rem",
-              fontWeight: "400"
-            }}>
-              Step {currentStepIdx + 1} of {playNotes.length}
-            </div>
-          )}
-        </div>
+        {/* Guitar Hero Interface */}
+        {overlayActive && (
+          <GuitarHeroInterface 
+            playNotes={playNotes}
+            currentStepIdx={syncedStepIdx}
+            isPlaying={isPlaying}
+            playbackStartTimeRef={playbackStartTimeRef}
+            playbackTime={playbackTime}
+          />
+        )}
 
         {/* Tab Overlay */}
-        {isPlaying && (
+        {overlayActive && (
           <TabOverlay 
             playNotes={playNotes}
             currentStepIdx={currentStepIdx}
