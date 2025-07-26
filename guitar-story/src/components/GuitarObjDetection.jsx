@@ -113,6 +113,9 @@ function GuitarObjDetection() {
     autoWhiteBalance: false,
   });
 
+  // Add state to control preprocessed view visibility
+  const [showPreprocessedView, setShowPreprocessedView] = useState(false);
+
   const handlePreprocessingChange = (option) => {
     setPreprocessingOptions(prev => ({ ...prev, [option]: !prev[option] }));
   };
@@ -381,8 +384,11 @@ function GuitarObjDetection() {
     if (!modelWorkerId || !calibrationDone || calibrating) {
       return;
     }
-    applyFilterAndPreprocess(calibratedFilter);
-
+    // Only run if video is ready
+    if (!videoRef.current || videoRef.current.paused || videoRef.current.ended || videoRef.current.readyState < 2) {
+      setTimeout(detectFrame, 100 / 3);
+      return;
+    }
     if (forceRedraw) {
       if (window._lastPredictions && calibrationDone && !calibrating) {
         if (!canvasRef.current) return;
@@ -391,12 +397,15 @@ function GuitarObjDetection() {
       requestAnimationFrame(() => detectFrame(true)); // for continuous redraw
       return;
     }
-
     if (!canvasRef.current) return;
-    // Use preprocessedCanvasRef for inference
+    // Use videoRef.current for inference
     let imgBitmap = null;
     try {
-      imgBitmap = await createImageBitmap(preprocessedCanvasRef.current);
+      if (!(videoRef.current instanceof HTMLVideoElement)) {
+        setTimeout(detectFrame, 100 / 3);
+        return;
+      }
+      imgBitmap = await createImageBitmap(videoRef.current);
     } catch (e) {
       console.warn('Failed to create ImageBitmap for live inference', e);
       setTimeout(detectFrame, 100 / 3);
@@ -417,18 +426,18 @@ function GuitarObjDetection() {
    useEffect(() => {
     let rafId;
     function drawPreprocessedLoop() {
-      if (isStreaming) {
+      if (isStreaming && showPreprocessedView) {
         applyFilterAndPreprocess();
         rafId = requestAnimationFrame(drawPreprocessedLoop);
       }
     }
-    if (isStreaming) {
+    if (isStreaming && showPreprocessedView) {
       rafId = requestAnimationFrame(drawPreprocessedLoop);
     }
     return () => {
       if (rafId) cancelAnimationFrame(rafId);
     };
-  }, [isStreaming, calibrationDone, calibratedFilter]);
+  }, [isStreaming, showPreprocessedView, calibrationDone, calibratedFilter]);
 
   // --- Calibration State ---
   const [calibrating, setCalibrating] = useState(false);
@@ -710,118 +719,135 @@ function GuitarObjDetection() {
             </div>
           </div>
         )}
-        <div className="main-view-flex-container">
-          <div className="guitar-video-container">
-            {/* Video/Canvas or Placeholder */}
-            {isStreaming ? (
-              <>
-                <video
-                  id="video"
-                  ref={videoRef}
-                  className="guitar-video"
-                  playsInline
-                  muted
-                />
-                <canvas
-                  id="canvas"
-                  ref={canvasRef}
-                  className="guitar-canvas"
-                />
-                {/* Overlay scale label on video */}
-                <div className="guitar-scale-label-overlay">
-                  {selectedRootRef.current} {selectedScaleRef.current.replace('_', ' ')}
-                </div>
-                {/* AudioPitchDetector overlayed in video-container */}
-                <div style={{ position: 'absolute', top: 24, right: 24, zIndex: 3 }}>
-                  <AudioPitchDetector>
-                    {({ note, frequency, listening, start, stop, error }) => {
-                      // Extract note name (strip octave)
-                      const noteName = note ? note.replace(/\d+$/, "") : null;
-                      // Check if note is in scale
-                      const currentScaleNotes = scaleNotesRef.current;
-                      const isInScale = noteName && currentScaleNotes.includes(noteName);
+        <div className="guitar-video-container" style={{ position: 'relative', width: 900, height: 540, margin: 'auto' }}>
+          {/* Main video/canvas always shown when streaming */}
+          {isStreaming ? (
+            <>
+              <video
+                id="video"
+                ref={videoRef}
+                className="guitar-video"
+                playsInline
+                muted
+                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1 }}
+              />
+              <canvas
+                id="canvas"
+                ref={canvasRef}
+                className="guitar-canvas"
+                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 2, pointerEvents: 'none' }}
+              />
+              {/* Overlay scale label on video */}
+              <div className="guitar-scale-label-overlay" style={{ position: 'absolute', zIndex: 3 }}>
+                {selectedRootRef.current} {selectedScaleRef.current.replace('_', ' ')}
+              </div>
+              {/* AudioPitchDetector overlayed in video-container */}
+              <div style={{ position: 'absolute', top: 24, right: 24, zIndex: 4 }}>
+                <AudioPitchDetector>
+                  {({ note, frequency, listening, start, stop, error }) => {
+                    // Extract note name (strip octave)
+                    const noteName = note ? note.replace(/\d+$/, "") : null;
+                    // Check if note is in scale
+                    const currentScaleNotes = scaleNotesRef.current;
+                    const isInScale = noteName && currentScaleNotes.includes(noteName);
 
-                      // --- Keep last detected note/frequency for 2 seconds ---
-                      const [displayNote, setDisplayNote] = useState(null);
-                      const [displayFreq, setDisplayFreq] = useState(null);
-                      const [displayTimeout, setDisplayTimeout] = useState(null);
-                      // Update displayNote/freq on new detection
-                      useEffect(() => {
-                        if (note && frequency) {
-                          setDisplayNote(note);
-                          setDisplayFreq(frequency);
-                          if (displayTimeout) clearTimeout(displayTimeout);
-                          // If not in scale, display for 4s, else 2s
-                          const timeoutMs = (!isInScale && noteName) ? 4000 : 2000;
-                          const timeout = setTimeout(() => {
-                            setDisplayNote(null);
-                            setDisplayFreq(null);
-                          }, timeoutMs);
-                          setDisplayTimeout(timeout);
-                        } else if (!note && !frequency && displayTimeout == null && (displayNote || displayFreq)) {
-                          // If no note, start a timeout to clear after 2s (in case missed above)
-                          const timeout = setTimeout(() => {
-                            setDisplayNote(null);
-                            setDisplayFreq(null);
-                          }, 2000);
-                          setDisplayTimeout(timeout);
-                        }
-                        // Cleanup on unmount or note change
-                        return () => {
-                          if (displayTimeout) clearTimeout(displayTimeout);
-                        };
-                      }, [note, frequency, isInScale, noteName]);
-                      // --- End keep last note logic ---
+                    // --- Keep last detected note/frequency for 2 seconds ---
+                    const [displayNote, setDisplayNote] = useState(null);
+                    const [displayFreq, setDisplayFreq] = useState(null);
+                    const [displayTimeout, setDisplayTimeout] = useState(null);
+                    // Update displayNote/freq on new detection
+                    useEffect(() => {
+                      if (note && frequency) {
+                        setDisplayNote(note);
+                        setDisplayFreq(frequency);
+                        if (displayTimeout) clearTimeout(displayTimeout);
+                        // If not in scale, display for 4s, else 2s
+                        const timeoutMs = (!isInScale && noteName) ? 4000 : 2000;
+                        const timeout = setTimeout(() => {
+                          setDisplayNote(null);
+                          setDisplayFreq(null);
+                        }, timeoutMs);
+                        setDisplayTimeout(timeout);
+                      } else if (!note && !frequency && displayTimeout == null && (displayNote || displayFreq)) {
+                        // If no note, start a timeout to clear after 2s (in case missed above)
+                        const timeout = setTimeout(() => {
+                          setDisplayNote(null);
+                          setDisplayFreq(null);
+                        }, 2000);
+                        setDisplayTimeout(timeout);
+                      }
+                      // Cleanup on unmount or note change
+                      return () => {
+                        if (displayTimeout) clearTimeout(displayTimeout);
+                      };
+                    }, [note, frequency, isInScale, noteName]);
+                    // --- End keep last note logic ---
 
-                      return (
-                        <div className="guitar-audio-note-panel">
-                          <div className="audio-note-label">🎤 Detected Note</div>
-                          <div className="audio-note-value">{displayNote || '--'}</div>
-                          <div className="audio-freq-value">{displayFreq ? displayFreq.toFixed(2) + ' Hz' : '--'}</div>
-                          {!isInScale && noteName && (
-                            <div className="audio-warning">
-                              Note {noteName} is not in the {selectedRootRef.current} {selectedScaleRef.current.replace('_',' ')} scale!
-                            </div>
-                          )}
-                          {error && <div className="audio-warning">{error}</div>}
-                          <div className="audio-controls">
-                            {!listening ? (
-                              <button className="start-btn" onClick={start}>Start Audio</button>
-                            ) : (
-                              <button className="stop-btn" onClick={stop}>Stop Audio</button>
-                            )}
+                    return (
+                      <div className="guitar-audio-note-panel">
+                        <div className="audio-note-label">🎤 Detected Note</div>
+                        <div className="audio-note-value">{displayNote || '--'}</div>
+                        <div className="audio-freq-value">{displayFreq ? displayFreq.toFixed(2) + ' Hz' : '--'}</div>
+                        {!isInScale && noteName && (
+                          <div className="audio-warning">
+                            Note {noteName} is not in the {selectedRootRef.current} {selectedScaleRef.current.replace('_',' ')} scale!
                           </div>
+                        )}
+                        {error && <div className="audio-warning">{error}</div>}
+                        <div className="audio-controls">
+                          {!listening ? (
+                            <button className="start-btn" onClick={start}>Start Audio</button>
+                          ) : (
+                            <button className="stop-btn" onClick={stop}>Stop Audio</button>
+                          )}
                         </div>
-                      );
-                    }}
-                  </AudioPitchDetector>
-                </div>
-              </>
-            ) : (
-              <div className="guitar-video-placeholder">
-                <div className="guitar-video-placeholder-text">
-                  {streamStatus || "Click 'Start Stream' to begin"}
-                </div>
+                      </div>
+                    );
+                  }}
+                </AudioPitchDetector>
               </div>
-            )}
-          </div>
-
-          <div className="preprocessed-view-container">
-            <h3>Preprocessed View</h3>
-            <canvas
-              ref={preprocessedCanvasRef}
-              className="preprocessed-canvas"
-            />
-            {/* Show which filter is applied after calibration */}
-            {calibrationDone && calibratedFilter && (
-              <div style={{ marginTop: 8, color: 'var(--space-accent)', fontSize: 14 }}>
-                <strong>Applied Filter:</strong> {Array.isArray(calibratedFilter?.filterChain) ? calibratedFilter.filterChain.map(f => `${f.filter} (${f.param})`).join(', ') : '--'}
+              {/* Preprocessed PiP overlay */}
+              {showPreprocessedView && (
+                <div style={{
+                  position: 'absolute',
+                  bottom: 24,
+                  right: 24,
+                  zIndex: 10,
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
+                  border: '2px solid #ffc107',
+                  borderRadius: 8,
+                  background: '#222',
+                  overflow: 'hidden',
+                  width: 220,
+                  height: 124
+                }}>
+                  <canvas
+                    ref={preprocessedCanvasRef}
+                    className="preprocessed-canvas"
+                    width={220}
+                    height={124}
+                    style={{ width: 220, height: 124, display: 'block' }}
+                  />
+                  {/* Show which filter is applied after calibration */}
+                  {calibrationDone && calibratedFilter && (
+                    <div style={{ fontSize: 10, color: '#ffc107', background: '#222', padding: '2px 6px', borderRadius: 4, position: 'absolute', top: 4, left: 4 }}>
+                      {Array.isArray(calibratedFilter?.filterChain) ? calibratedFilter.filterChain.map(f => `${f.filter}(${f.param})`).join(', ') : '--'}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="guitar-video-placeholder">
+              <div className="guitar-video-placeholder-text">
+                {streamStatus || "Click 'Start Stream' to begin"}
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>
+        {/* Stream and PiP toggle buttons below the video/canvas */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24, gap: '1rem' }}>
           {!isStreaming ? (
             <button className="start-btn" onClick={() => setIsStreaming(true)}>
               Begin Practice
@@ -831,7 +857,17 @@ function GuitarObjDetection() {
               Stop Stream
             </button>
           )}
+          {isStreaming && (
+            <button 
+              className={`toggle-preprocessed-btn ${!showPreprocessedView ? 'hidden' : ''}`}
+              onClick={() => setShowPreprocessedView(!showPreprocessedView)}
+            >
+              {showPreprocessedView ? 'Hide' : 'Show'} Preprocessed View
+            </button>
+          )}
         </div>
+
+        {/* Scale controls always at the bottom, centered */}
         <div className="guitar-scale-controls">
           <h3>Scale Controls</h3>
           <div className="guitar-scale-btns-row">
