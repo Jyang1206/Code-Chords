@@ -123,69 +123,14 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
         console.log('Created CVImage, calling infer...');
         inferEngine.infer(modelWorkerId, img).then((predictions) => {
           console.log('Received predictions:', predictions);
-          // If no predictions, try test mode
-          if (!predictions || predictions.length === 0) {
-            console.log('No predictions received, trying test mode...');
-            const testPredictions = [
-              {
-                class: 'Zone1',
-                bbox: { x: 200, y: 150, width: 50, height: 30 }
-              },
-              {
-                class: 'Zone2', 
-                bbox: { x: 250, y: 150, width: 50, height: 30 }
-              },
-              {
-                class: 'Zone3',
-                bbox: { x: 300, y: 150, width: 50, height: 30 }
-              }
-            ];
-            console.log('Using test predictions:', testPredictions);
-            drawOverlay(testPredictions);
-          } else {
-            drawOverlay(predictions);
-          }
+          drawOverlay(predictions);
           setTimeout(detectFrame, 1000 / 6);
         }).catch((error) => {
           console.error('Error during inference:', error);
-          // Try test mode on error
-          console.log('Inference error, trying test mode...');
-          const testPredictions = [
-            {
-              class: 'Zone1',
-              bbox: { x: 200, y: 150, width: 50, height: 30 }
-            },
-            {
-              class: 'Zone2', 
-              bbox: { x: 250, y: 150, width: 50, height: 30 }
-            },
-            {
-              class: 'Zone3',
-              bbox: { x: 300, y: 150, width: 50, height: 30 }
-            }
-          ];
-          drawOverlay(testPredictions);
           setTimeout(detectFrame, 1000 / 6);
         });
       } catch (error) {
         console.error('Error creating CVImage or calling infer:', error);
-        // Try test mode on error
-        console.log('CVImage error, trying test mode...');
-        const testPredictions = [
-          {
-            class: 'Zone1',
-            bbox: { x: 200, y: 150, width: 50, height: 30 }
-          },
-          {
-            class: 'Zone2', 
-            bbox: { x: 250, y: 150, width: 50, height: 30 }
-          },
-          {
-            class: 'Zone3',
-            bbox: { x: 300, y: 150, width: 50, height: 30 }
-          }
-        ];
-        drawOverlay(testPredictions);
         setTimeout(detectFrame, 1000 / 6);
       }
     };
