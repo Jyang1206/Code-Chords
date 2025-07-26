@@ -7,59 +7,177 @@ import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 
 const CHORDS_ORIGINAL = {
   "C Major": [
-    { stringIdx: 1, fretNum: 3, note: "C", isRoot: true }, // 5th string (A)
-    { stringIdx: 2, fretNum: 2, note: "E" },               // 4th string (D)
-    { stringIdx: 3, fretNum: 0, note: "G" },               // 3rd string (G)
-    { stringIdx: 4, fretNum: 1, note: "C" },               // 2nd string (B)
-    { stringIdx: 5, fretNum: 0, note: "E" },               // 1st string (high E)
+    { stringIdx: 5, fretNum: 3, note: "C", isRoot: true }, // 5th string
+    { stringIdx: 4, fretNum: 2, note: "E" },               // 4th string
+    { stringIdx: 3, fretNum: 0, note: "G" },               // 3rd string
+    { stringIdx: 2, fretNum: 1, note: "C" },               // 2nd string
+    { stringIdx: 1, fretNum: 0, note: "E" },               // 1st string
   ],
   "G Major": [
-    { stringIdx: 0, fretNum: 3, note: "G", isRoot: true }, // 6th string (low E)
-    { stringIdx: 1, fretNum: 2, note: "B" },               // 5th string (A)
-    { stringIdx: 2, fretNum: 0, note: "D" },               // 4th string (D)
-    { stringIdx: 3, fretNum: 0, note: "G" },               // 3rd string (G)
-    { stringIdx: 4, fretNum: 0, note: "B" },               // 2nd string (B)
-    { stringIdx: 5, fretNum: 3, note: "G" },               // 1st string (high E)
+    { stringIdx: 6, fretNum: 3, note: "G", isRoot: true }, // 6th string
+    { stringIdx: 5, fretNum: 2, note: "B" },               // 5th string
+    { stringIdx: 4, fretNum: 0, note: "D" },               // 4th string
+    { stringIdx: 3, fretNum: 0, note: "G" },               // 3rd string
+    { stringIdx: 2, fretNum: 0, note: "B" },               // 2nd string
+    { stringIdx: 1, fretNum: 3, note: "G" },               // 1st string
   ],
   "E Major": [
-    { stringIdx: 0, fretNum: 0, note: "E", isRoot: true }, // 6th string (low E)
-    { stringIdx: 1, fretNum: 2, note: "A" },               // 5th string (A)
-    { stringIdx: 2, fretNum: 2, note: "B" },               // 4th string (D)
-    { stringIdx: 3, fretNum: 1, note: "E" },               // 3rd string (G)
-    { stringIdx: 4, fretNum: 0, note: "B" },               // 2nd string (B)
-    { stringIdx: 5, fretNum: 0, note: "E" },               // 1st string (high E)
+    { stringIdx: 6, fretNum: 0, note: "E", isRoot: true }, // 6th string
+    { stringIdx: 5, fretNum: 2, note: "A" },               // 5th string
+    { stringIdx: 4, fretNum: 2, note: "B" },               // 4th string
+    { stringIdx: 3, fretNum: 1, note: "E" },               // 3rd string
+    { stringIdx: 2, fretNum: 0, note: "B" },               // 2nd string
+    { stringIdx: 1, fretNum: 0, note: "E" },               // 1st string
   ],
   "A Major": [
-    { stringIdx: 0, fretNum: 0, note: "E", mute: true },   // 6th string (low E, not played)
-    { stringIdx: 1, fretNum: 0, note: "A", isRoot: true }, // 5th string (A)
-    { stringIdx: 2, fretNum: 2, note: "D" },               // 4th string (D)
-    { stringIdx: 3, fretNum: 2, note: "F#" },              // 3rd string (G)
-    { stringIdx: 4, fretNum: 2, note: "A" },               // 2nd string (B)
-    { stringIdx: 5, fretNum: 0, note: "E" },               // 1st string (high E)
+    { stringIdx: 6, fretNum: 0, note: "E", mute: true },   // 6th string (not played)
+    { stringIdx: 5, fretNum: 0, note: "A", isRoot: true }, // 5th string
+    { stringIdx: 4, fretNum: 2, note: "D" },               // 4th string
+    { stringIdx: 3, fretNum: 2, note: "F#" },              // 3rd string
+    { stringIdx: 2, fretNum: 2, note: "A" },               // 2nd string
+    { stringIdx: 1, fretNum: 0, note: "E" },               // 1st string
   ],
   "D Major": [
-    { stringIdx: 0, fretNum: 0, note: "E", mute: true },   // 6th string (low E, not played)
-    { stringIdx: 1, fretNum: 0, note: "A", mute: true },   // 5th string (A, not played)
-    { stringIdx: 2, fretNum: 0, note: "D", isRoot: true }, // 4th string (D)
-    { stringIdx: 3, fretNum: 2, note: "A" },               // 3rd string (G)
-    { stringIdx: 4, fretNum: 3, note: "F#" },              // 2nd string (B)
-    { stringIdx: 5, fretNum: 2, note: "D" },               // 1st string (high E)
+    { stringIdx: 6, fretNum: 0, note: "E", mute: true },   // 6th string (not played)
+    { stringIdx: 5, fretNum: 0, note: "A", mute: true },   // 5th string (not played)
+    { stringIdx: 4, fretNum: 0, note: "D", isRoot: true }, // 4th string
+    { stringIdx: 3, fretNum: 2, note: "A" },               // 3rd string
+    { stringIdx: 2, fretNum: 3, note: "F#" },              // 2nd string
+    { stringIdx: 1, fretNum: 2, note: "D" },               // 1st string
   ],
 };
 
+// Remove the mapping since CHORDS_ORIGINAL now uses 0-5 indexing
 const CHORDS = Object.fromEntries(
   Object.entries(CHORDS_ORIGINAL).map(([chord, notes]) => [
     chord,
-    notes
-      .filter(n => !n.mute)
-      .map(n => ({ ...n, stringIdx: 6 - n.stringIdx }))
+    notes.filter(n => !n.mute)
   ])
 );
+
+// --- SONGS DATA ---
+const SONGS = {
+  "Ode to Joy": [
+    //1 to 6 indexing, 6th string is the lowest E, 1st string is the highest E
+    { stringIdx: 2, fretNum: 0, note: "B", duration: 1 }, // 2nd string
+    { stringIdx: 2, fretNum: 0, note: "B", duration: 1 }, // 2nd string
+    { stringIdx: 2, fretNum: 1, note: "C", duration: 1 }, // 2nd string
+    { stringIdx: 2, fretNum: 3, note: "D", duration: 1 }, // 2nd string
+    { stringIdx: 2, fretNum: 3, note: "D", duration: 1 }, // 2nd string
+    { stringIdx: 2, fretNum: 1, note: "C", duration: 1 }, // 2nd string
+    { stringIdx: 2, fretNum: 0, note: "B", duration: 1 }, // 2nd string
+    { stringIdx: 3, fretNum: 2, note: "A", duration: 1 }, // 3rd string
+    { stringIdx: 3, fretNum: 0, note: "G", duration: 1 }, // 3rd string
+    { stringIdx: 3, fretNum: 0, note: "G", duration: 1 }, // 3rd string
+    { stringIdx: 3, fretNum: 2, note: "A", duration: 1 }, // 3rd string
+    { stringIdx: 3, fretNum: 4, note: "B", duration: 1 }, // 3rd string
+    { stringIdx: 3, fretNum: 4, note: "B", duration: 2 }, // 3rd string
+    { stringIdx: 3, fretNum: 2, note: "A", duration: 0.5 }, // 3rd string
+    { stringIdx: 3, fretNum: 2, note: "A", duration: 0.5 }, // 3rd string
+  ],
+  "Twinkle Twinkle Little Star": [
+    //1 to 6 indexing, 6th string is the lowest E, 1st string is the highest E
+    { stringIdx: 4, fretNum: 0, note: "D", duration: 1 }, // 4th string
+    { stringIdx: 4, fretNum: 0, note: "D", duration: 1 }, // 4th string
+    { stringIdx: 3, fretNum: 2, note: "A", duration: 1 }, // 3rd string
+    { stringIdx: 3, fretNum: 2, note: "A", duration: 1 }, // 3rd string
+    { stringIdx: 3, fretNum: 0, note: "B", duration: 1 }, // 3rd string
+    { stringIdx: 3, fretNum: 0, note: "B", duration: 1 }, // 3rd string
+    { stringIdx: 3, fretNum: 2, note: "A", duration: 2 }, // 3rd string
+    // ...
+  ]
+};
+
+// --- TAB OVERLAY COMPONENT ---
+const TabOverlay = ({ playNotes, currentStepIdx, isPlaying }) => {
+  const upcomingNotes = playNotes.slice(currentStepIdx, currentStepIdx + 5); // Show next 5 notes
+  
+  return (
+    <div style={{
+      position: 'absolute',
+      bottom: '20px',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      background: 'rgba(0, 0, 0, 0.8)',
+      borderRadius: '12px',
+      padding: '12px 20px',
+      backdropFilter: 'blur(10px)',
+      border: '1px solid rgba(144, 202, 249, 0.3)',
+      zIndex: 1000,
+      minWidth: '300px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px'
+    }}>
+      <div style={{
+        fontSize: '14px',
+        color: '#90caf9',
+        fontWeight: '600',
+        marginRight: '8px'
+      }}>
+        Next:
+      </div>
+      {upcomingNotes.map((note, index) => (
+        <div
+          key={`${currentStepIdx + index}-${note.stringIdx}-${note.fretNum}`}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            padding: '8px 12px',
+            background: index === 0 ? 'rgba(144, 202, 249, 0.2)' : 'rgba(255, 255, 255, 0.1)',
+            borderRadius: '8px',
+            border: index === 0 ? '2px solid #90caf9' : '1px solid rgba(255, 255, 255, 0.2)',
+            minWidth: '40px',
+            transition: 'all 0.3s ease',
+            opacity: index === 0 ? 1 : 0.7
+          }}
+        >
+          <div style={{
+            fontSize: '16px',
+            fontWeight: '700',
+            color: index === 0 ? '#fff' : '#90caf9',
+            marginBottom: '2px'
+          }}>
+            {note.note}
+          </div>
+          <div style={{
+            fontSize: '12px',
+            color: '#ccc',
+            fontWeight: '500',
+            marginBottom: '2px'
+          }}>
+            {note.stringIdx}-{note.fretNum}
+          </div>
+          <div style={{
+            fontSize: '10px',
+            color: '#888',
+            fontWeight: '400'
+          }}>
+            {(note.duration || 1).toFixed(1)}s
+          </div>
+        </div>
+      ))}
+      {upcomingNotes.length < 5 && (
+        <div style={{
+          fontSize: '14px',
+          color: '#666',
+          fontStyle: 'italic',
+          marginLeft: '8px'
+        }}>
+          End
+        </div>
+      )}
+    </div>
+  );
+};
 
 function PlayAlong() {
   console.log('PlayAlong component is rendering!');
   const { currentUser } = useAuth();
+  const [mainMode, setMainMode] = useState("Chords"); // "Chords" or "Songs"
   const [selectedChord, setSelectedChord] = useState("C Major");
+  const [selectedSong, setSelectedSong] = useState("Ode to Joy");
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
   const [currentScore, setCurrentScore] = useState(0);
@@ -68,19 +186,23 @@ function PlayAlong() {
   const [completedNotes, setCompletedNotes] = useState(new Set()); // Track which notes have been completed
   const playTimer = useRef(null);
   const latestSessionStatsRef = useRef({ correct: 0, total: 0 }); // Track latest session stats
+  const noteTimestampsRef = useRef({}); // Track timestamps for song playback
 
-  const chordNotes = CHORDS[selectedChord];
-  const currentStep = chordNotes[currentStepIdx] || null;
+  // Determine which notes to use: arpeggio or song
+  const isChordMode = mainMode === "Chords";
+  const isSongMode = mainMode === "Songs";
+  const playNotes = isChordMode ? CHORDS[selectedChord] : SONGS[selectedSong];
+  const currentStep = playNotes[currentStepIdx] || null;
 
-  // Reset completed notes when chord changes
+  // Reset completed notes and session stats when mode, chord, or song changes
   useEffect(() => {
     setCompletedNotes(new Set());
-    const newSessionStats = { correct: 0, total: chordNotes.length };
+    const newSessionStats = { correct: 0, total: playNotes.length };
     setSessionStats(newSessionStats);
-    latestSessionStatsRef.current = newSessionStats; // Update ref
+    latestSessionStatsRef.current = newSessionStats;
     setChordAccuracy(0);
     setCurrentScore(0);
-  }, [selectedChord]);
+  }, [mainMode, selectedChord, selectedSong]);
 
   // Calculate accuracy based on current chord's total notes
   const calculateAccuracy = (correct, totalNotes) => {
@@ -115,7 +237,7 @@ function PlayAlong() {
     
     // Update session stats for this chord
     const newCorrect = sessionStats.correct + 1;
-    const totalNotesInChord = chordNotes.length;
+    const totalNotesInChord = playNotes.length;
     const newAccuracy = calculateAccuracy(newCorrect, totalNotesInChord);
     
     console.log(`Correct note ${noteId}! Progress: ${newCorrect}/${totalNotesInChord} (${newAccuracy}%)`);
@@ -177,7 +299,7 @@ function PlayAlong() {
     setCompletedNotes(prev => new Set([...prev, noteId]));
     
     // Don't increment correct count, but still track total attempts
-    const totalNotesInChord = chordNotes.length;
+    const totalNotesInChord = playNotes.length;
     const currentCorrect = sessionStats.correct;
     const newAccuracy = calculateAccuracy(currentCorrect, totalNotesInChord);
     
@@ -198,31 +320,41 @@ function PlayAlong() {
     }
   };
 
+  // Update startPlayback to use duration-based timing
   const startPlayback = () => {
     setIsPlaying(true);
     setCurrentStepIdx(0);
     setCurrentScore(0);
-    const newSessionStats = { correct: 0, total: chordNotes.length };
+    const newSessionStats = { correct: 0, total: playNotes.length };
     setSessionStats(newSessionStats);
-    latestSessionStatsRef.current = newSessionStats; // Update ref
+    latestSessionStatsRef.current = newSessionStats;
     setChordAccuracy(0);
-    setCompletedNotes(new Set()); // Reset completed notes
-    playTimer.current = setInterval(() => {
-      setCurrentStepIdx(idx => {
-        if (idx < chordNotes.length - 1) {
-          return idx + 1;
-        } else {
-          clearInterval(playTimer.current);
-          setIsPlaying(false);
-          // Update final scoreboard when chord is completed
-          // Add a small delay to ensure state updates are complete
-          setTimeout(() => {
-            updateFinalScoreboard();
-          }, 100);
-          return idx;
-        }
-      });
-    }, 1200);
+    setCompletedNotes(new Set());
+    noteTimestampsRef.current = {};
+    
+    // Duration-based playback
+    const playNextNote = (stepIndex) => {
+      if (stepIndex >= playNotes.length) {
+        // Song/chord completed
+        setIsPlaying(false);
+        setTimeout(() => {
+          updateFinalScoreboard();
+        }, 100);
+        return;
+      }
+      
+      const currentNote = playNotes[stepIndex];
+      const durationMs = (currentNote.duration || 1) * 1200; // Convert duration to milliseconds (1 = 1.2 seconds)
+      
+      // Set timeout for next note based on current note's duration
+      setTimeout(() => {
+        setCurrentStepIdx(stepIndex + 1);
+        playNextNote(stepIndex + 1);
+      }, durationMs);
+    };
+    
+    // Start the duration-based playback
+    playNextNote(0);
   };
 
   // Update final scoreboard when chord is completed
@@ -234,7 +366,7 @@ function PlayAlong() {
     const finalAccuracy = calculateAccuracy(latestStats.correct, latestStats.total);
     const bonusPoints = Math.round((finalAccuracy / 100) * 50); // Bonus points based on accuracy
     const totalPoints = currentScore + bonusPoints;
-    const chordLength = chordNotes.length; // Total notes in the chord
+    const chordLength = playNotes.length; // Total notes in the chord
     
     console.log(`Chord completed! Final stats: ${latestStats.correct}/${latestStats.total} (${finalAccuracy}%), Total points: ${totalPoints}, Chord length: ${chordLength}`);
     
@@ -398,7 +530,7 @@ function PlayAlong() {
     console.log('=== Testing Note Counting ===');
     console.log('Current session stats:', sessionStats);
     console.log('Current chord:', selectedChord);
-    console.log('Total notes in chord:', chordNotes.length);
+    console.log('Total notes in chord:', playNotes.length);
     console.log('Completed notes:', Array.from(completedNotes));
     console.log('Current accuracy:', chordAccuracy + '%');
     console.log('Current step index:', currentStepIdx);
@@ -415,11 +547,11 @@ function PlayAlong() {
     
     console.log('=== Testing Chord Completion Without Playing ===');
     console.log('Current chord:', selectedChord);
-    console.log('Chord length:', chordNotes.length);
+    console.log('Chord length:', playNotes.length);
     console.log('Current session stats:', sessionStats);
     
     // Simulate chord completion with 0 correct notes
-    const chordLength = chordNotes.length;
+    const chordLength = playNotes.length;
     const correctCount = 0; // No notes played correctly
     const totalPoints = 0; // No points earned
     
@@ -451,7 +583,7 @@ function PlayAlong() {
     console.log('Current step index:', currentStepIdx);
     console.log('Current session stats:', sessionStats);
     console.log('Is playing:', isPlaying);
-    console.log('Chord length:', chordNotes.length);
+    console.log('Chord length:', playNotes.length);
     
     if (isPlaying) {
       console.log('Stopping playback now...');
@@ -468,7 +600,7 @@ function PlayAlong() {
     // Update stats when stopping, based on notes that have passed
     if (currentUser && currentStepIdx > 0) {
       const notesPassed = currentStepIdx; // Number of notes that have passed
-      const chordLength = chordNotes.length;
+      const chordLength = playNotes.length;
       const correctCount = sessionStats.correct;
       const totalPoints = currentScore;
       
@@ -489,6 +621,7 @@ function PlayAlong() {
     }
   };
 
+  // UI: Top-level mode selector, then show only relevant dropdown
   return (
     <div style={{
       minHeight: "100vh",
@@ -625,47 +758,109 @@ function PlayAlong() {
             alignItems: "center",
             gap: "1.5rem"
           }}>
-            {/* Chord Selector */}
-            <div style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: "0.8rem"
-            }}>
-              <label style={{
-                fontSize: "1rem",
-                fontWeight: "600",
-                color: "#90caf9",
-                letterSpacing: "1px"
-              }}>
-                SELECT CHORD
-              </label>
-              <select
-                value={selectedChord}
-                onChange={e => setSelectedChord(e.target.value)}
+            {/* Top-level mode selector */}
+            <div style={{ display: 'flex', gap: '2rem', marginBottom: '0.5rem' }}>
+              <button
+                onClick={() => setMainMode("Chords")}
                 style={{
-                  fontSize: "1.1rem",
-                  padding: "0.8rem 1.5rem",
-                  borderRadius: "12px",
-                  border: "2px solid rgba(144, 202, 249, 0.3)",
-                  background: "rgba(255, 255, 255, 0.1)",
-                  color: "#fff",
-                  fontWeight: "500",
-                  cursor: "pointer",
-                  minWidth: "180px",
-                  textAlign: "center",
-                  backdropFilter: "blur(10px)",
-                  transition: "all 0.3s ease"
+                  padding: '0.7em 2em',
+                  borderRadius: '10px',
+                  border: mainMode === "Chords" ? '2.5px solid #90caf9' : '2px solid #444',
+                  background: mainMode === "Chords" ? '#222b44' : '#181a2a',
+                  color: mainMode === "Chords" ? '#fff' : '#90caf9',
+                  fontWeight: 700,
+                  fontSize: '1.1em',
+                  cursor: 'pointer',
+                  boxShadow: mainMode === "Chords" ? '0 2px 12px #90caf966' : 'none',
+                  transition: 'all 0.2s'
                 }}
                 disabled={isPlaying}
               >
-                {Object.keys(CHORDS).map(name => (
-                  <option key={name} value={name} style={{ background: "#1a1b2e", color: "#fff" }}>
-                    {name}
-                  </option>
-                ))}
-              </select>
+                Chords
+              </button>
+              <button
+                onClick={() => setMainMode("Songs")}
+                style={{
+                  padding: '0.7em 2em',
+                  borderRadius: '10px',
+                  border: mainMode === "Songs" ? '2.5px solid #90caf9' : '2px solid #444',
+                  background: mainMode === "Songs" ? '#222b44' : '#181a2a',
+                  color: mainMode === "Songs" ? '#fff' : '#90caf9',
+                  fontWeight: 700,
+                  fontSize: '1.1em',
+                  cursor: 'pointer',
+                  boxShadow: mainMode === "Songs" ? '0 2px 12px #90caf966' : 'none',
+                  transition: 'all 0.2s'
+                }}
+                disabled={isPlaying}
+              >
+                Songs
+              </button>
             </div>
+
+            {/* Chord dropdown (only in Chord mode) */}
+            {isChordMode && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.8rem' }}>
+                <label style={{ fontSize: '1rem', fontWeight: '600', color: '#90caf9', letterSpacing: '1px' }}>
+                  SELECT CHORD
+                </label>
+                <select
+                  value={selectedChord}
+                  onChange={e => setSelectedChord(e.target.value)}
+                  style={{
+                    fontSize: '1.1rem',
+                    padding: '0.8rem 1.5rem',
+                    borderRadius: '12px',
+                    border: '2px solid rgba(144, 202, 249, 0.3)',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    color: '#fff',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    minWidth: '180px',
+                    textAlign: 'center',
+                    backdropFilter: 'blur(10px)',
+                    transition: 'all 0.3s ease'
+                  }}
+                  disabled={isPlaying}
+                >
+                  {Object.keys(CHORDS).map(name => (
+                    <option key={name} value={name} style={{ background: '#1a1b2e', color: '#fff' }}>{name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Song dropdown (only in Song mode) */}
+            {isSongMode && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.8rem' }}>
+                <label style={{ fontSize: '1rem', fontWeight: '600', color: '#90caf9', letterSpacing: '1px' }}>
+                  SELECT SONG
+                </label>
+                <select
+                  value={selectedSong}
+                  onChange={e => setSelectedSong(e.target.value)}
+                  style={{
+                    fontSize: '1.1rem',
+                    padding: '0.8rem 1.5rem',
+                    borderRadius: '12px',
+                    border: '2px solid rgba(144, 202, 249, 0.3)',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    color: '#fff',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    minWidth: '180px',
+                    textAlign: 'center',
+                    backdropFilter: 'blur(10px)',
+                    transition: 'all 0.3s ease'
+                  }}
+                  disabled={isPlaying}
+                >
+                  {Object.keys(SONGS).map(name => (
+                    <option key={name} value={name} style={{ background: '#1a1b2e', color: '#fff' }}>{name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* Control Buttons */}
             <div style={{
@@ -851,7 +1046,7 @@ function PlayAlong() {
                   <>
                     <PlayAlongOverlay
                       highlightedNotes={isPlaying && currentStep ? [currentStep] : []}
-                      arpeggioNotes={chordNotes}
+                      arpeggioNotes={playNotes}
                       currentStep={isPlaying ? currentStepIdx : -1}
                       onCorrectNote={handleCorrectNote}
                       onIncorrectNote={handleIncorrectNote}
@@ -868,7 +1063,7 @@ function PlayAlong() {
                       }}>
                         <strong>C Major Debug:</strong><br/>
                         Current Step: {JSON.stringify(currentStep)}<br/>
-                        Chord Notes: {JSON.stringify(chordNotes)}<br/>
+                        Chord Notes: {JSON.stringify(playNotes)}<br/>
                         Is Playing: {isPlaying.toString()}<br/>
                         Current Step Index: {currentStepIdx}<br/>
                         Session Stats: {JSON.stringify(sessionStats)}
@@ -923,10 +1118,19 @@ function PlayAlong() {
               marginTop: "0.5rem",
               fontWeight: "400"
             }}>
-              Step {currentStepIdx + 1} of {chordNotes.length}
+              Step {currentStepIdx + 1} of {playNotes.length}
             </div>
           )}
         </div>
+
+        {/* Tab Overlay */}
+        {isPlaying && (
+          <TabOverlay 
+            playNotes={playNotes}
+            currentStepIdx={currentStepIdx}
+            isPlaying={isPlaying}
+          />
+        )}
       </div>
     </div>
   );
