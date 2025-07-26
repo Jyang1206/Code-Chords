@@ -149,6 +149,7 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
       if (n) {
         // Map stringIdx (1-6) to get note name correctly
         const noteName = getNoteAtPosition(6 - n.stringIdx, n.fretNum);
+        console.log(`[EXPECTED NOTE DEBUG] stringIdx: ${n.stringIdx}, fretNum: ${n.fretNum}, calculated: ${6 - n.stringIdx}, noteName: ${noteName}`);
         setExpectedNote(noteName);
       } else {
         setExpectedNote(null);
@@ -305,6 +306,13 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
             setLastFeedback(null);
             return;
           }
+          
+          // Debug logging for open strings
+          if (highlightedNotes && highlightedNotes.length > 0 && highlightedNotes[0].fretNum === 0) {
+            console.log(`[OPEN STRING DEBUG] Expected: ${expectedNote}, Detected: ${note.replace(/\d+$/, "")}`);
+            console.log(`[OPEN STRING DEBUG] Highlighted notes:`, highlightedNotes);
+          }
+          
           // note is like "E2", "G3" etc. Only compare the note letter (first part)
           const playedNote = note.replace(/\d+$/, "");
           if (playedNote === expectedNote) {
@@ -314,7 +322,7 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
             setLastFeedback("incorrect");
             onIncorrectNote && onIncorrectNote();
           }
-        }, [note, expectedNote, onCorrectNote, onIncorrectNote]);
+        }, [note, expectedNote, onCorrectNote, onIncorrectNote, highlightedNotes]);
         return (
           <div style={{ position: "relative", width: FRETBOARD_WIDTH, height: FRETBOARD_HEIGHT, margin: "0 auto" }}>
             <video

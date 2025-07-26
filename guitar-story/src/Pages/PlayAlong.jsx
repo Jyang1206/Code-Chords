@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import PlayAlongOverlay from "../components/PlayAlongOverlay";
 import { useAuth } from "../contexts/AuthContext";
 import { ScoreboardService } from "../services/scoreboardService";
@@ -18,7 +18,7 @@ const CHORDS_ORIGINAL = {
     { stringIdx: 1, fretNum: 2, note: "B" },               // 5th string (A)
     { stringIdx: 2, fretNum: 0, note: "D" },               // 4th string (D)
     { stringIdx: 3, fretNum: 0, note: "G" },               // 3rd string (G)
-    { stringIdx: 4, fretNum: 2, note: "B" },               // 2nd string (B)
+    { stringIdx: 4, fretNum: 0, note: "B" },               // 2nd string (B)
     { stringIdx: 5, fretNum: 3, note: "G" },               // 1st string (high E)
   ],
   "E Major": [
@@ -67,9 +67,20 @@ function PlayAlong() {
   const [chordAccuracy, setChordAccuracy] = useState(0);
   const [completedNotes, setCompletedNotes] = useState(new Set()); // Track which notes have been completed
   const playTimer = useRef(null);
+  const latestSessionStatsRef = useRef({ correct: 0, total: 0 }); // Track latest session stats
 
   const chordNotes = CHORDS[selectedChord];
   const currentStep = chordNotes[currentStepIdx] || null;
+
+  // Reset completed notes when chord changes
+  useEffect(() => {
+    setCompletedNotes(new Set());
+    const newSessionStats = { correct: 0, total: chordNotes.length };
+    setSessionStats(newSessionStats);
+    latestSessionStatsRef.current = newSessionStats; // Update ref
+    setChordAccuracy(0);
+    setCurrentScore(0);
+  }, [selectedChord]);
 
   // Calculate accuracy based on current chord's total notes
   const calculateAccuracy = (correct, totalNotes) => {
@@ -81,9 +92,20 @@ function PlayAlong() {
   const handleCorrectNote = async () => {
     if (!currentUser) return;
     
+    // Create a unique identifier for this note (stringIdx + fretNum combination)
+    const noteId = `${currentStep.stringIdx}-${currentStep.fretNum}`;
+    
+    // Debug logging for C Major
+    if (selectedChord === "C Major") {
+      console.log(`[C MAJOR DEBUG] Current step:`, currentStep);
+      console.log(`[C MAJOR DEBUG] Note ID: ${noteId}`);
+      console.log(`[C MAJOR DEBUG] Completed notes:`, Array.from(completedNotes));
+      console.log(`[C MAJOR DEBUG] Session stats:`, sessionStats);
+    }
+    
     // Only count this note if it hasn't been completed yet
-    if (completedNotes.has(currentStepIdx)) {
-      console.log(`Note ${currentStepIdx} already completed, skipping`);
+    if (completedNotes.has(noteId)) {
+      console.log(`Note ${noteId} already completed, skipping`);
       return;
     }
     
@@ -96,20 +118,32 @@ function PlayAlong() {
     const totalNotesInChord = chordNotes.length;
     const newAccuracy = calculateAccuracy(newCorrect, totalNotesInChord);
     
-    console.log(`Correct note ${currentStepIdx}! Progress: ${newCorrect}/${totalNotesInChord} (${newAccuracy}%)`);
+    console.log(`Correct note ${noteId}! Progress: ${newCorrect}/${totalNotesInChord} (${newAccuracy}%)`);
     
-    // Mark this note as completed
-    setCompletedNotes(prev => new Set([...prev, currentStepIdx]));
+    // Mark this note as completed using the unique identifier
+    setCompletedNotes(prev => new Set([...prev, noteId]));
     
-    setSessionStats(prev => ({
-      correct: newCorrect,
-      total: totalNotesInChord
-    }));
+    setSessionStats(prev => {
+      const newStats = {
+        correct: newCorrect,
+        total: totalNotesInChord
+      };
+      latestSessionStatsRef.current = newStats; // Update ref with latest stats
+      return newStats;
+    });
     
     setChordAccuracy(newAccuracy);
 
     // Save individual score entry (for tracking purposes)
     try {
+      console.log(`[DB DEBUG] Adding individual score:`, {
+        uid: currentUser.uid,
+        displayName: currentUser.displayName || currentUser.email.split('@')[0] || 'Anonymous',
+        score: scorePoints,
+        chord: selectedChord,
+        isCorrect: true
+      });
+      
       const result = await ScoreboardService.addScore(
         currentUser.uid,
         currentUser.displayName || currentUser.email.split('@')[0] || 'Anonymous',
@@ -130,21 +164,24 @@ function PlayAlong() {
 
   // Handle incorrect note played
   const handleIncorrectNote = () => {
+    // Create a unique identifier for this note (stringIdx + fretNum combination)
+    const noteId = `${currentStep.stringIdx}-${currentStep.fretNum}`;
+    
     // Only count this note if it hasn't been completed yet
-    if (completedNotes.has(currentStepIdx)) {
-      console.log(`Note ${currentStepIdx} already completed, skipping incorrect`);
+    if (completedNotes.has(noteId)) {
+      console.log(`Note ${noteId} already completed, skipping incorrect`);
       return;
     }
     
     // Mark this note as completed (but incorrect)
-    setCompletedNotes(prev => new Set([...prev, currentStepIdx]));
+    setCompletedNotes(prev => new Set([...prev, noteId]));
     
     // Don't increment correct count, but still track total attempts
     const totalNotesInChord = chordNotes.length;
     const currentCorrect = sessionStats.correct;
     const newAccuracy = calculateAccuracy(currentCorrect, totalNotesInChord);
     
-    console.log(`Incorrect note ${currentStepIdx}, accuracy: ${newAccuracy}% (${currentCorrect}/${totalNotesInChord})`);
+    console.log(`Incorrect note ${noteId}, accuracy: ${newAccuracy}% (${currentCorrect}/${totalNotesInChord})`);
     setChordAccuracy(newAccuracy);
     
     // Also send incorrect note to database (with 0 points)
@@ -165,7 +202,9 @@ function PlayAlong() {
     setIsPlaying(true);
     setCurrentStepIdx(0);
     setCurrentScore(0);
-    setSessionStats({ correct: 0, total: chordNotes.length });
+    const newSessionStats = { correct: 0, total: chordNotes.length };
+    setSessionStats(newSessionStats);
+    latestSessionStatsRef.current = newSessionStats; // Update ref
     setChordAccuracy(0);
     setCompletedNotes(new Set()); // Reset completed notes
     playTimer.current = setInterval(() => {
@@ -176,7 +215,10 @@ function PlayAlong() {
           clearInterval(playTimer.current);
           setIsPlaying(false);
           // Update final scoreboard when chord is completed
-          updateFinalScoreboard();
+          // Add a small delay to ensure state updates are complete
+          setTimeout(() => {
+            updateFinalScoreboard();
+          }, 100);
           return idx;
         }
       });
@@ -187,12 +229,23 @@ function PlayAlong() {
   const updateFinalScoreboard = async () => {
     if (!currentUser) return;
     
-    const finalAccuracy = calculateAccuracy(sessionStats.correct, sessionStats.total);
+    // Use the latest session stats from the ref to ensure we have the most current data
+    const latestStats = latestSessionStatsRef.current;
+    const finalAccuracy = calculateAccuracy(latestStats.correct, latestStats.total);
     const bonusPoints = Math.round((finalAccuracy / 100) * 50); // Bonus points based on accuracy
     const totalPoints = currentScore + bonusPoints;
     const chordLength = chordNotes.length; // Total notes in the chord
     
-    console.log(`Chord completed! Final stats: ${sessionStats.correct}/${sessionStats.total} (${finalAccuracy}%), Total points: ${totalPoints}, Chord length: ${chordLength}`);
+    console.log(`Chord completed! Final stats: ${latestStats.correct}/${latestStats.total} (${finalAccuracy}%), Total points: ${totalPoints}, Chord length: ${chordLength}`);
+    
+    console.log(`[DB DEBUG] Updating final scoreboard:`, {
+      uid: currentUser.uid,
+      displayName: currentUser.displayName || currentUser.email.split('@')[0] || 'Anonymous',
+      correctNotes: latestStats.correct,
+      totalNotes: chordLength,
+      totalPoints: totalPoints,
+      sessionStats: latestStats
+    });
     
     try {
       // Use session data to update stats correctly
@@ -200,7 +253,7 @@ function PlayAlong() {
       const result = await ScoreboardService.updateUserStatsWithSessionData(
         currentUser.uid,
         currentUser.displayName || currentUser.email.split('@')[0] || 'Anonymous',
-        sessionStats.correct, // Use the correct count from session
+        latestStats.correct, // Use the correct count from latest session stats
         chordLength,          // Always use chord length for total notes
         totalPoints
       );
@@ -795,13 +848,33 @@ function PlayAlong() {
             {(() => {
               try {
                 return (
-                  <PlayAlongOverlay
-                    highlightedNotes={isPlaying && currentStep ? [currentStep] : []}
-                    arpeggioNotes={chordNotes}
-                    currentStep={isPlaying ? currentStepIdx : -1}
-                    onCorrectNote={handleCorrectNote}
-                    onIncorrectNote={handleIncorrectNote}
-                  />
+                  <>
+                    <PlayAlongOverlay
+                      highlightedNotes={isPlaying && currentStep ? [currentStep] : []}
+                      arpeggioNotes={chordNotes}
+                      currentStep={isPlaying ? currentStepIdx : -1}
+                      onCorrectNote={handleCorrectNote}
+                      onIncorrectNote={handleIncorrectNote}
+                    />
+                    
+                    {/* Debug info for C Major */}
+                    {selectedChord === "C Major" && (
+                      <div style={{
+                        background: "rgba(255, 0, 0, 0.1)",
+                        padding: "10px",
+                        margin: "10px 0",
+                        borderRadius: "5px",
+                        fontSize: "12px"
+                      }}>
+                        <strong>C Major Debug:</strong><br/>
+                        Current Step: {JSON.stringify(currentStep)}<br/>
+                        Chord Notes: {JSON.stringify(chordNotes)}<br/>
+                        Is Playing: {isPlaying.toString()}<br/>
+                        Current Step Index: {currentStepIdx}<br/>
+                        Session Stats: {JSON.stringify(sessionStats)}
+                      </div>
+                    )}
+                  </>
                 );
               } catch (error) {
                 console.error('Error rendering PlayAlongOverlay:', error);
