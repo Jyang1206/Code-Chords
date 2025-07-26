@@ -1,49 +1,10 @@
 import React, { useEffect, useRef, useMemo, useState } from "react";
 import AudioPitchDetector from "../utils/AudioPitchDetector";
-
-// Try to import inferencejs, but provide fallback if it fails
-let InferenceEngine, CVImage;
-try {
-  // Try ES6 import first
-  import("inferencejs").then(module => {
-    InferenceEngine = module.InferenceEngine;
-    CVImage = module.CVImage;
-    console.log('InferenceJS loaded successfully via ES6 import');
-  }).catch(error => {
-    console.warn('ES6 import failed, trying require:', error);
-    // Fallback to require
-    const inferencejs = require("inferencejs");
-    InferenceEngine = inferencejs.InferenceEngine;
-    CVImage = inferencejs.CVImage;
-    console.log('InferenceJS loaded successfully via require');
-  });
-} catch (error) {
-  console.warn('InferenceJS not available, using fallback mode:', error);
-  InferenceEngine = class FallbackInferenceEngine {
-    constructor() {
-      console.log('Using fallback inference engine');
-    }
-    async startWorker() { 
-      console.log('Fallback: startWorker called');
-      return 'fallback-worker'; 
-    }
-    async infer() { 
-      console.log('Fallback: infer called, returning empty array');
-      return []; 
-    }
-  };
-  CVImage = class FallbackCVImage {
-    constructor(videoElement) {
-      console.log('Fallback: CVImage created with video element:', videoElement);
-    }
-  };
-}
+import GuitarCanvas from "./GuitarCanvas";
+import "../css/GuitarCanvas.css";
 
 const ALL_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const OPEN_STRINGS = ['E', 'A', 'D', 'G', 'B', 'E']; // 6th to 1st string
-const FRETBOARD_WIDTH = 640;
-const FRETBOARD_HEIGHT = 480;
-const NUM_STRINGS = 6;
 
 function getNoteAtPosition(stringIdx, fretNum) {
   const openNoteIdx = ALL_NOTES.indexOf(OPEN_STRINGS[stringIdx]);
@@ -52,16 +13,6 @@ function getNoteAtPosition(stringIdx, fretNum) {
 }
 
 function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNotes = [], onCorrectNote, onIncorrectNote }) {
-  const videoRef = useRef();
-  const canvasRef = useRef();
-  const inferEngine = useMemo(() => {
-    console.log('Creating inference engine...');
-    const engine = new InferenceEngine();
-    console.log('Inference engine created:', engine);
-    return engine;
-  }, []);
-  const [modelWorkerId, setModelWorkerId] = useState(null);
-  const [modelLoading, setModelLoading] = useState(false);
   const [expectedNote, setExpectedNote] = useState(null);
   const [lastFeedback, setLastFeedback] = useState(null);
   const displayedNotesRef = useRef([]); // Store displayed notes for later reference
@@ -73,82 +24,6 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
   const [frequencyThreshold, setFrequencyThreshold] = useState(0.3); // minimum frequency amplitude to consider
   const [consecutiveDetections, setConsecutiveDetections] = useState(0);
   const [requiredConsecutiveDetections, setRequiredConsecutiveDetections] = useState(3); // require 3 consecutive detections
-
-  useEffect(() => {
-    if (!modelLoading) {
-      setModelLoading(true);
-      console.log('Starting inference engine...');
-      inferEngine
-        .startWorker(
-          "guitar-fretboard-tn3dc",
-          2,
-          "rf_WjCqW7ti3EQQzaSufa5ZNPoCu522"
-        )
-        .then((id) => {
-          console.log('Inference engine started successfully with ID:', id);
-          setModelWorkerId(id);
-        })
-        .catch((error) => {
-          console.error('Inference engine failed to load:', error);
-          setModelLoading(false);
-        });
-    }
-  }, [inferEngine, modelLoading]);
-
-  useEffect(() => {
-    console.log('Setting up video stream...');
-    navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
-      console.log('Video stream obtained:', stream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.onloadedmetadata = () => {
-          console.log('Video metadata loaded, starting play...');
-          videoRef.current.play();
-        };
-        videoRef.current.onplay = () => {
-          console.log('Video started playing');
-        };
-        videoRef.current.onerror = (error) => {
-          console.error('Video error:', error);
-        };
-      } else {
-        console.error('Video ref is null');
-      }
-    }).catch((error) => {
-      console.warn('Camera access denied or unavailable:', error);
-      // Continue without camera - the component will still work for audio detection
-    });
-  }, []);
-
-  useEffect(() => {
-    if (!modelWorkerId) return;
-    let running = true;
-    console.log('Starting prediction loop with modelWorkerId:', modelWorkerId);
-    const detectFrame = () => {
-      if (!running) return;
-      try {
-        const img = new CVImage(videoRef.current);
-        console.log('Created CVImage, calling infer...');
-        inferEngine.infer(modelWorkerId, img).then((predictions) => {
-          console.log('Received predictions:', predictions);
-          drawOverlay(predictions);
-          setTimeout(detectFrame, 1000 / 6);
-        }).catch((error) => {
-          console.error('Error during inference:', error);
-          setTimeout(detectFrame, 1000 / 6);
-        });
-      } catch (error) {
-        console.error('Error creating CVImage or calling infer:', error);
-        setTimeout(detectFrame, 1000 / 6);
-      }
-    };
-    detectFrame();
-    return () => { 
-      console.log('Stopping prediction loop');
-      running = false; 
-    };
-    // eslint-disable-next-line
-  }, [modelWorkerId, arpeggioNotes, currentStep]);
 
   // Determine the expected note for the current highlighted note
   React.useEffect(() => {
@@ -175,14 +50,19 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
   }, [highlightedNotes]);
 
   function drawOverlay(predictions) {
-    console.log('drawOverlay called with predictions:', predictions);
-    const canvas = canvasRef.current;
+    console.log('PlayAlongOverlay drawOverlay called with predictions:', predictions);
+    const canvas = document.getElementById('canvas');
     if (!canvas) {
-      console.error('Canvas ref is null');
+      console.error('Canvas not found');
       return;
     }
     const ctx = canvas.getContext("2d");
-    ctx.clearRect(0, 0, FRETBOARD_WIDTH, FRETBOARD_HEIGHT);
+    
+    // Debug: Check canvas dimensions
+    console.log(`[CANVAS DEBUG] Canvas dimensions: ${canvas.width}x${canvas.height}`);
+    console.log(`[CANVAS DEBUG] Canvas style dimensions: ${canvas.style.width}x${canvas.style.height}`);
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     
     // Debug logs for props
     console.log('[DEBUG] highlightedNotes:', highlightedNotes);
@@ -190,11 +70,16 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
     console.log('[DEBUG] currentStep:', currentStep);
     const filteredPredictions = predictions.filter(pred => pred.class !== 'Hand');
     console.log('Filtered predictions (excluding Hand):', filteredPredictions);
+    
     const fretCenters = filteredPredictions.map(pred => ({
       x: pred.bbox.x,
       y: pred.bbox.y
     }));
     console.log('Fret centers:', fretCenters);
+    
+    // No scaling needed - canvas matches video size
+    console.log('[NO SCALING] Canvas matches video size, using coordinates directly');
+    
     let angle = 0;
     if (fretCenters.length >= 2) {
       const n = fretCenters.length;
@@ -220,6 +105,10 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
     const displayedNotes = [];
     const safeHighlightedNotes = Array.isArray(highlightedNotes) ? highlightedNotes : [];
     const safeArpeggioNotes = Array.isArray(arpeggioNotes) ? arpeggioNotes : [];
+    
+    // TEST: Check if we're about to start drawing
+    console.log('[TEST] About to start drawing loop');
+    
     for (let i = 0; i < filteredPredictions.length; i++) {
       const prediction = filteredPredictions[i];
       let fretNum = 0;
@@ -232,10 +121,15 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
       }
       if (isNaN(fretNum)) fretNum = i + 1;
       if (fretNum < 1) continue;
+      
+      // Use original coordinates - no scaling needed
       let xCenter = prediction.bbox.x;
       let yCenter = prediction.bbox.y;
       let width = prediction.bbox.width;
       let height = prediction.bbox.height;
+      
+      console.log(`[NO SCALE] Using original coordinates: (${xCenter.toFixed(1)}, ${yCenter.toFixed(1)})`);
+      
       for (let stringIdx = 0; stringIdx < 6; stringIdx++) {
         // stringIdx=0 is top (6th string, low E), stringIdx=5 is bottom (1st string, high E)
         let yString = yCenter - height / 2 + (stringIdx * height) / 5;
@@ -301,151 +195,145 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
         ctx.fillStyle = '#fff';
         ctx.textAlign = 'center';
         ctx.fillText(noteName, drawX, yRot + 4);
+        
+        // Debug: Log what's being drawn
+        if (fretNum <= 3) { // Only log first few frets to avoid spam
+          console.log(`[DRAW DEBUG] Drawing note: ${noteName} at (${drawX.toFixed(1)}, ${yRot.toFixed(1)}) - Highlighted: ${isHighlighted}, Arpeggio: ${isArpeggio}, Root: ${isRoot}, Color: ${ctx.fillStyle}`);
+          console.log(`[COORDINATE DEBUG] xCenter: ${xCenter.toFixed(1)}, yCenter: ${yCenter.toFixed(1)}, width: ${width.toFixed(1)}, height: ${height.toFixed(1)}`);
+        }
       }
     }
     displayedNotesRef.current = displayedNotes;
+    console.log(`[DRAW SUMMARY] Drew ${displayedNotes.length} notes total`);
   }
 
   return (
-    <AudioPitchDetector>
-      {({ note, frequency, listening, start, stop, error }) => {
-        // Ensure pitch detection is always running while overlay is mounted
-        React.useEffect(() => {
-          start();
-          return () => stop();
-        }, []);
-        // Only check correctness if a note is highlighted and detected
-        React.useEffect(() => {
-          if (!expectedNote || !note) {
-            setLastFeedback(null);
-            return;
-          }
-          
-          const currentTime = Date.now();
-          const playedNote = note.replace(/\d+$/, "");
-          
-          // Frequency filtering logic
-          let shouldProcessNote = true;
-          
-          // 1. Check if this is the same note as last detected (ring-over)
-          if (lastDetectedNote === playedNote && 
-              currentTime - lastNoteTime < noteDetectionWindow) {
-            console.log(`[FREQ FILTER] Ignoring ring-over from previous note: ${playedNote}`);
-            shouldProcessNote = false;
-          }
-          
-          // 2. Handle wrong notes immediately (no consecutive detection required)
-          if (playedNote !== expectedNote) {
-            // Reset consecutive detections for wrong notes
-            setConsecutiveDetections(0);
-            console.log(`[FREQ FILTER] Wrong note detected: ${playedNote}, expected: ${expectedNote}`);
+    <GuitarCanvas 
+      onPredictions={drawOverlay}
+      showCalibration={true}
+      showPreprocessedView={false}
+      showDebugCanvas={false}
+    >
+      <AudioPitchDetector>
+        {({ note, frequency, listening, start, stop, error }) => {
+          // Auto-start pitch detection when component mounts
+          React.useEffect(() => {
+            // Start audio detection automatically
+            start();
             
-            // Process wrong notes immediately
-            if (shouldProcessNote) {
-              console.log(`[NOTE DETECTION] INCORRECT! Calling onIncorrectNote`);
-              setLastFeedback("incorrect");
+            // Cleanup on unmount
+            return () => {
+              stop();
+            };
+          }, []); // Empty dependency array - only run once on mount
+          
+          // Only check correctness if a note is highlighted and detected
+          React.useEffect(() => {
+            if (!expectedNote || !note) {
+              setLastFeedback(null);
+              return;
+            }
+            
+            const currentTime = Date.now();
+            const playedNote = note.replace(/\d+$/, "");
+            
+            // Frequency filtering logic
+            let shouldProcessNote = true;
+            
+            // 1. Check if this is the same note as last detected (ring-over)
+            if (lastDetectedNote === playedNote && 
+                currentTime - lastNoteTime < noteDetectionWindow) {
+              console.log(`[FREQ FILTER] Ignoring ring-over from previous note: ${playedNote}`);
+              shouldProcessNote = false;
+            }
+            
+            // 2. Handle wrong notes immediately (no consecutive detection required)
+            if (playedNote !== expectedNote) {
+              // Reset consecutive detections for wrong notes
+              setConsecutiveDetections(0);
+              console.log(`[FREQ FILTER] Wrong note detected: ${playedNote}, expected: ${expectedNote}`);
               
-              // Update last detected note and time for incorrect notes
+              // Process wrong notes immediately
+              if (shouldProcessNote) {
+                console.log(`[NOTE DETECTION] INCORRECT! Calling onIncorrectNote`);
+                setLastFeedback("incorrect");
+                
+                // Update last detected note and time for incorrect notes
+                setLastDetectedNote(playedNote);
+                setLastNoteTime(currentTime);
+                
+                onIncorrectNote && onIncorrectNote();
+                return; // Exit early for wrong notes
+              }
+            } else {
+              // Increment consecutive detections for correct notes
+              setConsecutiveDetections(prev => prev + 1);
+              console.log(`[FREQ FILTER] Correct note detected: ${playedNote}, consecutive: ${consecutiveDetections + 1}`);
+            }
+            
+            // 3. Only process correct notes if we have enough consecutive detections
+            if (playedNote === expectedNote && consecutiveDetections < requiredConsecutiveDetections - 1) {
+              shouldProcessNote = false;
+            }
+            
+            // Debug logging for open strings
+            if (highlightedNotes && highlightedNotes.length > 0 && highlightedNotes[0].fretNum === 0) {
+              console.log(`[OPEN STRING DEBUG] Expected: ${expectedNote}, Detected: ${playedNote}, Match: ${playedNote === expectedNote}`);
+              console.log(`[OPEN STRING DEBUG] Highlighted notes:`, highlightedNotes);
+            }
+            
+            console.log(`[NOTE DETECTION] Expected: ${expectedNote}, Detected: ${playedNote}, Match: ${playedNote === expectedNote}, Should Process: ${shouldProcessNote}`);
+            
+            if (shouldProcessNote && playedNote === expectedNote) {
+              console.log(`[NOTE DETECTION] CORRECT! Calling onCorrectNote`);
+              setLastFeedback("correct");
+              
+              // Update last detected note and time
               setLastDetectedNote(playedNote);
               setLastNoteTime(currentTime);
               
-              onIncorrectNote && onIncorrectNote();
-              return; // Exit early for wrong notes
+              // Calculate timing accuracy based on when the note should be played
+              let timingAccuracy = 0;
+              if (highlightedNotes && highlightedNotes.length > 0) {
+                // Calculate timing based on when the note should be played vs when it was detected
+                const expectedPlayTime = Date.now(); // This would be calculated based on the note's scheduled time
+                timingAccuracy = Math.floor(Math.random() * 200) - 100; // Simulate ±100ms timing
+              }
+              
+              onCorrectNote && onCorrectNote(timingAccuracy);
             }
-          } else {
-            // Increment consecutive detections for correct notes
-            setConsecutiveDetections(prev => prev + 1);
-            console.log(`[FREQ FILTER] Correct note detected: ${playedNote}, consecutive: ${consecutiveDetections + 1}`);
-          }
+          }, [note, expectedNote, onCorrectNote, onIncorrectNote, highlightedNotes, lastDetectedNote, lastNoteTime, consecutiveDetections]);
           
-          // 3. Only process correct notes if we have enough consecutive detections
-          if (playedNote === expectedNote && consecutiveDetections < requiredConsecutiveDetections - 1) {
-            shouldProcessNote = false;
-          }
-          
-          // Debug logging for open strings
-          if (highlightedNotes && highlightedNotes.length > 0 && highlightedNotes[0].fretNum === 0) {
-            console.log(`[OPEN STRING DEBUG] Expected: ${expectedNote}, Detected: ${playedNote}, Match: ${playedNote === expectedNote}`);
-            console.log(`[OPEN STRING DEBUG] Highlighted notes:`, highlightedNotes);
-          }
-          
-          console.log(`[NOTE DETECTION] Expected: ${expectedNote}, Detected: ${playedNote}, Match: ${playedNote === expectedNote}, Should Process: ${shouldProcessNote}`);
-          
-          if (shouldProcessNote && playedNote === expectedNote) {
-            console.log(`[NOTE DETECTION] CORRECT! Calling onCorrectNote`);
-            setLastFeedback("correct");
-            
-            // Update last detected note and time
-            setLastDetectedNote(playedNote);
-            setLastNoteTime(currentTime);
-            
-            // Calculate timing accuracy based on when the note should be played
-            let timingAccuracy = 0;
-            if (highlightedNotes && highlightedNotes.length > 0) {
-              // Calculate timing based on when the note should be played vs when it was detected
-              const expectedPlayTime = Date.now(); // This would be calculated based on the note's scheduled time
-              timingAccuracy = Math.floor(Math.random() * 200) - 100; // Simulate ±100ms timing
-            }
-            
-            onCorrectNote && onCorrectNote(timingAccuracy);
-          }
-        }, [note, expectedNote, onCorrectNote, onIncorrectNote, highlightedNotes, lastDetectedNote, lastNoteTime, consecutiveDetections]);
-        return (
-          <div style={{ position: "relative", width: FRETBOARD_WIDTH, height: FRETBOARD_HEIGHT, margin: "0 auto" }}>
-            <video
-              ref={videoRef}
-              width={FRETBOARD_WIDTH}
-              height={FRETBOARD_HEIGHT}
-              autoPlay
-              muted
-              style={{ position: "absolute", left: 0, top: 0, zIndex: 1, background: "#000" }}
-            />
-            <canvas
-              ref={canvasRef}
-              width={FRETBOARD_WIDTH}
-              height={FRETBOARD_HEIGHT}
-              style={{ position: "absolute", left: 0, top: 0, zIndex: 2, pointerEvents: "none" }}
-            />
-            {/* Enhanced Feedback UI */}
-            <div style={{
-              position: "absolute",
-              top: 18,
-              right: 24,
-              minWidth: 180,
-              maxWidth: 240,
-              background: "#fff",
-              borderRadius: 16,
-              boxShadow: "0 2px 16px 0 #90caf9cc, 0 0 12px 1px #7e57c2aa",
-              padding: "0.7em 1.2em 0.7em 1.2em",
-              zIndex: 20,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              border: lastFeedback === "correct" ? "2.5px solid #4caf50" : lastFeedback === "incorrect" ? "2.5px solid #e53935" : "2.5px solid #e3e3e3",
-              color: "#222",
-              fontFamily: "'Orbitron', 'Montserrat', 'Arial', sans-serif",
-              letterSpacing: 0.5,
-              transition: "border 0.2s, box-shadow 0.2s"
-            }}>
-              <div style={{ fontSize: "0.95em", marginBottom: 2, letterSpacing: 1 }}>
-                <span style={{ color: "#7e57c2", fontWeight: 700, textShadow: "0 2px 8px #90caf9cc" }}>Play Along</span>
+          return (
+            <div className="play-along-feedback-panel">
+              <div className="feedback-header">
+                <span className="feedback-title">🎸 Play Along</span>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "1.1em", fontWeight: 500 }}>
-                <span>Exp: <span style={{ color: "#1976d2", fontWeight: 700 }}>{expectedNote || "-"}</span></span>
-                <span>•</span>
-                <span>Det: <span style={{ color: lastFeedback === "correct" ? "#4caf50" : lastFeedback === "incorrect" ? "#e53935" : "#222", fontWeight: 700 }}>{note ? note.replace(/\d+$/, "") : (listening ? "Listening..." : "-")}</span></span>
-                <span style={{ fontSize: "1.5em", marginLeft: 8, textShadow: lastFeedback === "correct" ? "0 0 8px #4caf50aa" : lastFeedback === "incorrect" ? "0 0 8px #e53935aa" : "0 0 6px #90caf9cc" }}>
-                  {lastFeedback === "correct" ? "✔️" : lastFeedback === "incorrect" ? "✖️" : ""}
-                </span>
+              <div className="feedback-content">
+                <div className="note-display">
+                  <span className="note-label">Expected:</span>
+                  <span className="expected-note">{expectedNote || "-"}</span>
+                  <span className="note-separator">•</span>
+                  <span className="note-label">Detected:</span>
+                  <span className={`detected-note ${lastFeedback === "correct" ? "correct" : lastFeedback === "incorrect" ? "incorrect" : ""}`}>
+                    {note ? note.replace(/\d+$/, "") : (listening ? "Listening..." : "-")}
+                  </span>
+                  <span className={`feedback-icon ${lastFeedback === "correct" ? "correct" : lastFeedback === "incorrect" ? "incorrect" : ""}`}>
+                    {lastFeedback === "correct" ? "✔️" : lastFeedback === "incorrect" ? "✖️" : ""}
+                  </span>
+                </div>
+                {error && (
+                  <div className="feedback-error">{error}</div>
+                )}
+                <div className={`audio-status ${listening ? 'listening' : 'stopped'}`}>
+                  {listening ? '🎤 Listening...' : '🔇 Audio Off'}
+                </div>
               </div>
-              {error && (
-                <div style={{ color: "#e53935", marginTop: 6, fontSize: "0.95em", fontWeight: 600 }}>{error}</div>
-              )}
             </div>
-          </div>
-        );
-      }}
-    </AudioPitchDetector>
+          );
+        }}
+      </AudioPitchDetector>
+    </GuitarCanvas>
   );
 }
 

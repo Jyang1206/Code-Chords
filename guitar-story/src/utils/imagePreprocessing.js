@@ -111,17 +111,96 @@ export function autoWhiteBalance(ctx, canvas) {
 }
 
 /**
- * Applies a chain of filters to a canvas context.
- * @param {CanvasRenderingContext2D} ctx - The canvas context to apply filters to.
+ * Applies a chain of filters to a canvas.
+ * @param {HTMLCanvasElement} canvas - The canvas to apply filters to.
  * @param {Array} filterChain - Array of {filter, param} objects.
- * @param {Array} filters - Array of filter configs (with .name and .apply).
  */
-export function applyFilterChainToCanvas(ctx, filterChain, filters) {
-  if (!filterChain || !Array.isArray(filterChain)) return;
-  for (const f of filterChain) {
-    const filterObj = filters.find(fl => fl.name === f.filter);
-    if (filterObj && filterObj.apply) {
-      filterObj.apply(ctx, f.param);
+export function applyFilterChainToCanvas(canvas, filterChain) {
+  if (!filterChain || !Array.isArray(filterChain) || filterChain.length === 0) {
+    return canvas;
+  }
+  
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    console.error('Could not get canvas context');
+    return canvas;
+  }
+  
+  // Create a temporary canvas for processing
+  const tempCanvas = document.createElement('canvas');
+  const tempCtx = tempCanvas.getContext('2d');
+  tempCanvas.width = canvas.width;
+  tempCanvas.height = canvas.height;
+  
+  // Copy original canvas to temp
+  tempCtx.drawImage(canvas, 0, 0);
+  
+  // Apply each filter in the chain
+  for (const filterConfig of filterChain) {
+    if (!filterConfig || !filterConfig.filter) continue;
+    
+    const { filter, param, filter2, param2 } = filterConfig;
+    
+    try {
+      switch (filter) {
+        case 'brightness':
+          adjustBrightnessContrast(tempCtx, tempCanvas, param, 1);
+          break;
+        case 'contrast':
+          adjustBrightnessContrast(tempCtx, tempCanvas, 0, param);
+          break;
+        case 'gamma':
+          gammaCorrection(tempCtx, tempCanvas, param);
+          break;
+        case 'blur':
+          gaussianBlur(tempCtx, tempCanvas);
+          break;
+        case 'sharpen':
+          sharpen(tempCtx, tempCanvas);
+          break;
+        case 'grayscale':
+          grayscale(tempCtx, tempCanvas);
+          break;
+        case 'histogram':
+          histogramEqualization(tempCtx, tempCanvas);
+          break;
+        case 'clahe':
+          clahe(tempCtx, tempCanvas);
+          break;
+        case 'normalize':
+          colorNormalization(tempCtx, tempCanvas);
+          break;
+        case 'whitebalance':
+          autoWhiteBalance(tempCtx, tempCanvas);
+          break;
+        default:
+          console.warn(`Unknown filter: ${filter}`);
+      }
+      
+      // Apply second filter if specified
+      if (filter2 && param2) {
+        switch (filter2) {
+          case 'brightness':
+            adjustBrightnessContrast(tempCtx, tempCanvas, param2, 1);
+            break;
+          case 'contrast':
+            adjustBrightnessContrast(tempCtx, tempCanvas, 0, param2);
+            break;
+          case 'gamma':
+            gammaCorrection(tempCtx, tempCanvas, param2);
+            break;
+          default:
+            console.warn(`Unknown second filter: ${filter2}`);
+        }
+      }
+    } catch (error) {
+      console.error(`Error applying filter ${filter}:`, error);
     }
   }
+  
+  // Copy processed result back to original canvas
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(tempCanvas, 0, 0);
+  
+  return canvas;
 } 

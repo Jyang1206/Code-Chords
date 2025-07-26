@@ -39,36 +39,81 @@ export default function AudioPitchDetector({ children, bufferLength = 2048, clar
   const sourceRef = useRef(null);
   const animationRef = useRef(null);
   const listeningRef = useRef(false);
+  const startingRef = useRef(false); // Prevent multiple simultaneous starts
 
   // Start microphone and pitch detection
   const start = async () => {
+    // Prevent multiple simultaneous starts
+    if (startingRef.current || listeningRef.current) {
+      console.log('Audio detection already starting or running');
+      return;
+    }
+    
+    startingRef.current = true;
     setError(null);
     setListening(true);
+    
     try {
+      // Stop any existing audio context first
+      if (audioContextRef.current) {
+        try {
+          await audioContextRef.current.close();
+        } catch (e) {
+          console.log('Error closing existing audio context:', e);
+        }
+        audioContextRef.current = null;
+        analyserRef.current = null;
+        sourceRef.current = null;
+      }
+      
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const audioContext = new (window.AudioContext || window.webkitAudioContext)();
       const source = audioContext.createMediaStreamSource(stream);
       const analyser = audioContext.createAnalyser();
       analyser.fftSize = bufferLength;
       source.connect(analyser);
+      
       audioContextRef.current = audioContext;
       analyserRef.current = analyser;
       sourceRef.current = source;
+      
+      // Start the pitch detection loop
       detectPitchLoop();
+      
     } catch (err) {
+      console.error('Error starting audio detection:', err);
       setError("Microphone access denied or unavailable.");
       setListening(false);
+    } finally {
+      startingRef.current = false;
     }
   };
 
   // Stop microphone and pitch detection
   const stop = () => {
     setListening(false);
-    if (animationRef.current) clearTimeout(animationRef.current);
+    
+    // Clear the animation timeout
+    if (animationRef.current) {
+      clearTimeout(animationRef.current);
+      animationRef.current = null;
+    }
+    
+    // Close audio context
     if (audioContextRef.current) {
-      audioContextRef.current.close();
+      try {
+        audioContextRef.current.close();
+      } catch (e) {
+        console.log('Error closing audio context:', e);
+      }
       audioContextRef.current = null;
     }
+    
+    // Clear refs
+    analyserRef.current = null;
+    sourceRef.current = null;
+    
+    // Reset state
     setFrequency(null);
     setNote(null);
     setClarity(null);
@@ -81,25 +126,48 @@ export default function AudioPitchDetector({ children, bufferLength = 2048, clar
   // Pitch detection loop (setTimeout-based, like GuitarTuner)
   const detectPitchLoop = () => {
     const analyser = analyserRef.current;
-    if (!analyser) return;
+    const audioContext = audioContextRef.current;
+    
+    if (!analyser || !audioContext) {
+      console.log('Audio context or analyser not available, stopping pitch detection');
+      return;
+    }
+    
     const input = new Float32Array(bufferLength);
     const detector = PitchDetector.forFloat32Array(bufferLength);
+    
     const loop = () => {
-      analyser.getFloatTimeDomainData(input);
-      const [pitch, clarityVal] = detector.findPitch(input, audioContextRef.current.sampleRate);
-      setClarity(clarityVal);
-      if (clarityVal > clarityThreshold && pitch > minFreq && pitch < maxFreq) {
-        setFrequency(pitch);
-        const { note, octave } = freqToNote(pitch);
-        setNote(note + octave);
-      } else {
-        setFrequency(null);
-        setNote(null);
+      // Check if audio context is still valid
+      if (!audioContextRef.current || !analyserRef.current) {
+        console.log('Audio context closed, stopping pitch detection loop');
+        return;
       }
-      if (listeningRef.current) {
+      
+      try {
+        analyser.getFloatTimeDomainData(input);
+        const [pitch, clarityVal] = detector.findPitch(input, audioContext.sampleRate);
+        setClarity(clarityVal);
+        
+        if (clarityVal > clarityThreshold && pitch > minFreq && pitch < maxFreq) {
+          setFrequency(pitch);
+          const { note, octave } = freqToNote(pitch);
+          setNote(note + octave);
+        } else {
+          setFrequency(null);
+          setNote(null);
+        }
+      } catch (error) {
+        console.error('Error in pitch detection loop:', error);
+        // If there's an error, stop the loop
+        return;
+      }
+      
+      // Continue loop only if still listening
+      if (listeningRef.current && audioContextRef.current) {
         animationRef.current = setTimeout(loop, 200);
       }
     };
+    
     loop();
   };
 

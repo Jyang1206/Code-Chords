@@ -429,3 +429,32 @@
 .guitar-obj-detection .toggle-preprocessed-btn.hidden:hover {
   box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
 } 
+
+.audio-controls {
+  margin-top: 8px;
+  text-align: center;
+}
+
+.audio-status {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  display: inline-block;
+  transition: all 0.3s ease;
+}
+
+.audio-status.listening {
+  background: rgba(76, 175, 80, 0.2);
+  border-color: rgba(76, 175, 80, 0.4);
+  color: #4caf50;
+}
+
+.audio-status.stopped {
+  background: rgba(244, 67, 54, 0.2);
+  border-color: rgba(244, 67, 54, 0.4);
+  color: #f44336;
+} 
