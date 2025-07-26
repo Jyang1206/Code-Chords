@@ -343,10 +343,35 @@ function Scoreboard() {
                       )}
                     </div>
                     <div style={{
-                      fontSize: "0.9rem",
-                      color: "#b0bec5"
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "0.5rem"
                     }}>
-                      {formatScore(player.totalScore)} points
+                      {/* Total Score - Emphasized */}
+                      <div style={{
+                        fontSize: "1.1rem",
+                        fontWeight: "700",
+                        color: "#90caf9",
+                        textShadow: "0 0 10px rgba(144, 202, 249, 0.3)"
+                      }}>
+                        {formatScore(player.totalScore)} pts
+                      </div>
+                      
+                      {/* Stats Row */}
+                      <div style={{
+                        display: "flex",
+                        gap: "1rem",
+                        fontSize: "0.8rem",
+                        color: "#b0bec5"
+                      }}>
+                        <span>Correct: {player.correctNotes || 0}</span>
+                        <span>Total: {player.totalNotes || 0}</span>
+                        {player.accuracy && (
+                          <span style={{ color: "#4caf50", fontWeight: "500" }}>
+                            {player.accuracy}% acc
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div style={{

@@ -107,7 +107,7 @@ function PlayAlong() {
     
     setChordAccuracy(newAccuracy);
 
-    // Add score to database (with error handling)
+    // Save individual score entry (for tracking purposes)
     try {
       const result = await ScoreboardService.addScore(
         user.uid,
@@ -118,14 +118,12 @@ function PlayAlong() {
       );
       
       if (!result.success) {
-        console.warn('Score not saved to database:', result.error);
-        // Score is still tracked locally even if database fails
+        console.warn('Individual score not saved to database:', result.error);
       } else {
-        console.log('Score saved to database successfully');
+        console.log('Individual score saved to database successfully');
       }
     } catch (error) {
-      console.error('Error adding score:', error);
-      // Score is still tracked locally even if database fails
+      console.error('Error adding individual score:', error);
     }
   };
 
@@ -191,26 +189,22 @@ function PlayAlong() {
     const finalAccuracy = calculateAccuracy(sessionStats.correct, sessionStats.total);
     const bonusPoints = Math.round((finalAccuracy / 100) * 50); // Bonus points based on accuracy
     const totalPoints = currentScore + bonusPoints;
+    const chordLength = chordNotes.length; // Total notes in the chord
     
-    console.log(`Chord completed! Final stats: ${sessionStats.correct}/${sessionStats.total} (${finalAccuracy}%), Total points: ${totalPoints}`);
+    console.log(`Chord completed! Final stats: ${sessionStats.correct}/${sessionStats.total} (${finalAccuracy}%), Total points: ${totalPoints}, Chord length: ${chordLength}`);
     
     try {
-      const result = await ScoreboardService.addScore(
+      // Use session data to update stats correctly
+      // Always use chord length for total notes, regardless of how many were played
+      const result = await ScoreboardService.updateUserStatsWithSessionData(
         user.uid,
         user.email || user.displayName || 'Anonymous',
-        totalPoints,
-        selectedChord,
-        true
+        sessionStats.correct, // Use the correct count from session
+        chordLength,          // Always use chord length for total notes
+        totalPoints
       );
       
-      if (!result.success) {
-        console.warn('Final score not saved to database:', result.error);
-        // Try to save with a simpler approach
-        console.log('Attempting alternative save method...');
-        await testDatabaseConnection();
-      } else {
-        console.log('Final score saved to database successfully');
-      }
+      console.log('Final scoreboard updated with session data successfully');
     } catch (error) {
       console.error('Error updating final scoreboard:', error);
     }
@@ -269,7 +263,7 @@ function PlayAlong() {
       await ScoreboardService.ensureLeaderboardExists();
       
       // Manually update leaderboard
-      await ScoreboardService.updateLeaderboard(user.uid, user.email || 'Anonymous', 25);
+      await ScoreboardService.updateLeaderboard(user.uid, user.email || 'Anonymous', 25, 80, 4, 5);
       
       // Subscribe to see the update
       const unsubscribe = ScoreboardService.subscribeToLeaderboard((result) => {
@@ -300,19 +294,28 @@ function PlayAlong() {
             userId: 'test-user-1',
             userName: 'Test User 1',
             totalScore: 100,
-            lastUpdated: serverTimestamp()
+            accuracy: 85,
+            correctNotes: 17,
+            totalNotes: 20,
+            lastUpdated: new Date()
           },
           {
             userId: 'test-user-2',
             userName: 'Test User 2',
             totalScore: 75,
-            lastUpdated: serverTimestamp()
+            accuracy: 72,
+            correctNotes: 14,
+            totalNotes: 19,
+            lastUpdated: new Date()
           },
           {
             userId: user.uid,
             userName: user.email || 'Anonymous',
             totalScore: 50,
-            lastUpdated: serverTimestamp()
+            accuracy: 60,
+            correctNotes: 6,
+            totalNotes: 10,
+            lastUpdated: new Date()
           }
         ],
         lastUpdated: serverTimestamp()
@@ -344,9 +347,87 @@ function PlayAlong() {
     console.log('===========================');
   };
 
+  // Test chord completion without playing notes
+  const testChordCompletionWithoutPlaying = async () => {
+    if (!user) {
+      console.log('No user logged in');
+      return;
+    }
+    
+    console.log('=== Testing Chord Completion Without Playing ===');
+    console.log('Current chord:', selectedChord);
+    console.log('Chord length:', chordNotes.length);
+    console.log('Current session stats:', sessionStats);
+    
+    // Simulate chord completion with 0 correct notes
+    const chordLength = chordNotes.length;
+    const correctCount = 0; // No notes played correctly
+    const totalPoints = 0; // No points earned
+    
+    console.log(`Simulating completion: ${correctCount}/${chordLength} notes, ${totalPoints} points`);
+    
+    try {
+      const result = await ScoreboardService.updateUserStatsWithSessionData(
+        user.uid,
+        user.email || user.displayName || 'Anonymous',
+        correctCount,
+        chordLength, // Should always be chord length
+        totalPoints
+      );
+      
+      console.log('Chord completion test completed successfully');
+      
+      // Get updated stats to verify
+      const statsResult = await ScoreboardService.getUserStats(user.uid);
+      console.log('Updated user stats:', statsResult);
+      
+    } catch (error) {
+      console.error('Error testing chord completion:', error);
+    }
+  };
+
+  // Test stopping playback at different points
+  const testStopPlayback = () => {
+    console.log('=== Testing Stop Playback ===');
+    console.log('Current step index:', currentStepIdx);
+    console.log('Current session stats:', sessionStats);
+    console.log('Is playing:', isPlaying);
+    console.log('Chord length:', chordNotes.length);
+    
+    if (isPlaying) {
+      console.log('Stopping playback now...');
+      stopPlayback();
+    } else {
+      console.log('Not currently playing. Start playback first, then test stop.');
+    }
+  };
+
   const stopPlayback = () => {
     setIsPlaying(false);
     clearInterval(playTimer.current);
+    
+    // Update stats when stopping, based on notes that have passed
+    if (user && currentStepIdx > 0) {
+      const notesPassed = currentStepIdx; // Number of notes that have passed
+      const chordLength = chordNotes.length;
+      const correctCount = sessionStats.correct;
+      const totalPoints = currentScore;
+      
+      console.log(`Stopping playback! Notes passed: ${notesPassed}, Correct: ${correctCount}, Total points: ${totalPoints}`);
+      
+      // Update stats with the notes that have passed
+      ScoreboardService.updateUserStatsWithSessionData(
+        user.uid,
+        user.email || user.displayName || 'Anonymous',
+        correctCount,
+        notesPassed, // Use notes passed instead of chord length
+        totalPoints
+      ).then(() => {
+        console.log('Stats updated after stopping playback');
+      }).catch(error => {
+        console.error('Error updating stats after stopping:', error);
+      });
+    }
   };
 
   return (
@@ -641,6 +722,40 @@ function PlayAlong() {
                 }}
               >
                 📊 Test Note Counting
+              </button>
+
+              <button
+                onClick={testChordCompletionWithoutPlaying}
+                style={{
+                  fontSize: "0.9rem",
+                  padding: "0.5rem 1rem",
+                  borderRadius: "8px",
+                  border: "1px solid rgba(255, 193, 7, 0.3)",
+                  background: "rgba(255, 193, 7, 0.1)",
+                  color: "#ffc107",
+                  cursor: "pointer",
+                  transition: "all 0.3s ease",
+                  marginLeft: "0.5rem"
+                }}
+              >
+                🎵 Test Chord Completion (No Play)
+              </button>
+
+              <button
+                onClick={testStopPlayback}
+                style={{
+                  fontSize: "0.9rem",
+                  padding: "0.5rem 1rem",
+                  borderRadius: "8px",
+                  border: "1px solid rgba(255, 152, 0, 0.3)",
+                  background: "rgba(255, 152, 0, 0.1)",
+                  color: "#ff9800",
+                  cursor: "pointer",
+                  transition: "all 0.3s ease",
+                  marginLeft: "0.5rem"
+                }}
+              >
+                ⏹ Test Stop Playback
               </button>
             </div>
           </div>

@@ -302,20 +302,20 @@ function GuitarObjDetection() {
               overflow: "hidden",
               minHeight: "400px"
             }}>
-              <video
-                id="video"
-                ref={videoRef}
+        <video
+          id="video"
+          ref={videoRef}
                 style={{
                   width: "100%",
                   height: "auto",
                   display: "block"
                 }}
-                playsInline
-                muted
-              />
-              <canvas
-                id="canvas"
-                ref={canvasRef}
+          playsInline
+          muted
+        />
+        <canvas
+          id="canvas"
+          ref={canvasRef}
                 style={{
                   position: "absolute",
                   top: 0,
@@ -324,7 +324,7 @@ function GuitarObjDetection() {
                   height: "100%",
                   pointerEvents: "none"
                 }}
-              />
+        />
               {/* Scale label overlay */}
               <div style={{
                 position: "absolute",
@@ -337,51 +337,51 @@ function GuitarObjDetection() {
                 fontSize: "1rem",
                 fontWeight: "600"
               }}>
-                {selectedRootRef.current} {selectedScaleRef.current.replace('_', ' ')}
-              </div>
+          {selectedRootRef.current} {selectedScaleRef.current.replace('_', ' ')}
+        </div>
               
-              {/* Audio note display using AudioPitchDetector */}
-              <AudioPitchDetector>
-                {({ note, frequency, listening, start, stop, error }) => {
-                  // Extract note name (strip octave)
-                  const noteName = note ? note.replace(/\d+$/, "") : null;
-                  // Check if note is in scale
-                  const currentScaleNotes = scaleNotesRef.current;
-                  const isInScale = noteName && currentScaleNotes.includes(noteName);
+        {/* Audio note display using AudioPitchDetector */}
+        <AudioPitchDetector>
+          {({ note, frequency, listening, start, stop, error }) => {
+            // Extract note name (strip octave)
+            const noteName = note ? note.replace(/\d+$/, "") : null;
+            // Check if note is in scale
+            const currentScaleNotes = scaleNotesRef.current;
+            const isInScale = noteName && currentScaleNotes.includes(noteName);
 
-                  // --- Keep last detected note/frequency for 2 seconds ---
-                  const [displayNote, setDisplayNote] = useState(null);
-                  const [displayFreq, setDisplayFreq] = useState(null);
-                  const [displayTimeout, setDisplayTimeout] = useState(null);
-                  // Update displayNote/freq on new detection
-                  useEffect(() => {
-                    if (note && frequency) {
-                      setDisplayNote(note);
-                      setDisplayFreq(frequency);
-                      if (displayTimeout) clearTimeout(displayTimeout);
-                      // If not in scale, display for 4s, else 2s
-                      const timeoutMs = (!isInScale && noteName) ? 4000 : 2000;
-                      const timeout = setTimeout(() => {
-                        setDisplayNote(null);
-                        setDisplayFreq(null);
-                      }, timeoutMs);
-                      setDisplayTimeout(timeout);
-                    } else if (!note && !frequency && displayTimeout == null && (displayNote || displayFreq)) {
-                      // If no note, start a timeout to clear after 2s (in case missed above)
-                      const timeout = setTimeout(() => {
-                        setDisplayNote(null);
-                        setDisplayFreq(null);
-                      }, 2000);
-                      setDisplayTimeout(timeout);
-                    }
-                    // Cleanup on unmount or note change
-                    return () => {
-                      if (displayTimeout) clearTimeout(displayTimeout);
-                    };
-                  }, [note, frequency, isInScale, noteName]);
-                  // --- End keep last note logic ---
+            // --- Keep last detected note/frequency for 2 seconds ---
+            const [displayNote, setDisplayNote] = useState(null);
+            const [displayFreq, setDisplayFreq] = useState(null);
+            const [displayTimeout, setDisplayTimeout] = useState(null);
+            // Update displayNote/freq on new detection
+            useEffect(() => {
+              if (note && frequency) {
+                setDisplayNote(note);
+                setDisplayFreq(frequency);
+                if (displayTimeout) clearTimeout(displayTimeout);
+                // If not in scale, display for 4s, else 2s
+                const timeoutMs = (!isInScale && noteName) ? 4000 : 2000;
+                const timeout = setTimeout(() => {
+                  setDisplayNote(null);
+                  setDisplayFreq(null);
+                }, timeoutMs);
+                setDisplayTimeout(timeout);
+              } else if (!note && !frequency && displayTimeout == null && (displayNote || displayFreq)) {
+                // If no note, start a timeout to clear after 2s (in case missed above)
+                const timeout = setTimeout(() => {
+                  setDisplayNote(null);
+                  setDisplayFreq(null);
+                }, 2000);
+                setDisplayTimeout(timeout);
+              }
+              // Cleanup on unmount or note change
+              return () => {
+                if (displayTimeout) clearTimeout(displayTimeout);
+              };
+            }, [note, frequency, isInScale, noteName]);
+            // --- End keep last note logic ---
 
-                  return (
+            return (
                     <div style={{
                       position: "absolute",
                       top: "1rem",
@@ -402,14 +402,14 @@ function GuitarObjDetection() {
                       <div style={{ fontSize: "0.8rem", color: "#b0bec5", marginBottom: "0.5rem" }}>
                         {displayFreq ? displayFreq.toFixed(2) + ' Hz' : '--'}
                       </div>
-                      {!isInScale && noteName && (
+                {!isInScale && noteName && (
                         <div style={{ fontSize: "0.8rem", color: "#ff6b6b", marginBottom: "0.5rem" }}>
-                          Note {noteName} is not in the {selectedRootRef.current} {selectedScaleRef.current.replace('_',' ')} scale!
-                        </div>
-                      )}
+                    Note {noteName} is not in the {selectedRootRef.current} {selectedScaleRef.current.replace('_',' ')} scale!
+                  </div>
+                )}
                       {error && <div style={{ fontSize: "0.8rem", color: "#ff6b6b", marginBottom: "0.5rem" }}>{error}</div>}
                       <div style={{ textAlign: "center" }}>
-                        {!listening ? (
+                  {!listening ? (
                           <button 
                             style={{
                               fontSize: "0.9rem",
@@ -427,7 +427,7 @@ function GuitarObjDetection() {
                           >
                             Start Audio
                           </button>
-                        ) : (
+                  ) : (
                           <button 
                             style={{
                               fontSize: "0.9rem",
@@ -445,13 +445,13 @@ function GuitarObjDetection() {
                           >
                             Stop Audio
                           </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                }}
-              </AudioPitchDetector>
-            </div>
+                  )}
+                </div>
+              </div>
+            );
+          }}
+        </AudioPitchDetector>
+      </div>
             
             {/* Scale Controls */}
             <div style={{
@@ -485,9 +485,9 @@ function GuitarObjDetection() {
                     flexWrap: "wrap",
                     gap: "0.5rem"
                   }}>
-                    {ROOT_NOTES.map(note => (
-                      <button
-                        key={note}
+            {ROOT_NOTES.map(note => (
+              <button
+                key={note}
                         style={{
                           padding: "0.5rem 1rem",
                           borderRadius: "8px",
@@ -500,12 +500,12 @@ function GuitarObjDetection() {
                           transition: "all 0.3s ease",
                           fontSize: "0.9rem"
                         }}
-                        onClick={() => setSelectedRoot(note)}
-                      >
-                        {note}
-                      </button>
-                    ))}
-                  </div>
+                onClick={() => setSelectedRoot(note)}
+              >
+                {note}
+              </button>
+            ))}
+          </div>
                 </div>
                 
                 {/* Scale Types */}
@@ -518,9 +518,9 @@ function GuitarObjDetection() {
                     flexDirection: "column",
                     gap: "0.5rem"
                   }}>
-                    {SCALE_TYPES.map(type => (
-                      <button
-                        key={type}
+            {SCALE_TYPES.map(type => (
+              <button
+                key={type}
                         style={{
                           padding: "0.5rem 1rem",
                           borderRadius: "8px",
@@ -534,13 +534,13 @@ function GuitarObjDetection() {
                           fontSize: "0.9rem",
                           textAlign: "left"
                         }}
-                        onClick={() => setSelectedScale(type)}
-                      >
-                        {type.replace('_', ' ')}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                onClick={() => setSelectedScale(type)}
+              >
+                {type.replace('_', ' ')}
+              </button>
+            ))}
+          </div>
+        </div>
                 
                 {/* Current Scale Display */}
                 <div style={{
@@ -550,7 +550,7 @@ function GuitarObjDetection() {
                   border: "1px solid rgba(144, 202, 249, 0.3)"
                 }}>
                   <div style={{ fontSize: "0.9rem", color: "#b0bec5" }}>
-                    Notes: {scaleNotes.join(', ')}
+            Notes: {scaleNotes.join(', ')}
                   </div>
                 </div>
               </div>

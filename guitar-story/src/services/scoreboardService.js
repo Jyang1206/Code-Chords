@@ -131,10 +131,60 @@ export class ScoreboardService {
     }
   }
 
-  // Update leaderboard
-  static async updateLeaderboard(userId, userName, score) {
+  // Update user stats with correct count from session
+  static async updateUserStatsWithSessionData(userId, userName, correctCount, totalCount, score) {
     try {
-      console.log('Updating leaderboard:', { userId, userName, score });
+      console.log('Updating user stats with session data:', { userId, userName, correctCount, totalCount, score });
+      
+      const userStatsRef = doc(db, SCORES_COLLECTION, `stats_${userId}`);
+      const userStatsDoc = await getDoc(userStatsRef);
+      
+      if (userStatsDoc.exists()) {
+        // Update existing stats with session data
+        const currentData = userStatsDoc.data();
+        const newTotalScore = currentData.totalScore + score;
+        const newCorrectNotes = currentData.correctNotes + correctCount;
+        const newTotalNotes = currentData.totalNotes + totalCount; // Add the chord length
+        
+        console.log('Updating existing stats with session data:', {
+          old: { totalScore: currentData.totalScore, correctNotes: currentData.correctNotes, totalNotes: currentData.totalNotes },
+          new: { totalScore: newTotalScore, correctNotes: newCorrectNotes, totalNotes: newTotalNotes },
+          sessionData: { correctCount, totalCount, score }
+        });
+        
+        await updateDoc(userStatsRef, {
+          totalScore: newTotalScore,
+          correctNotes: newCorrectNotes,
+          totalNotes: newTotalNotes,
+          lastUpdated: serverTimestamp()
+        });
+      } else {
+        // Create new stats document with session data
+        const newStats = {
+          userId,
+          userName,
+          totalScore: score,
+          correctNotes: correctCount,
+          totalNotes: totalCount,
+          lastUpdated: serverTimestamp()
+        };
+        console.log('Creating new stats with session data:', newStats);
+        
+        await setDoc(userStatsRef, newStats);
+      }
+
+      // Update leaderboard with accuracy and stats
+      const accuracy = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
+      await this.updateLeaderboard(userId, userName, score, accuracy, correctCount, totalCount);
+    } catch (error) {
+      console.error('Error updating user stats with session data:', error);
+    }
+  }
+
+  // Update leaderboard
+  static async updateLeaderboard(userId, userName, score, accuracy = 0, correctNotes = 0, totalNotes = 0) {
+    try {
+      console.log('Updating leaderboard:', { userId, userName, score, accuracy, correctNotes, totalNotes });
       
       const leaderboardRef = doc(db, LEADERBOARD_COLLECTION, 'leaderboard');
       const leaderboardDoc = await getDoc(leaderboardRef);
@@ -150,17 +200,23 @@ export class ScoreboardService {
           // Update existing user
           const oldScore = currentLeaderboard[userIndex].totalScore;
           currentLeaderboard[userIndex].totalScore += score;
-          currentLeaderboard[userIndex].lastUpdated = serverTimestamp();
-          console.log(`Updated user ${userName}: ${oldScore} + ${score} = ${currentLeaderboard[userIndex].totalScore}`);
+          currentLeaderboard[userIndex].accuracy = accuracy;
+          currentLeaderboard[userIndex].correctNotes = (currentLeaderboard[userIndex].correctNotes || 0) + correctNotes;
+          currentLeaderboard[userIndex].totalNotes = (currentLeaderboard[userIndex].totalNotes || 0) + totalNotes;
+          currentLeaderboard[userIndex].lastUpdated = new Date();
+          console.log(`Updated user ${userName}: ${oldScore} + ${score} = ${currentLeaderboard[userIndex].totalScore}, accuracy: ${accuracy}%`);
         } else {
           // Add new user
           currentLeaderboard.push({
             userId,
             userName,
             totalScore: score,
-            lastUpdated: serverTimestamp()
+            accuracy: accuracy,
+            correctNotes: correctNotes,
+            totalNotes: totalNotes,
+            lastUpdated: new Date()
           });
-          console.log(`Added new user ${userName} with score ${score}`);
+          console.log(`Added new user ${userName} with score ${score} and accuracy ${accuracy}%`);
         }
         
         // Sort by total score (descending)
@@ -174,13 +230,16 @@ export class ScoreboardService {
         console.log('Leaderboard updated successfully');
       } else {
         // Create new leaderboard
-        console.log('Creating new leaderboard with user:', { userId, userName, score });
+        console.log('Creating new leaderboard with user:', { userId, userName, score, accuracy, correctNotes, totalNotes });
         await setDoc(leaderboardRef, {
           scores: [{
             userId,
             userName,
             totalScore: score,
-            lastUpdated: serverTimestamp()
+            accuracy: accuracy,
+            correctNotes: correctNotes,
+            totalNotes: totalNotes,
+            lastUpdated: new Date()
           }],
           lastUpdated: serverTimestamp()
         });
