@@ -315,10 +315,14 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
           
           // note is like "E2", "G3" etc. Only compare the note letter (first part)
           const playedNote = note.replace(/\d+$/, "");
+          console.log(`[NOTE DETECTION] Expected: ${expectedNote}, Detected: ${playedNote}, Match: ${playedNote === expectedNote}`);
+          
           if (playedNote === expectedNote) {
+            console.log(`[NOTE DETECTION] CORRECT! Calling onCorrectNote`);
             setLastFeedback("correct");
             onCorrectNote && onCorrectNote();
           } else {
+            console.log(`[NOTE DETECTION] INCORRECT! Calling onIncorrectNote`);
             setLastFeedback("incorrect");
             onIncorrectNote && onIncorrectNote();
           }

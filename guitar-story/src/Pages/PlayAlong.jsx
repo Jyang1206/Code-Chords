@@ -202,7 +202,7 @@ const TabOverlay = ({ playNotes, currentStepIdx, isPlaying }) => {
         const timeUntilPlay = notePlayTime - now;
         
         // Show note if it's within the travel window
-        if (timeUntilPlay <= TRAVEL_TIME && timeUntilPlay >= -500) {
+        if (timeUntilPlay <= TRAVEL_TIME && timeUntilPlay >= -1000) {
           // progress: 1 (spawn, right), 0 (at Play zone, left)
           const progress = Math.max(0, Math.min(1, timeUntilPlay / TRAVEL_TIME));
           const xPosition = SPAWN_X - (TRAVEL_DISTANCE * (1 - progress));
@@ -430,6 +430,19 @@ function PlayAlong() {
   };
   const syncedStepIdx = getCurrentStepIdx();
 
+  // Calculate delayed step index for overlay (1 second delay to account for travel time)
+  const getDelayedStepIdx = () => {
+    const delayedPlaybackTime = Math.max(0, playbackTime - 1000); // 1 second delay
+    let time = 0;
+    for (let i = 0; i < playNotes.length; i++) {
+      const duration = (playNotes[i].duration || 1) * 1200;
+      if (delayedPlaybackTime < time + duration) return i;
+      time += duration;
+    }
+    return playNotes.length - 1;
+  };
+  const delayedStepIdx = getDelayedStepIdx();
+
   // Update currentStepIdx for scoring logic
   useEffect(() => {
     if (isPlaying) setCurrentStepIdx(syncedStepIdx);
@@ -458,6 +471,14 @@ function PlayAlong() {
     // Create a unique identifier for this note (stringIdx + fretNum combination)
     const noteId = `${currentStep.stringIdx}-${currentStep.fretNum}`;
     
+    // Add cooldown to prevent double-counting
+    const now = Date.now();
+    if (noteTimestampsRef.current[noteId] && now - noteTimestampsRef.current[noteId] < 500) {
+      console.log(`[COOLDOWN] Note ${noteId} was recently played, skipping`);
+      return;
+    }
+    noteTimestampsRef.current[noteId] = now;
+    
     // Debug logging for C Major
     if (selectedChord === "C Major") {
       console.log(`[C MAJOR DEBUG] Current step:`, currentStep);
@@ -471,6 +492,8 @@ function PlayAlong() {
       console.log(`Note ${noteId} already completed, skipping`);
       return;
     }
+    
+    console.log(`[SCORE DEBUG] Correct note detected: ${noteId}, adding 10 points`);
     
     const scorePoints = 10; // Base points for correct note
     const newScore = currentScore + scorePoints;
@@ -591,9 +614,11 @@ function PlayAlong() {
 
   const playNextNote = (stepIdx) => {
     if (stepIdx >= playNotes.length) {
-      // Playback complete
-      setIsPlaying(false);
-      updateFinalScoreboard();
+      // Playback complete - wait for last note to finish traveling
+      setTimeout(() => {
+        setIsPlaying(false);
+        updateFinalScoreboard();
+      }, 1500); // Wait 1.5s for last note to complete travel
       return;
     }
 
@@ -1320,9 +1345,9 @@ function PlayAlong() {
                 return (
                   <>
                     <PlayAlongOverlay
-                      highlightedNotes={isPlaying && currentStep ? [currentStep] : []}
+                      highlightedNotes={isPlaying && playNotes[delayedStepIdx] ? [playNotes[delayedStepIdx]] : []}
                       arpeggioNotes={playNotes}
-                      currentStep={isPlaying ? currentStepIdx : -1}
+                      currentStep={isPlaying ? delayedStepIdx : -1}
                       onCorrectNote={handleCorrectNote}
                       onIncorrectNote={handleIncorrectNote}
                     />
@@ -1378,7 +1403,7 @@ function PlayAlong() {
         )}
 
         {/* Tab Overlay */}
-        {isPlaying && (
+        {overlayActive && (
           <TabOverlay 
             playNotes={playNotes}
             currentStepIdx={currentStepIdx}
