@@ -11,6 +11,7 @@
   width: 100%;
   color: var(--space-star);
 }
+
 .cosmic-profile-avatar {
   background: linear-gradient(135deg, var(--space-blue) 0%, var(--space-shadow) 100%);
   border-radius: 50%;
@@ -21,20 +22,71 @@
   justify-content: center;
   box-shadow: 0 0 16px var(--space-blue);
 }
+
 .cosmic-profile-info {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
+  flex: 1;
 }
+
 .cosmic-profile-label {
   font-size: 1rem;
   color: var(--space-accent);
   font-family: 'Orbitron', 'Arial', sans-serif;
   letter-spacing: 1px;
 }
+
 .cosmic-profile-email {
   font-size: 1.1rem;
   color: var(--space-star);
   font-family: 'Orbitron', 'Arial', sans-serif;
   text-shadow: 0 0 8px var(--space-star);
+}
+
+.cosmic-profile-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.search-history-btn {
+  background: var(--space-accent, #ffeb3b);
+  color: #222;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Orbitron', 'Arial', sans-serif;
+  letter-spacing: 0.5px;
+}
+
+.search-history-btn:hover {
+  background: #ffd700;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(255, 235, 59, 0.3);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .cosmic-profile {
+    flex-direction: column;
+    text-align: center;
+    gap: 1rem;
+  }
+  
+  .cosmic-profile-actions {
+    width: 100%;
+  }
+  
+  .search-history-btn {
+    width: 100%;
+    justify-content: center;
+  }
 } 
