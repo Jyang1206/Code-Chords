@@ -7,7 +7,8 @@ function Scoreboard() {
   const [leaderboard, setLeaderboard] = useState([]);
   const [userStats, setUserStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [leaderboardError, setLeaderboardError] = useState(null);
+  const [userStatsError, setUserStatsError] = useState(null);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -15,7 +16,8 @@ function Scoreboard() {
     const loadScoreboardData = async () => {
       try {
         setLoading(true);
-        setError(null);
+        setLeaderboardError(null);
+        setUserStatsError(null);
         
         console.log('Loading scoreboard data for user:', currentUser.uid);
         
@@ -27,10 +29,11 @@ function Scoreboard() {
           console.log('Leaderboard subscription result:', result);
           if (result.success) {
             setLeaderboard(result.data || []);
+            setLeaderboardError(null);
             console.log('Leaderboard updated:', result.data);
           } else {
             console.error('Failed to load leaderboard:', result.error);
-            setError(result.error);
+            setLeaderboardError(result.error);
           }
         });
 
@@ -39,15 +42,16 @@ function Scoreboard() {
         console.log('User stats result:', statsResult);
         if (statsResult.success) {
           setUserStats(statsResult.data);
+          setUserStatsError(null);
         } else {
           console.error('Failed to load user stats:', statsResult.error);
-          setError(statsResult.error);
+          setUserStatsError(statsResult.error);
         }
 
         return unsubscribe;
       } catch (error) {
         console.error('Error loading scoreboard data:', error);
-        setError(error.message);
+        setLeaderboardError(error.message);
       } finally {
         setLoading(false);
       }
@@ -133,8 +137,8 @@ function Scoreboard() {
           </p>
         </div>
 
-        {/* Debug Info */}
-        {error && (
+        {/* Error Messages */}
+        {leaderboardError && (
           <div style={{
             background: "rgba(244, 67, 54, 0.1)",
             border: "1px solid rgba(244, 67, 54, 0.3)",
@@ -144,10 +148,28 @@ function Scoreboard() {
             textAlign: "center"
           }}>
             <div style={{ color: "#f44336", fontWeight: "600", marginBottom: "0.5rem" }}>
-              ⚠️ Error Loading Data
+              ⚠️ Error Loading Leaderboard
             </div>
             <div style={{ color: "#b0bec5", fontSize: "0.9rem" }}>
-              {error}
+              {leaderboardError}
+            </div>
+          </div>
+        )}
+
+        {userStatsError && (
+          <div style={{
+            background: "rgba(255, 152, 0, 0.1)",
+            border: "1px solid rgba(255, 152, 0, 0.3)",
+            borderRadius: "12px",
+            padding: "1rem",
+            marginBottom: "2rem",
+            textAlign: "center"
+          }}>
+            <div style={{ color: "#ff9800", fontWeight: "600", marginBottom: "0.5rem" }}>
+              ⚠️ Error Loading User Stats
+            </div>
+            <div style={{ color: "#b0bec5", fontSize: "0.9rem" }}>
+              {userStatsError}
             </div>
           </div>
         )}

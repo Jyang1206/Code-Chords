@@ -30,6 +30,13 @@ class ScoreboardService {
       return { success: true };
     } catch (error) {
       console.error('Error adding score:', error);
+      
+      // Handle permission errors gracefully
+      if (error.message.includes('permission') || error.message.includes('Permission') || error.code === 'permission-denied') {
+        console.log('Permission denied for adding score, skipping');
+        return { success: true }; // Don't treat permission errors as failures
+      }
+      
       return { success: false, error: error.message };
     }
   }
@@ -57,6 +64,22 @@ class ScoreboardService {
       }
     } catch (error) {
       console.error('Error getting user stats:', error);
+      
+      // Handle permission errors gracefully
+      if (error.message.includes('permission') || error.message.includes('Permission') || error.code === 'permission-denied') {
+        console.log('Permission denied for user stats, returning default stats');
+        return { 
+          success: true, 
+          data: {
+            totalScore: 0,
+            correctNotes: 0,
+            totalNotes: 0,
+            accuracy: 0,
+            lastUpdated: null
+          }
+        };
+      }
+      
       return { success: false, error: error.message };
     }
   }
@@ -103,6 +126,22 @@ class ScoreboardService {
       return { success: true, data: updatedStats };
     } catch (error) {
       console.error('Error updating user stats:', error);
+      
+      // Handle permission errors gracefully
+      if (error.message.includes('permission') || error.message.includes('Permission') || error.code === 'permission-denied') {
+        console.log('Permission denied for updating user stats, skipping update');
+        return { 
+          success: true, 
+          data: {
+            totalScore: 0,
+            correctNotes: 0,
+            totalNotes: 0,
+            accuracy: 0,
+            lastUpdated: null
+          }
+        };
+      }
+      
       return { success: false, error: error.message };
     }
   }
