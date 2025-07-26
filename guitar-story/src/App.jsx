@@ -27,7 +27,7 @@ function DebugRoute() {
   );
 }
 
-function AppContent() {
+function App() {
   const location = useLocation();
   
   // Debug logging
@@ -37,7 +37,6 @@ function AppContent() {
   return (
     <AuthProvider>
       <SearchHistoryProvider>
-        <ThemeContext.Provider value={{ lightMode, setLightMode }}>
           <NavBar />
           <main className="main-content">
             <Routes>
@@ -55,7 +54,6 @@ function AppContent() {
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
           </main>
-        </ThemeContext.Provider>
       </SearchHistoryProvider>
     </AuthProvider>
   );
