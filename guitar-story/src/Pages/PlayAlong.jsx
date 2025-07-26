@@ -1,94 +1,816 @@
 import React, { useState, useRef } from "react";
 import PlayAlongOverlay from "../components/PlayAlongOverlay";
+import { useAuth } from "../contexts/AuthContext";
+import { ScoreboardService } from "../services/scoreboardService";
+import { firestore as db } from "../firebase";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 
-const ARPEGGIOS = {
-  "C Major Triad": [
+const CHORDS = {
+  "C Major": [
     { stringIdx: 5, fretNum: 3, note: "C", isRoot: true }, // 3rd fret, 5th string (A string)
     { stringIdx: 4, fretNum: 2, note: "E" },               // 2nd fret, 4th string (D string)
     { stringIdx: 3, fretNum: 0, note: "G" },               // open 3rd string (G string)
+    { stringIdx: 2, fretNum: 1, note: "C" },               // 1st fret, 2nd string (B string)
+    { stringIdx: 1, fretNum: 0, note: "E" },               // open 1st string (E string)
   ],
-  "D Major Triad": [
-    { stringIdx: 3, fretNum: 0, note: "D", isRoot: true }, // open 4th string (D string)
-    { stringIdx: 2, fretNum: 2, note: "A" },               // 2nd fret, 2nd string (B string)
-    { stringIdx: 1, fretNum: 2, note: "F#" },              // 2nd fret, 1st string (E string)
+  "D Major": [
+    { stringIdx: 5, fretNum: 5, note: "D", isRoot: true }, // 5th fret, 5th string (A string)
+    { stringIdx: 4, fretNum: 5, note: "A" },               // 5th fret, 4th string (D string)
+    { stringIdx: 3, fretNum: 4, note: "D" },               // 4th fret, 3rd string (G string)
+    { stringIdx: 2, fretNum: 3, note: "F#" },              // 3rd fret, 2nd string (B string)
+    { stringIdx: 1, fretNum: 5, note: "A" },               // 5th fret, 1st string (E string)
   ],
-  "G Major Triad": [
-    { stringIdx: 5, fretNum: 2, note: "B" },               // 2nd fret, 5th string (A string)
-    { stringIdx: 4, fretNum: 0, note: "D" },               // open 4th string (D string)
-    { stringIdx: 3, fretNum: 0, note: "G", isRoot: true }, // open 3rd string (G string)
+  "G Major": [
+    { stringIdx: 5, fretNum: 3, note: "G", isRoot: true }, // 3rd fret, 5th string (A string)
+    { stringIdx: 4, fretNum: 2, note: "B" },               // 2nd fret, 4th string (D string)
+    { stringIdx: 3, fretNum: 0, note: "G" },               // open 3rd string (G string)
+    { stringIdx: 2, fretNum: 0, note: "B" },               // open 2nd string (B string)
+    { stringIdx: 1, fretNum: 3, note: "G" },               // 3rd fret, 1st string (E string)
+  ],
+  "A Minor": [
+    { stringIdx: 5, fretNum: 0, note: "A", isRoot: true }, // open 5th string (A string)
+    { stringIdx: 4, fretNum: 2, note: "E" },               // 2nd fret, 4th string (D string)
+    { stringIdx: 3, fretNum: 2, note: "A" },               // 2nd fret, 3rd string (G string)
+    { stringIdx: 2, fretNum: 1, note: "C" },               // 1st fret, 2nd string (B string)
+    { stringIdx: 1, fretNum: 0, note: "E" },               // open 1st string (E string)
+  ],
+  "E Major": [
+    { stringIdx: 5, fretNum: 0, note: "E", isRoot: true }, // open 6th string (E string)
+    { stringIdx: 4, fretNum: 2, note: "B" },               // 2nd fret, 4th string (D string)
+    { stringIdx: 3, fretNum: 1, note: "E" },               // 1st fret, 3rd string (G string)
+    { stringIdx: 2, fretNum: 0, note: "B" },               // open 2nd string (B string)
+    { stringIdx: 1, fretNum: 0, note: "E" },               // open 1st string (E string)
+  ],
+  "F Major": [
+    { stringIdx: 5, fretNum: 1, note: "F", isRoot: true }, // 1st fret, 6th string (E string)
+    { stringIdx: 4, fretNum: 3, note: "C" },               // 3rd fret, 4th string (D string)
+    { stringIdx: 3, fretNum: 2, note: "F" },               // 2nd fret, 3rd string (G string)
+    { stringIdx: 2, fretNum: 1, note: "A" },               // 1st fret, 2nd string (B string)
+    { stringIdx: 1, fretNum: 1, note: "F" },               // 1st fret, 1st string (E string)
   ],
 };
 
 function PlayAlong() {
-  const [selectedArpeggio, setSelectedArpeggio] = useState("C Major Triad");
+  const { user } = useAuth();
+  const [selectedChord, setSelectedChord] = useState("C Major");
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
+  const [currentScore, setCurrentScore] = useState(0);
+  const [sessionStats, setSessionStats] = useState({ correct: 0, total: 0 });
+  const [chordAccuracy, setChordAccuracy] = useState(0);
+  const [completedNotes, setCompletedNotes] = useState(new Set()); // Track which notes have been completed
   const playTimer = useRef(null);
 
-  const arpeggioSteps = ARPEGGIOS[selectedArpeggio];
-  const currentStep = arpeggioSteps[currentStepIdx] || null;
+  const chordNotes = CHORDS[selectedChord];
+  const currentStep = chordNotes[currentStepIdx] || null;
+
+  // Calculate accuracy based on current chord's total notes
+  const calculateAccuracy = (correct, totalNotes) => {
+    if (totalNotes === 0) return 0;
+    return Math.round((correct / totalNotes) * 100);
+  };
+
+  // Handle correct note played
+  const handleCorrectNote = async () => {
+    if (!user) return;
+    
+    // Only count this note if it hasn't been completed yet
+    if (completedNotes.has(currentStepIdx)) {
+      console.log(`Note ${currentStepIdx} already completed, skipping`);
+      return;
+    }
+    
+    const scorePoints = 10; // Base points for correct note
+    const newScore = currentScore + scorePoints;
+    setCurrentScore(newScore);
+    
+    // Update session stats for this chord
+    const newCorrect = sessionStats.correct + 1;
+    const totalNotesInChord = chordNotes.length;
+    const newAccuracy = calculateAccuracy(newCorrect, totalNotesInChord);
+    
+    console.log(`Correct note ${currentStepIdx}! Progress: ${newCorrect}/${totalNotesInChord} (${newAccuracy}%)`);
+    
+    // Mark this note as completed
+    setCompletedNotes(prev => new Set([...prev, currentStepIdx]));
+    
+    setSessionStats(prev => ({
+      correct: newCorrect,
+      total: totalNotesInChord
+    }));
+    
+    setChordAccuracy(newAccuracy);
+
+    // Save individual score entry (for tracking purposes)
+    try {
+      const result = await ScoreboardService.addScore(
+        user.uid,
+        user.email || user.displayName || 'Anonymous',
+        scorePoints,
+        selectedChord,
+        true
+      );
+      
+      if (!result.success) {
+        console.warn('Individual score not saved to database:', result.error);
+      } else {
+        console.log('Individual score saved to database successfully');
+      }
+    } catch (error) {
+      console.error('Error adding individual score:', error);
+    }
+  };
+
+  // Handle incorrect note played
+  const handleIncorrectNote = () => {
+    // Only count this note if it hasn't been completed yet
+    if (completedNotes.has(currentStepIdx)) {
+      console.log(`Note ${currentStepIdx} already completed, skipping incorrect`);
+      return;
+    }
+    
+    // Mark this note as completed (but incorrect)
+    setCompletedNotes(prev => new Set([...prev, currentStepIdx]));
+    
+    // Don't increment correct count, but still track total attempts
+    const totalNotesInChord = chordNotes.length;
+    const currentCorrect = sessionStats.correct;
+    const newAccuracy = calculateAccuracy(currentCorrect, totalNotesInChord);
+    
+    console.log(`Incorrect note ${currentStepIdx}, accuracy: ${newAccuracy}% (${currentCorrect}/${totalNotesInChord})`);
+    setChordAccuracy(newAccuracy);
+    
+    // Also send incorrect note to database (with 0 points)
+    if (user) {
+      ScoreboardService.addScore(
+        user.uid,
+        user.email || user.displayName || 'Anonymous',
+        0, // No points for incorrect note
+        selectedChord,
+        false // Mark as incorrect
+      ).catch(error => {
+        console.error('Error saving incorrect note:', error);
+      });
+    }
+  };
 
   const startPlayback = () => {
     setIsPlaying(true);
     setCurrentStepIdx(0);
+    setCurrentScore(0);
+    setSessionStats({ correct: 0, total: chordNotes.length });
+    setChordAccuracy(0);
+    setCompletedNotes(new Set()); // Reset completed notes
     playTimer.current = setInterval(() => {
       setCurrentStepIdx(idx => {
-        if (idx < arpeggioSteps.length - 1) {
+        if (idx < chordNotes.length - 1) {
           return idx + 1;
         } else {
           clearInterval(playTimer.current);
           setIsPlaying(false);
+          // Update final scoreboard when chord is completed
+          updateFinalScoreboard();
           return idx;
         }
       });
     }, 1200); // 1.2s per note for demo
   };
 
+  // Update final scoreboard when chord is completed
+  const updateFinalScoreboard = async () => {
+    if (!user) return;
+    
+    const finalAccuracy = calculateAccuracy(sessionStats.correct, sessionStats.total);
+    const bonusPoints = Math.round((finalAccuracy / 100) * 50); // Bonus points based on accuracy
+    const totalPoints = currentScore + bonusPoints;
+    const chordLength = chordNotes.length; // Total notes in the chord
+    
+    console.log(`Chord completed! Final stats: ${sessionStats.correct}/${sessionStats.total} (${finalAccuracy}%), Total points: ${totalPoints}, Chord length: ${chordLength}`);
+    
+    try {
+      // Use session data to update stats correctly
+      // Always use chord length for total notes, regardless of how many were played
+      const result = await ScoreboardService.updateUserStatsWithSessionData(
+        user.uid,
+        user.email || user.displayName || 'Anonymous',
+        sessionStats.correct, // Use the correct count from session
+        chordLength,          // Always use chord length for total notes
+        totalPoints
+      );
+      
+      console.log('Final scoreboard updated with session data successfully');
+    } catch (error) {
+      console.error('Error updating final scoreboard:', error);
+    }
+  };
+
+  // Test database connection
+  const testDatabaseConnection = async () => {
+    if (!user) {
+      console.log('No user logged in');
+      return;
+    }
+    
+    try {
+      console.log('Testing database connection...');
+      console.log('User:', user.email, 'UID:', user.uid);
+      
+      // Ensure leaderboard exists
+      await ScoreboardService.ensureLeaderboardExists();
+      
+      // Test 1: Add a score
+      const result = await ScoreboardService.addScore(
+        user.uid,
+        user.email || 'Anonymous',
+        5,
+        'test-chord',
+        true
+      );
+      console.log('Score add result:', result);
+      
+      // Test 2: Get user stats
+      const statsResult = await ScoreboardService.getUserStats(user.uid);
+      console.log('User stats result:', statsResult);
+      
+      // Test 3: Subscribe to leaderboard
+      const unsubscribe = ScoreboardService.subscribeToLeaderboard((leaderboardResult) => {
+        console.log('Leaderboard subscription result:', leaderboardResult);
+        unsubscribe();
+      });
+      
+    } catch (error) {
+      console.error('Database test failed:', error);
+    }
+  };
+
+  // Test leaderboard update manually
+  const testLeaderboardUpdate = async () => {
+    if (!user) {
+      console.log('No user logged in');
+      return;
+    }
+    
+    try {
+      console.log('Testing leaderboard update...');
+      
+      // Ensure leaderboard exists
+      await ScoreboardService.ensureLeaderboardExists();
+      
+      // Manually update leaderboard
+      await ScoreboardService.updateLeaderboard(user.uid, user.email || 'Anonymous', 25, 80, 4, 5);
+      
+      // Subscribe to see the update
+      const unsubscribe = ScoreboardService.subscribeToLeaderboard((result) => {
+        console.log('Leaderboard after manual update:', result);
+        unsubscribe();
+      });
+      
+    } catch (error) {
+      console.error('Leaderboard test failed:', error);
+    }
+  };
+
+  // Create leaderboard with test data
+  const createLeaderboardWithTestData = async () => {
+    if (!user) {
+      console.log('No user logged in');
+      return;
+    }
+    
+    try {
+      console.log('Creating leaderboard with test data...');
+      
+      // Create leaderboard with test users
+      const leaderboardRef = doc(db, 'scoreboard-db', 'leaderboard');
+      await setDoc(leaderboardRef, {
+        scores: [
+          {
+            userId: 'test-user-1',
+            userName: 'Test User 1',
+            totalScore: 100,
+            accuracy: 85,
+            correctNotes: 17,
+            totalNotes: 20,
+            lastUpdated: new Date()
+          },
+          {
+            userId: 'test-user-2',
+            userName: 'Test User 2',
+            totalScore: 75,
+            accuracy: 72,
+            correctNotes: 14,
+            totalNotes: 19,
+            lastUpdated: new Date()
+          },
+          {
+            userId: user.uid,
+            userName: user.email || 'Anonymous',
+            totalScore: 50,
+            accuracy: 60,
+            correctNotes: 6,
+            totalNotes: 10,
+            lastUpdated: new Date()
+          }
+        ],
+        lastUpdated: serverTimestamp()
+      });
+      
+      console.log('Leaderboard created with test data successfully');
+      
+      // Subscribe to see the result
+      const unsubscribe = ScoreboardService.subscribeToLeaderboard((result) => {
+        console.log('Leaderboard with test data:', result);
+        unsubscribe();
+      });
+      
+    } catch (error) {
+      console.error('Error creating leaderboard with test data:', error);
+    }
+  };
+
+  // Test correct/incorrect note counting
+  const testNoteCounting = () => {
+    console.log('=== Testing Note Counting ===');
+    console.log('Current session stats:', sessionStats);
+    console.log('Current chord:', selectedChord);
+    console.log('Total notes in chord:', chordNotes.length);
+    console.log('Completed notes:', Array.from(completedNotes));
+    console.log('Current accuracy:', chordAccuracy + '%');
+    console.log('Current step index:', currentStepIdx);
+    console.log('Is playing:', isPlaying);
+    console.log('===========================');
+  };
+
+  // Test chord completion without playing notes
+  const testChordCompletionWithoutPlaying = async () => {
+    if (!user) {
+      console.log('No user logged in');
+      return;
+    }
+    
+    console.log('=== Testing Chord Completion Without Playing ===');
+    console.log('Current chord:', selectedChord);
+    console.log('Chord length:', chordNotes.length);
+    console.log('Current session stats:', sessionStats);
+    
+    // Simulate chord completion with 0 correct notes
+    const chordLength = chordNotes.length;
+    const correctCount = 0; // No notes played correctly
+    const totalPoints = 0; // No points earned
+    
+    console.log(`Simulating completion: ${correctCount}/${chordLength} notes, ${totalPoints} points`);
+    
+    try {
+      const result = await ScoreboardService.updateUserStatsWithSessionData(
+        user.uid,
+        user.email || user.displayName || 'Anonymous',
+        correctCount,
+        chordLength, // Should always be chord length
+        totalPoints
+      );
+      
+      console.log('Chord completion test completed successfully');
+      
+      // Get updated stats to verify
+      const statsResult = await ScoreboardService.getUserStats(user.uid);
+      console.log('Updated user stats:', statsResult);
+      
+    } catch (error) {
+      console.error('Error testing chord completion:', error);
+    }
+  };
+
+  // Test stopping playback at different points
+  const testStopPlayback = () => {
+    console.log('=== Testing Stop Playback ===');
+    console.log('Current step index:', currentStepIdx);
+    console.log('Current session stats:', sessionStats);
+    console.log('Is playing:', isPlaying);
+    console.log('Chord length:', chordNotes.length);
+    
+    if (isPlaying) {
+      console.log('Stopping playback now...');
+      stopPlayback();
+    } else {
+      console.log('Not currently playing. Start playback first, then test stop.');
+    }
+  };
+
   const stopPlayback = () => {
     setIsPlaying(false);
     clearInterval(playTimer.current);
+    
+    // Update stats when stopping, based on notes that have passed
+    if (user && currentStepIdx > 0) {
+      const notesPassed = currentStepIdx; // Number of notes that have passed
+      const chordLength = chordNotes.length;
+      const correctCount = sessionStats.correct;
+      const totalPoints = currentScore;
+      
+      console.log(`Stopping playback! Notes passed: ${notesPassed}, Correct: ${correctCount}, Total points: ${totalPoints}`);
+      
+      // Update stats with the notes that have passed
+      ScoreboardService.updateUserStatsWithSessionData(
+        user.uid,
+        user.email || user.displayName || 'Anonymous',
+        correctCount,
+        notesPassed, // Use notes passed instead of chord length
+        totalPoints
+      ).then(() => {
+        console.log('Stats updated after stopping playback');
+      }).catch(error => {
+        console.error('Error updating stats after stopping:', error);
+      });
+    }
   };
 
-  return (
-    <div style={{ textAlign: "center", color: "#fff", background: "#181c24", minHeight: "100vh", paddingTop: 40 }}>
-      <h2>Play Along</h2>
-      <div style={{ margin: "2em" }}>
-        <label htmlFor="arpeggio">Choose Arpeggio: </label>
-        <select
-          id="arpeggio"
-          value={selectedArpeggio}
-          onChange={e => setSelectedArpeggio(e.target.value)}
-          style={{ fontSize: "1.1em", padding: "0.3em 1em" }}
-          disabled={isPlaying}
-        >
-          {Object.keys(ARPEGGIOS).map(name => (
-            <option key={name} value={name}>{name}</option>
-          ))}
-        </select>
-        <button
-          style={{ fontSize: "1.2em", padding: "0.5em 2em", margin: "1em" }}
-          onClick={startPlayback}
-          disabled={isPlaying}
-        >
-          Play
-        </button>
-        <button
-          style={{ fontSize: "1.2em", padding: "0.5em 2em", margin: "1em" }}
-          onClick={stopPlayback}
-          disabled={!isPlaying}
-        >
-          Stop
-        </button>
-      </div>
-      <div style={{ position: "relative", width: 640, height: 480, margin: "0 auto" }}>
-        <PlayAlongOverlay arpeggioNote={isPlaying && currentStep ? currentStep : null} />
-      </div>
-      <div style={{ fontSize: "1.5em", marginTop: "2em" }}>
-        {isPlaying && currentStep
-          ? `Now playing: ${currentStep.note} (String ${currentStep.stringIdx + 1}, Fret ${currentStep.fretNum})`
-          : !isPlaying
-          ? "Ready to play."
-          : "Done!"}
+    return (
+    <div style={{
+      minHeight: "100vh",
+      background: "linear-gradient(135deg, #0c0e1a 0%, #1a1b2e 50%, #2d1b69 100%)",
+      color: "#fff",
+      fontFamily: "'Orbitron', 'Montserrat', 'Arial', sans-serif",
+      padding: "2rem 0",
+      position: "relative",
+      overflow: "hidden"
+    }}>
+      {/* Animated background elements */}
+      <div style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.1) 0%, transparent 50%)",
+        pointerEvents: "none"
+      }} />
+      
+      <div style={{
+        maxWidth: "1200px",
+        margin: "0 auto",
+        padding: "0 2rem",
+        position: "relative",
+        zIndex: 1
+      }}>
+        {/* Header */}
+        <div style={{
+          textAlign: "center",
+          marginBottom: "3rem",
+          padding: "2rem 0"
+        }}>
+          <h1 style={{
+            fontSize: "3.5rem",
+            fontWeight: "700",
+            margin: "0 0 1rem 0",
+            background: "linear-gradient(45deg, #90caf9, #7e57c2, #f48fb1)",
+            backgroundClip: "text",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            textShadow: "0 0 30px rgba(144, 202, 249, 0.3)",
+            letterSpacing: "2px"
+          }}>
+            PLAY ALONG
+          </h1>
+          <p style={{
+            fontSize: "1.2rem",
+            color: "#b0bec5",
+            margin: "0",
+            fontWeight: "300",
+            letterSpacing: "1px"
+          }}>
+            Master guitar chords with real-time guidance
+          </p>
+        </div>
+
+        {/* Debug Info */}
+        <div style={{
+          background: "rgba(0, 0, 0, 0.7)",
+          padding: "0.5rem 1rem",
+          borderRadius: "8px",
+          fontSize: "0.8rem",
+          color: "#fff",
+          marginBottom: "1rem",
+          textAlign: "center"
+        }}>
+          <div>User: {user ? user.email : 'Not logged in'} | Auth: {user ? 'Yes' : 'No'}</div>
+        </div>
+
+        {/* Score Display */}
+        {isPlaying && (
+          <div style={{
+            background: "rgba(255, 255, 255, 0.05)",
+            backdropFilter: "blur(10px)",
+            borderRadius: "15px",
+            padding: "1.5rem",
+            marginBottom: "2rem",
+            border: "1px solid rgba(255, 255, 255, 0.1)",
+            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
+            textAlign: "center"
+          }}>
+            <div style={{
+              display: "flex",
+              justifyContent: "space-around",
+              alignItems: "center"
+            }}>
+              <div>
+                <div style={{ fontSize: "1.5rem", fontWeight: "700", color: "#90caf9" }}>
+                  {currentScore}
+                </div>
+                <div style={{ fontSize: "0.9rem", color: "#b0bec5" }}>Score</div>
+              </div>
+              <div>
+                <div style={{ fontSize: "1.5rem", fontWeight: "700", color: "#4caf50" }}>
+                  {sessionStats.correct}/{sessionStats.total}
+                </div>
+                <div style={{ fontSize: "0.9rem", color: "#b0bec5" }}>Correct/Total</div>
+              </div>
+              <div>
+                <div style={{ fontSize: "1.5rem", fontWeight: "700", color: "#ffc107" }}>
+                  {chordAccuracy}%
+                </div>
+                <div style={{ fontSize: "0.9rem", color: "#b0bec5" }}>Accuracy</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Control Panel */}
+        <div style={{
+          background: "rgba(255, 255, 255, 0.05)",
+          backdropFilter: "blur(10px)",
+          borderRadius: "20px",
+          padding: "1.5rem",
+          marginBottom: "3rem",
+          border: "1px solid rgba(255, 255, 255, 0.1)",
+          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)"
+        }}>
+          <div style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "1.5rem"
+          }}>
+            {/* Arpeggio Selector */}
+            <div style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "0.8rem"
+            }}>
+              <label style={{
+                fontSize: "1rem",
+                fontWeight: "600",
+                color: "#90caf9",
+                letterSpacing: "1px"
+              }}>
+                SELECT CHORD
+              </label>
+              <select
+                value={selectedChord}
+                onChange={e => setSelectedChord(e.target.value)}
+                style={{
+                  fontSize: "1.1rem",
+                  padding: "0.8rem 1.5rem",
+                  borderRadius: "12px",
+                  border: "2px solid rgba(144, 202, 249, 0.3)",
+                  background: "rgba(255, 255, 255, 0.1)",
+                  color: "#fff",
+                  fontWeight: "500",
+                  cursor: "pointer",
+                  minWidth: "180px",
+                  textAlign: "center",
+                  backdropFilter: "blur(10px)",
+                  transition: "all 0.3s ease"
+                }}
+                disabled={isPlaying}
+              >
+                {Object.keys(CHORDS).map(name => (
+                  <option key={name} value={name} style={{ background: "#1a1b2e", color: "#fff" }}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Control Buttons */}
+            <div style={{
+              display: "flex",
+              gap: "1.2rem",
+              alignItems: "center"
+            }}>
+              <button
+                onClick={startPlayback}
+                disabled={isPlaying}
+                style={{
+                  fontSize: "1.2rem",
+                  padding: "0.8rem 2rem",
+                  borderRadius: "50px",
+                  border: "none",
+                  fontWeight: "600",
+                  cursor: isPlaying ? "not-allowed" : "pointer",
+                  transition: "all 0.3s ease",
+                  background: isPlaying 
+                    ? "linear-gradient(45deg, #90caf9, #7e57c2)" 
+                    : "linear-gradient(45deg, #1976d2, #7e57c2)",
+                  color: "#fff",
+                  boxShadow: isPlaying 
+                    ? "0 0 20px rgba(144, 202, 249, 0.5)" 
+                    : "0 4px 15px rgba(25, 118, 210, 0.4)",
+                  opacity: isPlaying ? 0.7 : 1,
+                  letterSpacing: "1px",
+                  minWidth: "120px"
+                }}
+              >
+                ▶️ PLAY
+              </button>
+              
+              <button
+                onClick={stopPlayback}
+                disabled={!isPlaying}
+                style={{
+                  fontSize: "1.2rem",
+                  padding: "0.8rem 2rem",
+                  borderRadius: "50px",
+                  border: "none",
+                  fontWeight: "600",
+                  cursor: !isPlaying ? "not-allowed" : "pointer",
+                  transition: "all 0.3s ease",
+                  background: "linear-gradient(45deg, #e53935, #c62828)",
+                  color: "#fff",
+                  boxShadow: "0 4px 15px rgba(229, 57, 53, 0.4)",
+                  opacity: !isPlaying ? 0.5 : 1,
+                  letterSpacing: "1px",
+                  minWidth: "120px"
+                }}
+              >
+                ⏹ STOP
+              </button>
+            </div>
+            
+            {/* Test Database Button */}
+            <div style={{
+              marginTop: "1rem"
+            }}>
+              <button
+                onClick={testDatabaseConnection}
+                style={{
+                  fontSize: "0.9rem",
+                  padding: "0.5rem 1rem",
+                  borderRadius: "8px",
+                  border: "1px solid rgba(144, 202, 249, 0.3)",
+                  background: "rgba(144, 202, 249, 0.1)",
+                  color: "#90caf9",
+                  cursor: "pointer",
+                  transition: "all 0.3s ease"
+                }}
+              >
+                🧪 Test Database
+              </button>
+              
+              <button
+                onClick={testLeaderboardUpdate}
+                style={{
+                  fontSize: "0.9rem",
+                  padding: "0.5rem 1rem",
+                  borderRadius: "8px",
+                  border: "1px solid rgba(76, 175, 80, 0.3)",
+                  background: "rgba(76, 175, 80, 0.1)",
+                  color: "#4caf50",
+                  cursor: "pointer",
+                  transition: "all 0.3s ease",
+                  marginLeft: "0.5rem"
+                }}
+              >
+                🏆 Test Leaderboard
+              </button>
+              
+              <button
+                onClick={createLeaderboardWithTestData}
+                style={{
+                  fontSize: "0.9rem",
+                  padding: "0.5rem 1rem",
+                  borderRadius: "8px",
+                  border: "1px solid rgba(255, 152, 0, 0.3)",
+                  background: "rgba(255, 152, 0, 0.1)",
+                  color: "#ff9800",
+                  cursor: "pointer",
+                  transition: "all 0.3s ease",
+                  marginLeft: "0.5rem"
+                }}
+              >
+                👥 Create Test Leaderboard
+              </button>
+              
+              <button
+                onClick={testNoteCounting}
+                style={{
+                  fontSize: "0.9rem",
+                  padding: "0.5rem 1rem",
+                  borderRadius: "8px",
+                  border: "1px solid rgba(156, 39, 176, 0.3)",
+                  background: "rgba(156, 39, 176, 0.1)",
+                  color: "#9c27b0",
+                  cursor: "pointer",
+                  transition: "all 0.3s ease",
+                  marginLeft: "0.5rem"
+                }}
+              >
+                📊 Test Note Counting
+              </button>
+              
+              <button
+                onClick={testChordCompletionWithoutPlaying}
+                style={{
+                  fontSize: "0.9rem",
+                  padding: "0.5rem 1rem",
+                  borderRadius: "8px",
+                  border: "1px solid rgba(255, 193, 7, 0.3)",
+                  background: "rgba(255, 193, 7, 0.1)",
+                  color: "#ffc107",
+                  cursor: "pointer",
+                  transition: "all 0.3s ease",
+                  marginLeft: "0.5rem"
+                }}
+              >
+                🎵 Test Chord Completion (No Play)
+              </button>
+              
+              <button
+                onClick={testStopPlayback}
+                style={{
+                  fontSize: "0.9rem",
+                  padding: "0.5rem 1rem",
+                  borderRadius: "8px",
+                  border: "1px solid rgba(255, 152, 0, 0.3)",
+                  background: "rgba(255, 152, 0, 0.1)",
+                  color: "#ff9800",
+                  cursor: "pointer",
+                  transition: "all 0.3s ease",
+                  marginLeft: "0.5rem"
+                }}
+              >
+                ⏹ Test Stop Playback
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Guitar Display */}
+        <div style={{
+          display: "flex",
+          justifyContent: "center",
+          marginBottom: "2rem"
+        }}>
+          <div style={{
+            position: "relative",
+            width: "640px",
+            height: "480px",
+            borderRadius: "15px",
+            overflow: "hidden",
+            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.4)",
+            border: "2px solid rgba(255, 255, 255, 0.1)"
+          }}>
+            <PlayAlongOverlay
+              highlightedNotes={isPlaying && currentStep ? [currentStep] : []}
+              arpeggioNotes={chordNotes}
+              currentStep={isPlaying ? currentStepIdx : -1}
+              onCorrectNote={handleCorrectNote}
+              onIncorrectNote={handleIncorrectNote}
+            />
+          </div>
+        </div>
+
+        {/* Status Display */}
+        <div style={{
+          textAlign: "center",
+          padding: "1.5rem",
+          background: "rgba(255, 255, 255, 0.05)",
+          borderRadius: "15px",
+          border: "1px solid rgba(255, 255, 255, 0.1)",
+          backdropFilter: "blur(10px)"
+        }}>
+          <div style={{
+            fontSize: "1.4rem",
+            fontWeight: "600",
+            color: isPlaying ? "#90caf9" : "#b0bec5",
+            textShadow: isPlaying ? "0 0 10px rgba(144, 202, 249, 0.5)" : "none",
+            transition: "all 0.3s ease"
+          }}>
+            {isPlaying && currentStep
+              ? `Playing: ${currentStep.note} (String ${currentStep.stringIdx + 1}, Fret ${currentStep.fretNum})`
+              : `Selected: ${selectedChord}`}
+          </div>
+          {isPlaying && (
+            <div style={{
+              fontSize: "1rem",
+              color: "#90caf9",
+              marginTop: "0.5rem",
+              fontWeight: "400"
+            }}>
+              Step {currentStepIdx + 1} of {chordNotes.length}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

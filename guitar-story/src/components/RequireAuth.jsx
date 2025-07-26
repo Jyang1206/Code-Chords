@@ -3,8 +3,8 @@ import { useAuth } from "../contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 
 export default function RequireAuth({ children }) {
-  const { currentUser } = useAuth();
-  if (!currentUser) {
+  const { user } = useAuth();
+  if (!user) {
     return (
       <div style={{
         background: 'rgba(30,30,60,0.95)',

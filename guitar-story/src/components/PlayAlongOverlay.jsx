@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useMemo } from "react";
 import { InferenceEngine, CVImage } from "inferencejs";
+import AudioPitchDetector from "../utils/AudioPitchDetector";
 
 const ALL_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const OPEN_STRINGS = ['E', 'A', 'D', 'G', 'B', 'E']; // 6th to 1st string
@@ -13,13 +14,21 @@ function getNoteAtPosition(stringIdx, fretNum) {
   return ALL_NOTES[noteIdx];
 }
 
-function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNotes = [] }) {
+function PlayAlongOverlay({ 
+  arpeggioNotes = [], 
+  currentStep = 0, 
+  highlightedNotes = [],
+  onCorrectNote,
+  onIncorrectNote
+}) {
   const videoRef = useRef();
   const canvasRef = useRef();
   const inferEngine = useMemo(() => new InferenceEngine(), []);
   const [modelWorkerId, setModelWorkerId] = React.useState(null);
   const [modelLoading, setModelLoading] = React.useState(false);
   const displayedNotesRef = useRef([]); // Store displayed notes for later reference
+  const [lastFeedback, setLastFeedback] = React.useState(null); // 'correct' | 'incorrect' | null
+  const [expectedNote, setExpectedNote] = React.useState(null);
 
   useEffect(() => {
     if (!modelLoading) {
@@ -60,6 +69,23 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
     return () => { running = false; };
     // eslint-disable-next-line
   }, [modelWorkerId, arpeggioNotes, currentStep]);
+
+  // Determine the expected note for the current highlighted note
+  React.useEffect(() => {
+    if (highlightedNotes && highlightedNotes.length > 0) {
+      const n = highlightedNotes[0];
+      if (n) {
+        // Map stringIdx (0=bottom/high E, 5=top/low E) to get note name
+        const noteName = getNoteAtPosition(5 - n.stringIdx, n.fretNum);
+        setExpectedNote(noteName);
+      } else {
+        setExpectedNote(null);
+      }
+    } else {
+      setExpectedNote(null);
+    }
+    setLastFeedback(null); // Reset feedback on step change
+  }, [highlightedNotes]);
 
   function drawOverlay(predictions) {
     const canvas = canvasRef.current;
@@ -186,22 +212,85 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
   }
 
   return (
-    <div style={{ position: "relative", width: FRETBOARD_WIDTH, height: FRETBOARD_HEIGHT, margin: "0 auto" }}>
-      <video
-        ref={videoRef}
-        width={FRETBOARD_WIDTH}
-        height={FRETBOARD_HEIGHT}
-        autoPlay
-        muted
-        style={{ position: "absolute", left: 0, top: 0, zIndex: 1, background: "#000" }}
-      />
-      <canvas
-        ref={canvasRef}
-        width={FRETBOARD_WIDTH}
-        height={FRETBOARD_HEIGHT}
-        style={{ position: "absolute", left: 0, top: 0, zIndex: 2, pointerEvents: "none" }}
-      />
-    </div>
+    <AudioPitchDetector>
+      {({ note, frequency, listening, start, stop, error }) => {
+        // Ensure pitch detection is always running while overlay is mounted
+        React.useEffect(() => {
+          start();
+          return () => stop();
+        }, []);
+        // Only check correctness if a note is highlighted and detected
+        React.useEffect(() => {
+          if (!expectedNote || !note) {
+            setLastFeedback(null);
+            return;
+          }
+          // note is like "E2", "G3" etc. Only compare the note letter (first part)
+          const playedNote = note.replace(/\d+$/, "");
+          if (playedNote === expectedNote) {
+            setLastFeedback("correct");
+            onCorrectNote && onCorrectNote();
+          } else {
+            setLastFeedback("incorrect");
+            onIncorrectNote && onIncorrectNote();
+          }
+        }, [note, expectedNote, onCorrectNote, onIncorrectNote]);
+        return (
+          <div style={{ position: "relative", width: FRETBOARD_WIDTH, height: FRETBOARD_HEIGHT, margin: "0 auto" }}>
+            <video
+              ref={videoRef}
+              width={FRETBOARD_WIDTH}
+              height={FRETBOARD_HEIGHT}
+              autoPlay
+              muted
+              style={{ position: "absolute", left: 0, top: 0, zIndex: 1, background: "#000" }}
+            />
+            <canvas
+              ref={canvasRef}
+              width={FRETBOARD_WIDTH}
+              height={FRETBOARD_HEIGHT}
+              style={{ position: "absolute", left: 0, top: 0, zIndex: 2, pointerEvents: "none" }}
+            />
+            {/* Enhanced Feedback UI */}
+            <div style={{
+              position: "absolute",
+              top: 18,
+              right: 24,
+              minWidth: 180,
+              maxWidth: 240,
+              background: "#fff",
+              borderRadius: 16,
+              boxShadow: "0 2px 16px 0 #90caf9cc, 0 0 12px 1px #7e57c2aa",
+              padding: "0.7em 1.2em 0.7em 1.2em",
+              zIndex: 20,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              border: lastFeedback === "correct" ? "2.5px solid #4caf50" : lastFeedback === "incorrect" ? "2.5px solid #e53935" : "2.5px solid #e3e3e3",
+              color: "#222",
+              fontFamily: "'Orbitron', 'Montserrat', 'Arial', sans-serif",
+              letterSpacing: 0.5,
+              transition: "border 0.2s, box-shadow 0.2s"
+            }}>
+              <div style={{ fontSize: "0.95em", marginBottom: 2, letterSpacing: 1 }}>
+                <span style={{ color: "#7e57c2", fontWeight: 700, textShadow: "0 2px 8px #90caf9cc" }}>Play Along</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "1.1em", fontWeight: 500 }}>
+                <span>Exp: <span style={{ color: "#1976d2", fontWeight: 700 }}>{expectedNote || "-"}</span></span>
+                <span>•</span>
+                <span>Det: <span style={{ color: lastFeedback === "correct" ? "#4caf50" : lastFeedback === "incorrect" ? "#e53935" : "#222", fontWeight: 700 }}>{note ? note.replace(/\d+$/, "") : (listening ? "Listening..." : "-")}</span></span>
+                <span style={{ fontSize: "1.5em", marginLeft: 8, textShadow: lastFeedback === "correct" ? "0 0 8px #4caf50aa" : lastFeedback === "incorrect" ? "0 0 8px #e53935aa" : "0 0 6px #90caf9cc" }}>
+                  {lastFeedback === "correct" ? "✔️" : lastFeedback === "incorrect" ? "✖️" : ""}
+                </span>
+              </div>
+              {error && (
+                <div style={{ color: "#e53935", marginTop: 6, fontSize: "0.95em", fontWeight: 600 }}>{error}</div>
+              )}
+            </div>
+          </div>
+        );
+      }}
+    </AudioPitchDetector>
   );
 }
 
