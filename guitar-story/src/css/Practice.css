@@ -82,3 +82,45 @@
   border-left: 6px solid #ff7675;
   box-shadow: 0 2px 16px rgba(255, 118, 117, 0.08);
 }
+
+/* Light mode overrides */
+.light-mode .loading-overlay {
+  background: var(--space-bg-light);
+}
+
+.light-mode .loading-spinner {
+  border-color: var(--space-accent);
+  border-top-color: var(--space-accent2);
+}
+
+.light-mode .loading-text {
+  color: var(--space-text-light);
+}
+
+.light-mode .practice-section {
+  background: var(--space-card-bg-light);
+  color: var(--space-text-light);
+  border: 1px solid var(--space-accent2);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.light-mode .practice-section h2 {
+  color: var(--space-accent);
+}
+
+.light-mode .practice-section p {
+  color: var(--space-text-light);
+}
+
+.light-mode .camera-permission-message {
+  background: var(--space-card-bg-light);
+  color: var(--space-text-light);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+.light-mode .camera-permission-message.error {
+  background: #fff3f3;
+  color: #d32f2f;
+  border-left: 6px solid #d32f2f;
+  box-shadow: 0 2px 16px rgba(211, 47, 47, 0.1);
+}

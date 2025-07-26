@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { collection, addDoc, query, where, orderBy, getDocs, deleteDoc, doc } from 'firebase/firestore';
-import { firestore } from '../firebase';
+import { db } from '../firebase';
 import { useAuth } from './AuthContext';
 import { fetchVideoTitle, extractVideoId } from '../utils/youtubeUtils';
 
@@ -31,7 +31,7 @@ export const SearchHistoryProvider = ({ children }) => {
     setLoading(true);
     try {
       const q = query(
-        collection(firestore, 'searchHistory'),
+        collection(db, 'searchHistory'),
         where('userId', '==', currentUser.uid),
         orderBy('timestamp', 'desc')
       );
@@ -109,7 +109,7 @@ export const SearchHistoryProvider = ({ children }) => {
       };
       
       console.log('Saving to Firestore:', searchData);
-      const docRef = await addDoc(collection(firestore, 'searchHistory'), searchData);
+      const docRef = await addDoc(collection(db, 'searchHistory'), searchData);
       
       // Update local state
       const newEntry = {
@@ -136,7 +136,7 @@ export const SearchHistoryProvider = ({ children }) => {
     if (!currentUser) return;
 
     try {
-      await deleteDoc(doc(firestore, 'searchHistory', historyId));
+      await deleteDoc(doc(db, 'searchHistory', historyId));
       
       // Update local state
       setSearchHistory(prev => prev.filter(item => item.id !== historyId));
@@ -151,7 +151,7 @@ export const SearchHistoryProvider = ({ children }) => {
 
     try {
       const q = query(
-        collection(firestore, 'searchHistory'),
+        collection(db, 'searchHistory'),
         where('userId', '==', currentUser.uid)
       );
       

@@ -35,29 +35,8 @@
 
 .card {
   padding: 2em;
-  background: var(--space-card-bg);
-  border-radius: 16px;
-  box-shadow: 0 2px 12px var(--space-shadow);
-  color: var(--space-star);
 }
 
 .read-the-docs {
-  color: var(--space-accent2);
-}
-
-/* Light mode overrides for App.css */
-.light-mode #root {
-  background: var(--space-bg-light);
-  color: var(--space-text-light);
-  background-image: var(--space-star-bg), var(--space-bg-light);
-}
-
-.light-mode .card {
-  background: var(--space-card-bg-light);
-  color: var(--space-text-light);
-  box-shadow: 0 2px 12px var(--space-accent2);
-}
-
-.light-mode .read-the-docs {
-  color: var(--space-accent2);
+  color: #888;
 }
