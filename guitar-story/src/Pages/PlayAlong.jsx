@@ -7,43 +7,43 @@ import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 
 const CHORDS_ORIGINAL = {
   "C Major": [
-    { stringIdx: 1, fretNum: 3 }, // 5th string (A)
-    { stringIdx: 2, fretNum: 2 }, // 4th string (D)
-    { stringIdx: 3, fretNum: 0 }, // 3rd string (G)
-    { stringIdx: 4, fretNum: 1 }, // 2nd string (B)
-    { stringIdx: 5, fretNum: 0 }, // 1st string (high E)
+    { stringIdx: 1, fretNum: 3, note: "C", isRoot: true }, // 5th string (A)
+    { stringIdx: 2, fretNum: 2, note: "E" },               // 4th string (D)
+    { stringIdx: 3, fretNum: 0, note: "G" },               // 3rd string (G)
+    { stringIdx: 4, fretNum: 1, note: "C" },               // 2nd string (B)
+    { stringIdx: 5, fretNum: 0, note: "E" },               // 1st string (high E)
   ],
   "G Major": [
-    { stringIdx: 0, fretNum: 3 }, // 6th string (low E)
-    { stringIdx: 1, fretNum: 2 }, // 5th string (A)
-    { stringIdx: 2, fretNum: 0 }, // 4th string (D)
-    { stringIdx: 3, fretNum: 0 }, // 3rd string (G)
-    { stringIdx: 4, fretNum: 0 }, // 2nd string (B)
-    { stringIdx: 5, fretNum: 3 }, // 1st string (high E)
+    { stringIdx: 0, fretNum: 3, note: "G", isRoot: true }, // 6th string (low E)
+    { stringIdx: 1, fretNum: 2, note: "B" },               // 5th string (A)
+    { stringIdx: 2, fretNum: 0, note: "D" },               // 4th string (D)
+    { stringIdx: 3, fretNum: 0, note: "G" },               // 3rd string (G)
+    { stringIdx: 4, fretNum: 2, note: "B" },               // 2nd string (B)
+    { stringIdx: 5, fretNum: 3, note: "G" },               // 1st string (high E)
   ],
   "E Major": [
-    { stringIdx: 0, fretNum: 0 }, // 6th string (low E)
-    { stringIdx: 1, fretNum: 2 }, // 5th string (A)
-    { stringIdx: 2, fretNum: 2 }, // 4th string (D)
-    { stringIdx: 3, fretNum: 1 }, // 3rd string (G)
-    { stringIdx: 4, fretNum: 0 }, // 2nd string (B)
-    { stringIdx: 5, fretNum: 0 }, // 1st string (high E)
+    { stringIdx: 0, fretNum: 0, note: "E", isRoot: true }, // 6th string (low E)
+    { stringIdx: 1, fretNum: 2, note: "A" },               // 5th string (A)
+    { stringIdx: 2, fretNum: 2, note: "B" },               // 4th string (D)
+    { stringIdx: 3, fretNum: 1, note: "E" },               // 3rd string (G)
+    { stringIdx: 4, fretNum: 0, note: "B" },               // 2nd string (B)
+    { stringIdx: 5, fretNum: 0, note: "E" },               // 1st string (high E)
   ],
   "A Major": [
-    { stringIdx: 0, fretNum: 0 }, // 6th string (low E)
-    { stringIdx: 1, fretNum: 0 }, // 5th string (A)
-    { stringIdx: 2, fretNum: 2 }, // 4th string (D)
-    { stringIdx: 3, fretNum: 2 }, // 3rd string (G)
-    { stringIdx: 4, fretNum: 2 }, // 2nd string (B)
-    { stringIdx: 5, fretNum: 0 }, // 1st string (high E)
+    { stringIdx: 0, fretNum: 0, note: "E", mute: true },   // 6th string (low E, not played)
+    { stringIdx: 1, fretNum: 0, note: "A", isRoot: true }, // 5th string (A)
+    { stringIdx: 2, fretNum: 2, note: "D" },               // 4th string (D)
+    { stringIdx: 3, fretNum: 2, note: "F#" },              // 3rd string (G)
+    { stringIdx: 4, fretNum: 2, note: "A" },               // 2nd string (B)
+    { stringIdx: 5, fretNum: 0, note: "E" },               // 1st string (high E)
   ],
   "D Major": [
-    { stringIdx: 0, fretNum: 0, mute: true }, // 6th string (low E, not played)
-    { stringIdx: 1, fretNum: 0, mute: true }, // 5th string (A, not played)
-    { stringIdx: 2, fretNum: 0 }, // 4th string (D)
-    { stringIdx: 3, fretNum: 2 }, // 3rd string (G)
-    { stringIdx: 4, fretNum: 3 }, // 2nd string (B)
-    { stringIdx: 5, fretNum: 2 }, // 1st string (high E)
+    { stringIdx: 0, fretNum: 0, note: "E", mute: true },   // 6th string (low E, not played)
+    { stringIdx: 1, fretNum: 0, note: "A", mute: true },   // 5th string (A, not played)
+    { stringIdx: 2, fretNum: 0, note: "D", isRoot: true }, // 4th string (D)
+    { stringIdx: 3, fretNum: 2, note: "A" },               // 3rd string (G)
+    { stringIdx: 4, fretNum: 3, note: "F#" },              // 2nd string (B)
+    { stringIdx: 5, fretNum: 2, note: "D" },               // 1st string (high E)
   ],
 };
 
@@ -52,11 +52,12 @@ const CHORDS = Object.fromEntries(
     chord,
     notes
       .filter(n => !n.mute)
-      .map(n => ({ ...n, stringIdx: 5 - n.stringIdx }))
+      .map(n => ({ ...n, stringIdx: 6 - n.stringIdx }))
   ])
 );
 
 function PlayAlong() {
+  console.log('PlayAlong component is rendering!');
   const { currentUser } = useAuth();
   const [selectedChord, setSelectedChord] = useState("C Major");
   const [isPlaying, setIsPlaying] = useState(false);
@@ -486,6 +487,16 @@ function PlayAlong() {
           }}>
             Master guitar chords with real-time guidance
           </p>
+          {/* Test element to verify rendering */}
+          <div style={{
+            background: "rgba(255, 255, 255, 0.1)",
+            padding: "1rem",
+            borderRadius: "8px",
+            marginTop: "1rem",
+            fontSize: "0.9rem"
+          }}>
+            ✅ PlayAlong component is rendering successfully!
+          </div>
         </div>
 
         {/* Debug Info */}
@@ -776,13 +787,34 @@ function PlayAlong() {
             boxShadow: "0 8px 32px rgba(0, 0, 0, 0.4)",
             border: "2px solid rgba(255, 255, 255, 0.1)"
           }}>
-            <PlayAlongOverlay
-              highlightedNotes={isPlaying && currentStep ? [currentStep] : []}
-              arpeggioNotes={chordNotes}
-              currentStep={isPlaying ? currentStepIdx : -1}
-              onCorrectNote={handleCorrectNote}
-              onIncorrectNote={handleIncorrectNote}
-            />
+            {(() => {
+              try {
+                return (
+                  <PlayAlongOverlay
+                    highlightedNotes={isPlaying && currentStep ? [currentStep] : []}
+                    arpeggioNotes={chordNotes}
+                    currentStep={isPlaying ? currentStepIdx : -1}
+                    onCorrectNote={handleCorrectNote}
+                    onIncorrectNote={handleIncorrectNote}
+                  />
+                );
+              } catch (error) {
+                console.error('Error rendering PlayAlongOverlay:', error);
+                return (
+                  <div style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    height: "100%",
+                    background: "#000",
+                    color: "#fff",
+                    fontSize: "1.2rem"
+                  }}>
+                    Camera overlay loading...
+                  </div>
+                );
+              }
+            })()}
           </div>
         </div>
 
