@@ -77,6 +77,14 @@ function NavBar() {
           }}>
             Scoreboard
           </Link>
+          <Link to="/tuner" style={{
+            textDecoration: "none",
+            color: "#fff",
+            fontWeight: "500",
+            transition: "color 0.3s ease"
+          }}>
+            Tuner
+          </Link>
           <Link to="/debug" style={{
             textDecoration: "none",
             color: "#ff6b6b",
