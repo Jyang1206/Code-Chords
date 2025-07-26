@@ -7,15 +7,7 @@ function Home() {
   const { user, logout } = useAuth();
   const [showSignup, setShowSignup] = useState(false);
 
-  const handleLogout = async () => {
-    try {
-      await logout();
-    } catch (error) {
-      console.error("Failed to log out", error);
-    }
-  };
-
-  if (!user) {
+  if (!currentUser) {
     return showSignup ? (
       <Signup onSwitch={() => setShowSignup(false)} />
     ) : (
@@ -26,8 +18,6 @@ function Home() {
   return (
     <div className="home">
       <h1>Welcome to GuitarStory!</h1>
-      <p>Logged in as: {user.email}</p>
-      <button onClick={handleLogout}>Logout</button>
     </div>
   );
 }
