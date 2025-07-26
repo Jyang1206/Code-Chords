@@ -56,10 +56,47 @@ const CHORDS = Object.fromEntries(
   ])
 );
 
+// --- SONGS DATA ---
+const SONGS = {
+  "Ode to Joy": [
+    // Ode to Joy (first phrase, in G major)
+    // stringIdx: 0 = 6th string (low E), 5 = 1st string (high E)
+    { stringIdx: 2, fretNum: 0, note: "B", duration: 1 }, // 5th string (A) open
+    { stringIdx: 2, fretNum: 0, note: "B", duration: 1 }, // 5th string (A) open
+    { stringIdx: 2, fretNum: 1, note: "C", duration: 1 }, // 5th string (A) fret 1
+    { stringIdx: 2, fretNum: 3, note: "D", duration: 1 }, // 5th string (A) fret 2
+    { stringIdx: 2, fretNum: 3, note: "D", duration: 1 }, // 5th string (A) fret 2
+    { stringIdx: 2, fretNum: 1, note: "C", duration: 1 }, // 5th string (A) fret 1
+    { stringIdx: 2, fretNum: 0, note: "B", duration: 1 }, // 5th string (A) open
+    { stringIdx: 3, fretNum: 2, note: "A", duration: 1 }, // 4th string (D) fret 2
+    { stringIdx: 3, fretNum: 0, note: "G", duration: 1 }, // 4th string (D) open
+    { stringIdx: 3, fretNum: 0, note: "G", duration: 1 }, // 4th string (D) open
+    { stringIdx: 3, fretNum: 2, note: "A", duration: 1 }, // 4th string (D) fret 2
+    { stringIdx: 3, fretNum: 4, note: "B", duration: 1 }, // 4th string (D) fret 4
+    { stringIdx: 3, fretNum: 4, note: "B", duration: 2 }, // 4th string (D) fret 4
+    { stringIdx: 3, fretNum: 2, note: "A", duration: 0.5 }, // 4th string (D) fret 2
+    { stringIdx: 3, fretNum: 2, note: "A", duration: 0.5 }, // 4th string (D) fret 2
+  ],
+  "Twinkle Twinkle Little Star": [
+    // Twinkle Twinkle Little Star
+    // stringIdx: 0 = 6th string (low E), 5 = 1st string (high E)
+    { stringIdx: 3, fretNum: 0, note: "D", duration: 1 }, // 4th string (D) open
+    { stringIdx: 3, fretNum: 0, note: "D", duration: 1 }, // 4th string (D) open
+    { stringIdx: 3, fretNum: 2, note: "A", duration: 1 }, // 4th string (D) fret 2
+    { stringIdx: 3, fretNum: 2, note: "A", duration: 1 }, // 4th string (D) fret 2
+    { stringIdx: 2, fretNum: 0, note: "B", duration: 1 }, // 5th string (A) open
+    { stringIdx: 2, fretNum: 0, note: "B", duration: 1 }, // 5th string (A) open
+    { stringIdx: 3, fretNum: 2, note: "A", duration: 2 }, // 4th string (D) fret 2
+    // ...
+  ]
+};
+
 function PlayAlong() {
   console.log('PlayAlong component is rendering!');
   const { currentUser } = useAuth();
+  const [mainMode, setMainMode] = useState("Chords"); // "Chords" or "Songs"
   const [selectedChord, setSelectedChord] = useState("C Major");
+  const [selectedSong, setSelectedSong] = useState("Ode to Joy");
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
   const [currentScore, setCurrentScore] = useState(0);
@@ -68,19 +105,23 @@ function PlayAlong() {
   const [completedNotes, setCompletedNotes] = useState(new Set()); // Track which notes have been completed
   const playTimer = useRef(null);
   const latestSessionStatsRef = useRef({ correct: 0, total: 0 }); // Track latest session stats
+  const noteTimestampsRef = useRef({}); // Track timestamps for song playback
 
-  const chordNotes = CHORDS[selectedChord];
-  const currentStep = chordNotes[currentStepIdx] || null;
+  // Determine which notes to use: arpeggio or song
+  const isChordMode = mainMode === "Chords";
+  const isSongMode = mainMode === "Songs";
+  const playNotes = isChordMode ? CHORDS[selectedChord] : SONGS[selectedSong];
+  const currentStep = playNotes[currentStepIdx] || null;
 
-  // Reset completed notes when chord changes
+  // Reset completed notes and session stats when mode, chord, or song changes
   useEffect(() => {
     setCompletedNotes(new Set());
-    const newSessionStats = { correct: 0, total: chordNotes.length };
+    const newSessionStats = { correct: 0, total: playNotes.length };
     setSessionStats(newSessionStats);
-    latestSessionStatsRef.current = newSessionStats; // Update ref
+    latestSessionStatsRef.current = newSessionStats;
     setChordAccuracy(0);
     setCurrentScore(0);
-  }, [selectedChord]);
+  }, [mainMode, selectedChord, selectedSong]);
 
   // Calculate accuracy based on current chord's total notes
   const calculateAccuracy = (correct, totalNotes) => {
@@ -115,7 +156,7 @@ function PlayAlong() {
     
     // Update session stats for this chord
     const newCorrect = sessionStats.correct + 1;
-    const totalNotesInChord = chordNotes.length;
+    const totalNotesInChord = playNotes.length;
     const newAccuracy = calculateAccuracy(newCorrect, totalNotesInChord);
     
     console.log(`Correct note ${noteId}! Progress: ${newCorrect}/${totalNotesInChord} (${newAccuracy}%)`);
@@ -177,7 +218,7 @@ function PlayAlong() {
     setCompletedNotes(prev => new Set([...prev, noteId]));
     
     // Don't increment correct count, but still track total attempts
-    const totalNotesInChord = chordNotes.length;
+    const totalNotesInChord = playNotes.length;
     const currentCorrect = sessionStats.correct;
     const newAccuracy = calculateAccuracy(currentCorrect, totalNotesInChord);
     
@@ -198,24 +239,24 @@ function PlayAlong() {
     }
   };
 
+  // Update startPlayback to use playNotes
   const startPlayback = () => {
     setIsPlaying(true);
     setCurrentStepIdx(0);
     setCurrentScore(0);
-    const newSessionStats = { correct: 0, total: chordNotes.length };
+    const newSessionStats = { correct: 0, total: playNotes.length };
     setSessionStats(newSessionStats);
-    latestSessionStatsRef.current = newSessionStats; // Update ref
+    latestSessionStatsRef.current = newSessionStats;
     setChordAccuracy(0);
-    setCompletedNotes(new Set()); // Reset completed notes
+    setCompletedNotes(new Set());
+    noteTimestampsRef.current = {};
     playTimer.current = setInterval(() => {
       setCurrentStepIdx(idx => {
-        if (idx < chordNotes.length - 1) {
+        if (idx < playNotes.length - 1) {
           return idx + 1;
         } else {
           clearInterval(playTimer.current);
           setIsPlaying(false);
-          // Update final scoreboard when chord is completed
-          // Add a small delay to ensure state updates are complete
           setTimeout(() => {
             updateFinalScoreboard();
           }, 100);
@@ -234,7 +275,7 @@ function PlayAlong() {
     const finalAccuracy = calculateAccuracy(latestStats.correct, latestStats.total);
     const bonusPoints = Math.round((finalAccuracy / 100) * 50); // Bonus points based on accuracy
     const totalPoints = currentScore + bonusPoints;
-    const chordLength = chordNotes.length; // Total notes in the chord
+    const chordLength = playNotes.length; // Total notes in the chord
     
     console.log(`Chord completed! Final stats: ${latestStats.correct}/${latestStats.total} (${finalAccuracy}%), Total points: ${totalPoints}, Chord length: ${chordLength}`);
     
@@ -398,7 +439,7 @@ function PlayAlong() {
     console.log('=== Testing Note Counting ===');
     console.log('Current session stats:', sessionStats);
     console.log('Current chord:', selectedChord);
-    console.log('Total notes in chord:', chordNotes.length);
+    console.log('Total notes in chord:', playNotes.length);
     console.log('Completed notes:', Array.from(completedNotes));
     console.log('Current accuracy:', chordAccuracy + '%');
     console.log('Current step index:', currentStepIdx);
@@ -415,11 +456,11 @@ function PlayAlong() {
     
     console.log('=== Testing Chord Completion Without Playing ===');
     console.log('Current chord:', selectedChord);
-    console.log('Chord length:', chordNotes.length);
+    console.log('Chord length:', playNotes.length);
     console.log('Current session stats:', sessionStats);
     
     // Simulate chord completion with 0 correct notes
-    const chordLength = chordNotes.length;
+    const chordLength = playNotes.length;
     const correctCount = 0; // No notes played correctly
     const totalPoints = 0; // No points earned
     
@@ -451,7 +492,7 @@ function PlayAlong() {
     console.log('Current step index:', currentStepIdx);
     console.log('Current session stats:', sessionStats);
     console.log('Is playing:', isPlaying);
-    console.log('Chord length:', chordNotes.length);
+    console.log('Chord length:', playNotes.length);
     
     if (isPlaying) {
       console.log('Stopping playback now...');
@@ -468,7 +509,7 @@ function PlayAlong() {
     // Update stats when stopping, based on notes that have passed
     if (currentUser && currentStepIdx > 0) {
       const notesPassed = currentStepIdx; // Number of notes that have passed
-      const chordLength = chordNotes.length;
+      const chordLength = playNotes.length;
       const correctCount = sessionStats.correct;
       const totalPoints = currentScore;
       
@@ -489,6 +530,7 @@ function PlayAlong() {
     }
   };
 
+  // UI: Top-level mode selector, then show only relevant dropdown
   return (
     <div style={{
       minHeight: "100vh",
@@ -625,47 +667,109 @@ function PlayAlong() {
             alignItems: "center",
             gap: "1.5rem"
           }}>
-            {/* Chord Selector */}
-            <div style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: "0.8rem"
-            }}>
-              <label style={{
-                fontSize: "1rem",
-                fontWeight: "600",
-                color: "#90caf9",
-                letterSpacing: "1px"
-              }}>
-                SELECT CHORD
-              </label>
-              <select
-                value={selectedChord}
-                onChange={e => setSelectedChord(e.target.value)}
+            {/* Top-level mode selector */}
+            <div style={{ display: 'flex', gap: '2rem', marginBottom: '0.5rem' }}>
+              <button
+                onClick={() => setMainMode("Chords")}
                 style={{
-                  fontSize: "1.1rem",
-                  padding: "0.8rem 1.5rem",
-                  borderRadius: "12px",
-                  border: "2px solid rgba(144, 202, 249, 0.3)",
-                  background: "rgba(255, 255, 255, 0.1)",
-                  color: "#fff",
-                  fontWeight: "500",
-                  cursor: "pointer",
-                  minWidth: "180px",
-                  textAlign: "center",
-                  backdropFilter: "blur(10px)",
-                  transition: "all 0.3s ease"
+                  padding: '0.7em 2em',
+                  borderRadius: '10px',
+                  border: mainMode === "Chords" ? '2.5px solid #90caf9' : '2px solid #444',
+                  background: mainMode === "Chords" ? '#222b44' : '#181a2a',
+                  color: mainMode === "Chords" ? '#fff' : '#90caf9',
+                  fontWeight: 700,
+                  fontSize: '1.1em',
+                  cursor: 'pointer',
+                  boxShadow: mainMode === "Chords" ? '0 2px 12px #90caf966' : 'none',
+                  transition: 'all 0.2s'
                 }}
                 disabled={isPlaying}
               >
-                {Object.keys(CHORDS).map(name => (
-                  <option key={name} value={name} style={{ background: "#1a1b2e", color: "#fff" }}>
-                    {name}
-                  </option>
-                ))}
-              </select>
+                Chords
+              </button>
+              <button
+                onClick={() => setMainMode("Songs")}
+                style={{
+                  padding: '0.7em 2em',
+                  borderRadius: '10px',
+                  border: mainMode === "Songs" ? '2.5px solid #90caf9' : '2px solid #444',
+                  background: mainMode === "Songs" ? '#222b44' : '#181a2a',
+                  color: mainMode === "Songs" ? '#fff' : '#90caf9',
+                  fontWeight: 700,
+                  fontSize: '1.1em',
+                  cursor: 'pointer',
+                  boxShadow: mainMode === "Songs" ? '0 2px 12px #90caf966' : 'none',
+                  transition: 'all 0.2s'
+                }}
+                disabled={isPlaying}
+              >
+                Songs
+              </button>
             </div>
+
+            {/* Chord dropdown (only in Chord mode) */}
+            {isChordMode && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.8rem' }}>
+                <label style={{ fontSize: '1rem', fontWeight: '600', color: '#90caf9', letterSpacing: '1px' }}>
+                  SELECT CHORD
+                </label>
+                <select
+                  value={selectedChord}
+                  onChange={e => setSelectedChord(e.target.value)}
+                  style={{
+                    fontSize: '1.1rem',
+                    padding: '0.8rem 1.5rem',
+                    borderRadius: '12px',
+                    border: '2px solid rgba(144, 202, 249, 0.3)',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    color: '#fff',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    minWidth: '180px',
+                    textAlign: 'center',
+                    backdropFilter: 'blur(10px)',
+                    transition: 'all 0.3s ease'
+                  }}
+                  disabled={isPlaying}
+                >
+                  {Object.keys(CHORDS).map(name => (
+                    <option key={name} value={name} style={{ background: '#1a1b2e', color: '#fff' }}>{name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Song dropdown (only in Song mode) */}
+            {isSongMode && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.8rem' }}>
+                <label style={{ fontSize: '1rem', fontWeight: '600', color: '#90caf9', letterSpacing: '1px' }}>
+                  SELECT SONG
+                </label>
+                <select
+                  value={selectedSong}
+                  onChange={e => setSelectedSong(e.target.value)}
+                  style={{
+                    fontSize: '1.1rem',
+                    padding: '0.8rem 1.5rem',
+                    borderRadius: '12px',
+                    border: '2px solid rgba(144, 202, 249, 0.3)',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    color: '#fff',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    minWidth: '180px',
+                    textAlign: 'center',
+                    backdropFilter: 'blur(10px)',
+                    transition: 'all 0.3s ease'
+                  }}
+                  disabled={isPlaying}
+                >
+                  {Object.keys(SONGS).map(name => (
+                    <option key={name} value={name} style={{ background: '#1a1b2e', color: '#fff' }}>{name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* Control Buttons */}
             <div style={{
@@ -851,7 +955,7 @@ function PlayAlong() {
                   <>
                     <PlayAlongOverlay
                       highlightedNotes={isPlaying && currentStep ? [currentStep] : []}
-                      arpeggioNotes={chordNotes}
+                      arpeggioNotes={playNotes}
                       currentStep={isPlaying ? currentStepIdx : -1}
                       onCorrectNote={handleCorrectNote}
                       onIncorrectNote={handleIncorrectNote}
@@ -868,7 +972,7 @@ function PlayAlong() {
                       }}>
                         <strong>C Major Debug:</strong><br/>
                         Current Step: {JSON.stringify(currentStep)}<br/>
-                        Chord Notes: {JSON.stringify(chordNotes)}<br/>
+                        Chord Notes: {JSON.stringify(playNotes)}<br/>
                         Is Playing: {isPlaying.toString()}<br/>
                         Current Step Index: {currentStepIdx}<br/>
                         Session Stats: {JSON.stringify(sessionStats)}
@@ -923,7 +1027,7 @@ function PlayAlong() {
               marginTop: "0.5rem",
               fontWeight: "400"
             }}>
-              Step {currentStepIdx + 1} of {chordNotes.length}
+              Step {currentStepIdx + 1} of {playNotes.length}
             </div>
           )}
         </div>
