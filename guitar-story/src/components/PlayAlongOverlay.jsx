@@ -61,6 +61,23 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
     // eslint-disable-next-line
   }, [modelWorkerId, arpeggioNotes, currentStep]);
 
+  // Determine the expected note for the current highlighted note
+  React.useEffect(() => {
+    if (highlightedNotes && highlightedNotes.length > 0) {
+      const n = highlightedNotes[0];
+      if (n) {
+        // Map stringIdx (1-6) to get note name correctly
+        const noteName = getNoteAtPosition(6 - n.stringIdx, n.fretNum);
+        setExpectedNote(noteName);
+      } else {
+        setExpectedNote(null);
+      }
+    } else {
+      setExpectedNote(null);
+    }
+    setLastFeedback(null); // Reset feedback on step change
+  }, [highlightedNotes]);
+
   function drawOverlay(predictions) {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
@@ -124,8 +141,8 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
         let xRot = xCenter + dx * Math.cos(angle) - dy * Math.sin(angle);
         let yRot = yCenter + dx * Math.sin(angle) + dy * Math.cos(angle);
         let noteName = getNoteAtPosition(stringIdx, fretNum);
-        // For arpeggio/highlight matching, map stringIdx so 0 is bottom (high E), 5 is top (low E)
-        const arpeggioStringIdx = 5 - stringIdx;
+        // For arpeggio/highlight matching, use correct string indexing (1-6 from CHORDS)
+        const arpeggioStringIdx = 6 - stringIdx; // Convert 0-5 to 1-6 (inverted)
         // Highlight if in highlightedNotes (compare using arpeggioStringIdx)
         let isHighlighted = safeHighlightedNotes.some(n => n && n.fretNum === fretNum && n.stringIdx === arpeggioStringIdx);
         let isArpeggio = false;
