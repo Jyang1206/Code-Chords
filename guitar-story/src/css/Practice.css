@@ -32,6 +32,36 @@
     text-align: center;
 }
 
+/* Practice page layout */
+.practice-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.practice-section {
+  background: var(--space-card-bg, #1a1b26);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 32px;
+  box-shadow: 0 4px 16px var(--space-shadow, rgba(0, 0, 0, 0.3));
+  border: 1px solid var(--space-border, #2d3250);
+}
+
+.practice-section h2 {
+  color: var(--space-star, #f7c873);
+  margin-bottom: 8px;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.practice-section p {
+  color: var(--space-text, #a3bffa);
+  margin-bottom: 20px;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
 /* Camera permission message styling */
 .camera-permission-message {
   background: var(--space-card-bg);

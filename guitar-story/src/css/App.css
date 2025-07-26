@@ -3,10 +3,6 @@
   margin: 0 auto;
   padding: 2rem;
   text-align: center;
-  background: var(--space-bg);
-  color: var(--space-text);
-  background-image: var(--space-star-bg), var(--space-bg);
-  background-blend-mode: lighten, normal;
 }
 
 .logo {
@@ -51,15 +47,17 @@
 
 /* Light mode overrides for App.css */
 .light-mode #root {
-  background: var(--space-bg-light) !important;
-  color: var(--space-shadow) !important;
-  background-image: var(--space-star-bg), var(--space-bg-light) !important;
+  background: var(--space-bg-light);
+  color: var(--space-text-light);
+  background-image: var(--space-star-bg), var(--space-bg-light);
 }
+
 .light-mode .card {
-  background: var(--space-card-bg-light) !important;
-  color: var(--space-shadow) !important;
+  background: var(--space-card-bg-light);
+  color: var(--space-text-light);
   box-shadow: 0 2px 12px var(--space-accent2);
 }
+
 .light-mode .read-the-docs {
-  color: var(--space-accent2) !important;
+  color: var(--space-accent2);
 }
