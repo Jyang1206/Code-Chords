@@ -111,19 +111,36 @@ class ScoreboardService {
   // Update user stats with session data by UID
   static async updateUserStatsWithSessionData(uid, displayName, correctNotes, totalNotes, additionalScore = 0) {
     try {
+      console.log(`[SCOREBOARD DEBUG] Updating user stats:`, {
+        uid,
+        displayName,
+        correctNotes,
+        totalNotes,
+        additionalScore
+      });
+      
       // Get current stats
       const statsResult = await UserService.getUserStats(uid);
       if (!statsResult.success) {
+        console.error('[SCOREBOARD DEBUG] Failed to get user stats:', statsResult.error);
         return statsResult;
       }
 
       let currentStats = statsResult.data;
+      console.log(`[SCOREBOARD DEBUG] Current stats:`, currentStats);
 
       // Update stats
       const newCorrectNotes = currentStats.correctNotes + correctNotes;
       const newTotalNotes = currentStats.totalNotes + totalNotes;
       const newTotalScore = currentStats.totalScore + additionalScore;
       const newAccuracy = newTotalNotes > 0 ? Math.round((newCorrectNotes / newTotalNotes) * 100) : 0;
+
+      console.log(`[SCOREBOARD DEBUG] New stats calculation:`, {
+        newCorrectNotes,
+        newTotalNotes,
+        newTotalScore,
+        newAccuracy
+      });
 
       const updatedStats = {
         totalScore: newTotalScore,
@@ -134,6 +151,8 @@ class ScoreboardService {
         lastUpdated: serverTimestamp()
       };
 
+      console.log(`[SCOREBOARD DEBUG] Updated stats to save:`, updatedStats);
+
       // Update user stats
       await UserService.updateUserStats(uid, updatedStats);
 
@@ -141,6 +160,8 @@ class ScoreboardService {
       const profileResult = await UserService.getUserProfile(uid);
       if (profileResult.success) {
         const userEmail = profileResult.data.email;
+        
+        console.log(`[SCOREBOARD DEBUG] Updating leaderboard for:`, userEmail);
         
         // Update leaderboard with user's new stats
         await this.updateLeaderboard(userEmail, {
