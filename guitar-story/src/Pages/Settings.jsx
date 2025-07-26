@@ -17,6 +17,15 @@ function Settings() {
     };
   }, []);
 
+  // Debug logging
+  console.log('Current light mode state:', lightMode);
+  console.log('Theme context available:', !!useContext(ThemeContext));
+
+  const handleThemeToggle = () => {
+    console.log('Toggling theme from:', lightMode, 'to:', !lightMode);
+    setLightMode((prev) => !prev);
+  };
+
   return (
     <div className="settings-content">
       <h1>Settings</h1>
@@ -30,9 +39,12 @@ function Settings() {
           id="mode-toggle"
           type="checkbox"
           checked={lightMode}
-          onChange={() => setLightMode((prev) => !prev)}
+          onChange={handleThemeToggle}
         />
       </div>
+      <p style={{ marginTop: '1rem', fontSize: '0.9rem', opacity: 0.7 }}>
+        Current theme: {lightMode ? 'Light' : 'Dark'}
+      </p>
     </div>
   );
 }

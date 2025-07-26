@@ -35,6 +35,7 @@ function App() {
   return (
     <AuthProvider>
       <SearchHistoryProvider>
+        <ThemeContext.Provider value={{ lightMode, setLightMode }}>
           <NavBar />
           <main className="main-content">
             <Routes>
@@ -52,6 +53,7 @@ function App() {
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
           </main>
+        </ThemeContext.Provider>
       </SearchHistoryProvider>
     </AuthProvider>
   );

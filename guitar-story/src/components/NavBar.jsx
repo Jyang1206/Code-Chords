@@ -5,8 +5,9 @@ import { ThemeContext } from "../App";
 
 function NavBar() {
     const { lightMode } = useContext(ThemeContext);
+    
     return (
-        <nav className={`navbar${lightMode ? " navbar-light" : " navbar-dark"}`}>
+        <nav className={`navbar ${lightMode ? 'navbar-light' : ''}`}>
             <div className="navbar-brand">
                 <Link to="/">Guitar Story</Link>
             </div>
