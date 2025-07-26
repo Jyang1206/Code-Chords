@@ -7,86 +7,83 @@ import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 
 const CHORDS_ORIGINAL = {
   "C Major": [
-    { stringIdx: 1, fretNum: 3, note: "C", isRoot: true }, // 5th string (A)
-    { stringIdx: 2, fretNum: 2, note: "E" },               // 4th string (D)
-    { stringIdx: 3, fretNum: 0, note: "G" },               // 3rd string (G)
-    { stringIdx: 4, fretNum: 1, note: "C" },               // 2nd string (B)
-    { stringIdx: 5, fretNum: 0, note: "E" },               // 1st string (high E)
+    { stringIdx: 5, fretNum: 3, note: "C", isRoot: true }, // 5th string
+    { stringIdx: 4, fretNum: 2, note: "E" },               // 4th string
+    { stringIdx: 3, fretNum: 0, note: "G" },               // 3rd string
+    { stringIdx: 2, fretNum: 1, note: "C" },               // 2nd string
+    { stringIdx: 1, fretNum: 0, note: "E" },               // 1st string
   ],
   "G Major": [
-    { stringIdx: 0, fretNum: 3, note: "G", isRoot: true }, // 6th string (low E)
-    { stringIdx: 1, fretNum: 2, note: "B" },               // 5th string (A)
-    { stringIdx: 2, fretNum: 0, note: "D" },               // 4th string (D)
-    { stringIdx: 3, fretNum: 0, note: "G" },               // 3rd string (G)
-    { stringIdx: 4, fretNum: 0, note: "B" },               // 2nd string (B)
-    { stringIdx: 5, fretNum: 3, note: "G" },               // 1st string (high E)
+    { stringIdx: 6, fretNum: 3, note: "G", isRoot: true }, // 6th string
+    { stringIdx: 5, fretNum: 2, note: "B" },               // 5th string
+    { stringIdx: 4, fretNum: 0, note: "D" },               // 4th string
+    { stringIdx: 3, fretNum: 0, note: "G" },               // 3rd string
+    { stringIdx: 2, fretNum: 0, note: "B" },               // 2nd string
+    { stringIdx: 1, fretNum: 3, note: "G" },               // 1st string
   ],
   "E Major": [
-    { stringIdx: 0, fretNum: 0, note: "E", isRoot: true }, // 6th string (low E)
-    { stringIdx: 1, fretNum: 2, note: "A" },               // 5th string (A)
-    { stringIdx: 2, fretNum: 2, note: "B" },               // 4th string (D)
-    { stringIdx: 3, fretNum: 1, note: "E" },               // 3rd string (G)
-    { stringIdx: 4, fretNum: 0, note: "B" },               // 2nd string (B)
-    { stringIdx: 5, fretNum: 0, note: "E" },               // 1st string (high E)
+    { stringIdx: 6, fretNum: 0, note: "E", isRoot: true }, // 6th string
+    { stringIdx: 5, fretNum: 2, note: "A" },               // 5th string
+    { stringIdx: 4, fretNum: 2, note: "B" },               // 4th string
+    { stringIdx: 3, fretNum: 1, note: "E" },               // 3rd string
+    { stringIdx: 2, fretNum: 0, note: "B" },               // 2nd string
+    { stringIdx: 1, fretNum: 0, note: "E" },               // 1st string
   ],
   "A Major": [
-    { stringIdx: 0, fretNum: 0, note: "E", mute: true },   // 6th string (low E, not played)
-    { stringIdx: 1, fretNum: 0, note: "A", isRoot: true }, // 5th string (A)
-    { stringIdx: 2, fretNum: 2, note: "D" },               // 4th string (D)
-    { stringIdx: 3, fretNum: 2, note: "F#" },              // 3rd string (G)
-    { stringIdx: 4, fretNum: 2, note: "A" },               // 2nd string (B)
-    { stringIdx: 5, fretNum: 0, note: "E" },               // 1st string (high E)
+    { stringIdx: 6, fretNum: 0, note: "E", mute: true },   // 6th string (not played)
+    { stringIdx: 5, fretNum: 0, note: "A", isRoot: true }, // 5th string
+    { stringIdx: 4, fretNum: 2, note: "D" },               // 4th string
+    { stringIdx: 3, fretNum: 2, note: "F#" },              // 3rd string
+    { stringIdx: 2, fretNum: 2, note: "A" },               // 2nd string
+    { stringIdx: 1, fretNum: 0, note: "E" },               // 1st string
   ],
   "D Major": [
-    { stringIdx: 0, fretNum: 0, note: "E", mute: true },   // 6th string (low E, not played)
-    { stringIdx: 1, fretNum: 0, note: "A", mute: true },   // 5th string (A, not played)
-    { stringIdx: 2, fretNum: 0, note: "D", isRoot: true }, // 4th string (D)
-    { stringIdx: 3, fretNum: 2, note: "A" },               // 3rd string (G)
-    { stringIdx: 4, fretNum: 3, note: "F#" },              // 2nd string (B)
-    { stringIdx: 5, fretNum: 2, note: "D" },               // 1st string (high E)
+    { stringIdx: 6, fretNum: 0, note: "E", mute: true },   // 6th string (not played)
+    { stringIdx: 5, fretNum: 0, note: "A", mute: true },   // 5th string (not played)
+    { stringIdx: 4, fretNum: 0, note: "D", isRoot: true }, // 4th string
+    { stringIdx: 3, fretNum: 2, note: "A" },               // 3rd string
+    { stringIdx: 2, fretNum: 3, note: "F#" },              // 2nd string
+    { stringIdx: 1, fretNum: 2, note: "D" },               // 1st string
   ],
 };
 
+// Remove the mapping since CHORDS_ORIGINAL now uses 0-5 indexing
 const CHORDS = Object.fromEntries(
   Object.entries(CHORDS_ORIGINAL).map(([chord, notes]) => [
     chord,
-    notes
-      .filter(n => !n.mute)
-      .map(n => ({ ...n, stringIdx: 6 - n.stringIdx }))
+    notes.filter(n => !n.mute)
   ])
 );
 
 // --- SONGS DATA ---
 const SONGS = {
   "Ode to Joy": [
-    // Ode to Joy (first phrase, in G major)
-    // stringIdx: 0 = 6th string (low E), 5 = 1st string (high E)
-    { stringIdx: 2, fretNum: 0, note: "B", duration: 1 }, // 5th string (A) open
-    { stringIdx: 2, fretNum: 0, note: "B", duration: 1 }, // 5th string (A) open
-    { stringIdx: 2, fretNum: 1, note: "C", duration: 1 }, // 5th string (A) fret 1
-    { stringIdx: 2, fretNum: 3, note: "D", duration: 1 }, // 5th string (A) fret 2
-    { stringIdx: 2, fretNum: 3, note: "D", duration: 1 }, // 5th string (A) fret 2
-    { stringIdx: 2, fretNum: 1, note: "C", duration: 1 }, // 5th string (A) fret 1
-    { stringIdx: 2, fretNum: 0, note: "B", duration: 1 }, // 5th string (A) open
-    { stringIdx: 3, fretNum: 2, note: "A", duration: 1 }, // 4th string (D) fret 2
-    { stringIdx: 3, fretNum: 0, note: "G", duration: 1 }, // 4th string (D) open
-    { stringIdx: 3, fretNum: 0, note: "G", duration: 1 }, // 4th string (D) open
-    { stringIdx: 3, fretNum: 2, note: "A", duration: 1 }, // 4th string (D) fret 2
-    { stringIdx: 3, fretNum: 4, note: "B", duration: 1 }, // 4th string (D) fret 4
-    { stringIdx: 3, fretNum: 4, note: "B", duration: 2 }, // 4th string (D) fret 4
-    { stringIdx: 3, fretNum: 2, note: "A", duration: 0.5 }, // 4th string (D) fret 2
-    { stringIdx: 3, fretNum: 2, note: "A", duration: 0.5 }, // 4th string (D) fret 2
+    //1 to 6 indexing, 6th string is the lowest E, 1st string is the highest E
+    { stringIdx: 2, fretNum: 0, note: "B", duration: 1 }, // 2nd string
+    { stringIdx: 2, fretNum: 0, note: "B", duration: 1 }, // 2nd string
+    { stringIdx: 2, fretNum: 1, note: "C", duration: 1 }, // 2nd string
+    { stringIdx: 2, fretNum: 3, note: "D", duration: 1 }, // 2nd string
+    { stringIdx: 2, fretNum: 3, note: "D", duration: 1 }, // 2nd string
+    { stringIdx: 2, fretNum: 1, note: "C", duration: 1 }, // 2nd string
+    { stringIdx: 2, fretNum: 0, note: "B", duration: 1 }, // 2nd string
+    { stringIdx: 3, fretNum: 2, note: "A", duration: 1 }, // 3rd string
+    { stringIdx: 3, fretNum: 0, note: "G", duration: 1 }, // 3rd string
+    { stringIdx: 3, fretNum: 0, note: "G", duration: 1 }, // 3rd string
+    { stringIdx: 3, fretNum: 2, note: "A", duration: 1 }, // 3rd string
+    { stringIdx: 3, fretNum: 4, note: "B", duration: 1 }, // 3rd string
+    { stringIdx: 3, fretNum: 4, note: "B", duration: 2 }, // 3rd string
+    { stringIdx: 3, fretNum: 2, note: "A", duration: 0.5 }, // 3rd string
+    { stringIdx: 3, fretNum: 2, note: "A", duration: 0.5 }, // 3rd string
   ],
   "Twinkle Twinkle Little Star": [
-    // Twinkle Twinkle Little Star
-    // stringIdx: 0 = 6th string (low E), 5 = 1st string (high E)
-    { stringIdx: 3, fretNum: 0, note: "D", duration: 1 }, // 4th string (D) open
-    { stringIdx: 3, fretNum: 0, note: "D", duration: 1 }, // 4th string (D) open
-    { stringIdx: 3, fretNum: 2, note: "A", duration: 1 }, // 4th string (D) fret 2
-    { stringIdx: 3, fretNum: 2, note: "A", duration: 1 }, // 4th string (D) fret 2
-    { stringIdx: 2, fretNum: 0, note: "B", duration: 1 }, // 5th string (A) open
-    { stringIdx: 2, fretNum: 0, note: "B", duration: 1 }, // 5th string (A) open
-    { stringIdx: 3, fretNum: 2, note: "A", duration: 2 }, // 4th string (D) fret 2
+    //1 to 6 indexing, 6th string is the lowest E, 1st string is the highest E
+    { stringIdx: 4, fretNum: 0, note: "D", duration: 1 }, // 4th string
+    { stringIdx: 4, fretNum: 0, note: "D", duration: 1 }, // 4th string
+    { stringIdx: 3, fretNum: 2, note: "A", duration: 1 }, // 3rd string
+    { stringIdx: 3, fretNum: 2, note: "A", duration: 1 }, // 3rd string
+    { stringIdx: 3, fretNum: 0, note: "B", duration: 1 }, // 3rd string
+    { stringIdx: 3, fretNum: 0, note: "B", duration: 1 }, // 3rd string
+    { stringIdx: 3, fretNum: 2, note: "A", duration: 2 }, // 3rd string
     // ...
   ]
 };
@@ -150,8 +147,7 @@ const TabOverlay = ({ playNotes, currentStepIdx, isPlaying }) => {
             fontWeight: '500',
             marginBottom: '2px'
           }}>
-            {note.stringIdx === 0 ? '6' : note.stringIdx === 1 ? '5' : note.stringIdx === 2 ? '4' : 
-             note.stringIdx === 3 ? '3' : note.stringIdx === 4 ? '2' : '1'}-{note.fretNum}
+            {note.stringIdx}-{note.fretNum}
           </div>
           <div style={{
             fontSize: '10px',
