@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { ScoreboardService } from "../services/scoreboardService";
+import { MigrationHelper } from "../utils/migrationHelper";
+import { createLeaderboardCollection, checkLeaderboardExists, addTestEntry } from "../utils/createLeaderboard";
 
 function Scoreboard() {
   const { currentUser } = useAuth();
@@ -9,6 +11,76 @@ function Scoreboard() {
   const [loading, setLoading] = useState(true);
   const [leaderboardError, setLeaderboardError] = useState(null);
   const [userStatsError, setUserStatsError] = useState(null);
+  const [testResult, setTestResult] = useState(null);
+
+  // Test leaderboard update function
+  const testLeaderboardUpdate = async () => {
+    if (!currentUser) return;
+    
+    try {
+      setTestResult('Testing...');
+      const result = await MigrationHelper.testLeaderboardUpdate(currentUser);
+      setTestResult(result.success ? 'Test completed successfully!' : `Test failed: ${result.error}`);
+      console.log('Test result:', result);
+    } catch (error) {
+      setTestResult(`Test error: ${error.message}`);
+      console.error('Test error:', error);
+    }
+  };
+
+  // Create leaderboard collection
+  const handleCreateLeaderboard = async () => {
+    try {
+      setTestResult('Creating leaderboard collection...');
+      const result = await createLeaderboardCollection();
+      if (result.success) {
+        setTestResult('✅ Leaderboard collection created!');
+        // Reload the page data
+        setTimeout(() => window.location.reload(), 1000);
+      } else {
+        setTestResult(`❌ Creation failed: ${result.error}`);
+      }
+    } catch (error) {
+      setTestResult(`Creation error: ${error.message}`);
+      console.error('Creation error:', error);
+    }
+  };
+
+  // Check if leaderboard exists
+  const handleCheckLeaderboard = async () => {
+    try {
+      setTestResult('Checking leaderboard...');
+      const result = await checkLeaderboardExists();
+      if (result.exists) {
+        setTestResult('✅ Leaderboard exists!');
+      } else {
+        setTestResult('❌ Leaderboard does not exist');
+      }
+    } catch (error) {
+      setTestResult(`Check error: ${error.message}`);
+      console.error('Check error:', error);
+    }
+  };
+
+  // Add test entry
+  const handleAddTestEntry = async () => {
+    if (!currentUser) return;
+    
+    try {
+      setTestResult('Adding test entry...');
+      const result = await addTestEntry(currentUser);
+      if (result.success) {
+        setTestResult('✅ Test entry added!');
+        // Reload the page data
+        setTimeout(() => window.location.reload(), 1000);
+      } else {
+        setTestResult(`❌ Failed to add entry: ${result.error}`);
+      }
+    } catch (error) {
+      setTestResult(`Add error: ${error.message}`);
+      console.error('Add error:', error);
+    }
+  };
 
   useEffect(() => {
     if (!currentUser) return;
@@ -101,41 +173,24 @@ function Scoreboard() {
       minHeight: "100vh",
       background: "linear-gradient(135deg, #0c0e1a 0%, #1a1b2e 50%, #2d1b69 100%)",
       color: "#fff",
-      padding: "2rem 0"
+      padding: "2rem"
     }}>
       <div style={{
         maxWidth: "1200px",
         margin: "0 auto",
-        padding: "0 2rem"
+        display: "flex",
+        flexDirection: "column",
+        gap: "2rem"
       }}>
-        {/* Header */}
-        <div style={{
+        <h1 style={{
+          fontSize: "3rem",
+          fontWeight: "700",
+          color: "#90caf9",
           textAlign: "center",
-          marginBottom: "3rem"
+          marginBottom: "1rem"
         }}>
-          <h1 style={{
-            fontSize: "3.5rem",
-            fontWeight: "700",
-            margin: "0 0 1rem 0",
-            background: "linear-gradient(45deg, #90caf9, #7e57c2, #f48fb1)",
-            backgroundClip: "text",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            textShadow: "0 0 30px rgba(144, 202, 249, 0.3)",
-            letterSpacing: "2px"
-          }}>
-            SCOREBOARD
-          </h1>
-          <p style={{
-            fontSize: "1.2rem",
-            color: "#b0bec5",
-            margin: "0",
-            fontWeight: "300",
-            letterSpacing: "1px"
-          }}>
-            Track your progress and compete with others
-          </p>
-        </div>
+          Scoreboard
+        </h1>
 
         {/* Error Messages */}
         {leaderboardError && (
@@ -144,47 +199,119 @@ function Scoreboard() {
             border: "1px solid rgba(244, 67, 54, 0.3)",
             borderRadius: "12px",
             padding: "1rem",
-            marginBottom: "2rem",
-            textAlign: "center"
+            color: "#f44336"
           }}>
-            <div style={{ color: "#f44336", fontWeight: "600", marginBottom: "0.5rem" }}>
-              ⚠️ Error Loading Leaderboard
-            </div>
-            <div style={{ color: "#b0bec5", fontSize: "0.9rem" }}>
-              {leaderboardError}
-            </div>
+            <strong>Leaderboard Error:</strong> {leaderboardError}
           </div>
         )}
 
         {userStatsError && (
           <div style={{
-            background: "rgba(255, 152, 0, 0.1)",
-            border: "1px solid rgba(255, 152, 0, 0.3)",
+            background: "rgba(244, 67, 54, 0.1)",
+            border: "1px solid rgba(244, 67, 54, 0.3)",
             borderRadius: "12px",
             padding: "1rem",
-            marginBottom: "2rem",
-            textAlign: "center"
+            color: "#f44336"
           }}>
-            <div style={{ color: "#ff9800", fontWeight: "600", marginBottom: "0.5rem" }}>
-              ⚠️ Error Loading User Stats
-            </div>
-            <div style={{ color: "#b0bec5", fontSize: "0.9rem" }}>
-              {userStatsError}
-            </div>
+            <strong>User Stats Error:</strong> {userStatsError}
           </div>
         )}
 
-        {/* Debug Stats */}
+        {/* Test Button Section */}
         <div style={{
-          background: "rgba(0, 0, 0, 0.7)",
-          padding: "0.5rem 1rem",
-          borderRadius: "8px",
-          fontSize: "0.8rem",
-          color: "#fff",
-          marginBottom: "1rem",
+          background: "rgba(255, 193, 7, 0.1)",
+          border: "1px solid rgba(255, 193, 7, 0.3)",
+          borderRadius: "12px",
+          padding: "1rem",
           textAlign: "center"
         }}>
-          <div>User: {currentUser.email} | Leaderboard entries: {leaderboard.length} | User stats loaded: {userStats ? 'Yes' : 'No'}</div>
+          <h3 style={{ color: "#ffc107", marginBottom: "1rem" }}>Leaderboard Setup & Testing</h3>
+          
+          <div style={{
+            display: "flex",
+            gap: "1rem",
+            justifyContent: "center",
+            flexWrap: "wrap",
+            marginBottom: "1rem"
+          }}>
+            <button
+              onClick={handleCreateLeaderboard}
+              style={{
+                background: "linear-gradient(45deg, #4caf50, #45a049)",
+                color: "#fff",
+                border: "none",
+                padding: "0.75rem 1.5rem",
+                borderRadius: "8px",
+                fontSize: "0.9rem",
+                fontWeight: "600",
+                cursor: "pointer"
+              }}
+            >
+              Create Leaderboard Collection
+            </button>
+            
+            <button
+              onClick={handleCheckLeaderboard}
+              style={{
+                background: "linear-gradient(45deg, #2196f3, #1976d2)",
+                color: "#fff",
+                border: "none",
+                padding: "0.75rem 1.5rem",
+                borderRadius: "8px",
+                fontSize: "0.9rem",
+                fontWeight: "600",
+                cursor: "pointer"
+              }}
+            >
+              Check Leaderboard Exists
+            </button>
+            
+            <button
+              onClick={handleAddTestEntry}
+              style={{
+                background: "linear-gradient(45deg, #ffc107, #ff9800)",
+                color: "#000",
+                border: "none",
+                padding: "0.75rem 1.5rem",
+                borderRadius: "8px",
+                fontSize: "0.9rem",
+                fontWeight: "600",
+                cursor: "pointer"
+              }}
+            >
+              Add Test Entry
+            </button>
+            
+            <button
+              onClick={testLeaderboardUpdate}
+              style={{
+                background: "linear-gradient(45deg, #9c27b0, #7b1fa2)",
+                color: "#fff",
+                border: "none",
+                padding: "0.75rem 1.5rem",
+                borderRadius: "8px",
+                fontSize: "0.9rem",
+                fontWeight: "600",
+                cursor: "pointer"
+              }}
+            >
+              Test Full Update
+            </button>
+          </div>
+          
+          {testResult && (
+            <div style={{
+              color: testResult.includes('✅') ? "#4caf50" : testResult.includes('❌') ? "#f44336" : "#ffc107",
+              fontSize: "0.9rem",
+              fontWeight: "500",
+              padding: "0.5rem",
+              borderRadius: "4px",
+              background: testResult.includes('✅') ? "rgba(76, 175, 80, 0.1)" : 
+                        testResult.includes('❌') ? "rgba(244, 67, 54, 0.1)" : "rgba(255, 193, 7, 0.1)"
+            }}>
+              {testResult}
+            </div>
+          )}
         </div>
 
         {/* User Stats Section */}
@@ -194,7 +321,6 @@ function Scoreboard() {
             backdropFilter: "blur(10px)",
             borderRadius: "20px",
             padding: "2rem",
-            marginBottom: "3rem",
             border: "1px solid rgba(255, 255, 255, 0.1)",
             boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)"
           }}>
@@ -301,15 +427,15 @@ function Scoreboard() {
               gap: "1rem"
             }}>
               {leaderboard.map((entry, index) => (
-                <div key={entry.userId} style={{
+                <div key={entry.email} style={{
                   display: "flex",
                   alignItems: "center",
                   padding: "1rem",
-                  background: entry.userId === currentUser.uid 
+                  background: entry.email === currentUser.email 
                     ? "rgba(144, 202, 249, 0.2)" 
                     : "rgba(255, 255, 255, 0.05)",
                   borderRadius: "12px",
-                  border: entry.userId === currentUser.uid 
+                  border: entry.email === currentUser.email 
                     ? "2px solid rgba(144, 202, 249, 0.5)" 
                     : "1px solid rgba(255, 255, 255, 0.1)"
                 }}>
@@ -330,7 +456,7 @@ function Scoreboard() {
                       fontWeight: "600",
                       color: "#fff"
                     }}>
-                      {entry.userName}
+                      {entry.displayName}
                     </div>
                     <div style={{
                       fontSize: "0.9rem",

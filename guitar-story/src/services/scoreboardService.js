@@ -1,194 +1,58 @@
 import { db } from "../firebase";
-import { 
-  doc, 
-  setDoc, 
-  getDoc, 
-  updateDoc, 
-  collection, 
-  query, 
-  orderBy, 
-  limit, 
+import {
+  doc,
+  setDoc,
+  getDoc,
+  updateDoc,
+  collection,
+  query,
+  orderBy,
+  limit,
   getDocs,
   serverTimestamp,
   onSnapshot
 } from "firebase/firestore";
+import { UserService } from "./userService";
 
 class ScoreboardService {
-  // Add a score entry
-  static async addScore(userId, userName, score, chordName, isCorrect) {
+  // Update leaderboard with email-based user data
+  static async updateLeaderboard(email, userData) {
     try {
-      const scoreRef = doc(collection(db, 'scores'));
-      await setDoc(scoreRef, {
-        userId,
-        userName,
-        score,
-        chordName,
-        isCorrect,
-        timestamp: serverTimestamp()
-      });
-      
-      return { success: true };
-    } catch (error) {
-      console.error('Error adding score:', error);
-      
-      // Handle permission errors gracefully
-      if (error.message.includes('permission') || error.message.includes('Permission') || error.code === 'permission-denied') {
-        console.log('Permission denied for adding score, skipping');
-        return { success: true }; // Don't treat permission errors as failures
-      }
-      
-      return { success: false, error: error.message };
-    }
-  }
-
-  // Get user stats
-  static async getUserStats(userId) {
-    try {
-      const userStatsRef = doc(db, 'user-stats', userId);
-      const userStatsDoc = await getDoc(userStatsRef);
-      
-      if (userStatsDoc.exists()) {
-        return { success: true, data: userStatsDoc.data() };
-      } else {
-        // Return default stats if user doesn't have stats yet
-        return { 
-          success: true, 
-          data: {
-            totalScore: 0,
-            correctNotes: 0,
-            totalNotes: 0,
-            accuracy: 0,
-            lastUpdated: null
-          }
-        };
-      }
-    } catch (error) {
-      console.error('Error getting user stats:', error);
-      
-      // Handle permission errors gracefully
-      if (error.message.includes('permission') || error.message.includes('Permission') || error.code === 'permission-denied') {
-        console.log('Permission denied for user stats, returning default stats');
-        return { 
-          success: true, 
-          data: {
-            totalScore: 0,
-            correctNotes: 0,
-            totalNotes: 0,
-            accuracy: 0,
-            lastUpdated: null
-          }
-        };
-      }
-      
-      return { success: false, error: error.message };
-    }
-  }
-
-  // Update user stats with session data
-  static async updateUserStatsWithSessionData(userId, userName, correctNotes, totalNotes, additionalScore = 0) {
-    try {
-      const userStatsRef = doc(db, 'user-stats', userId);
-      const userStatsDoc = await getDoc(userStatsRef);
-      
-      let currentStats = {
-        totalScore: 0,
-        correctNotes: 0,
-        totalNotes: 0,
-        accuracy: 0,
-        lastUpdated: null
-      };
-      
-      if (userStatsDoc.exists()) {
-        currentStats = userStatsDoc.data();
-      }
-      
-      // Update stats
-      const newCorrectNotes = currentStats.correctNotes + correctNotes;
-      const newTotalNotes = currentStats.totalNotes + totalNotes;
-      const newTotalScore = currentStats.totalScore + additionalScore;
-      const newAccuracy = newTotalNotes > 0 ? Math.round((newCorrectNotes / newTotalNotes) * 100) : 0;
-      
-      const updatedStats = {
-        userId,
-        userName,
-        totalScore: newTotalScore,
-        correctNotes: newCorrectNotes,
-        totalNotes: newTotalNotes,
-        accuracy: newAccuracy,
-        lastUpdated: serverTimestamp()
-      };
-      
-      await setDoc(userStatsRef, updatedStats);
-      
-      // Update leaderboard
-      await this.updateLeaderboard(userId, userName, newTotalScore, newAccuracy, newCorrectNotes, newTotalNotes);
-      
-      return { success: true, data: updatedStats };
-    } catch (error) {
-      console.error('Error updating user stats:', error);
-      
-      // Handle permission errors gracefully
-      if (error.message.includes('permission') || error.message.includes('Permission') || error.code === 'permission-denied') {
-        console.log('Permission denied for updating user stats, skipping update');
-        return { 
-          success: true, 
-          data: {
-            totalScore: 0,
-            correctNotes: 0,
-            totalNotes: 0,
-            accuracy: 0,
-            lastUpdated: null
-          }
-        };
-      }
-      
-      return { success: false, error: error.message };
-    }
-  }
-
-  // Update leaderboard
-  static async updateLeaderboard(userId, userName, totalScore, accuracy, correctNotes, totalNotes) {
-    try {
-      const leaderboardRef = doc(db, 'scoreboard-db', 'leaderboard');
+      const leaderboardRef = doc(db, 'leaderboard', 'global');
       const leaderboardDoc = await getDoc(leaderboardRef);
       
-      let leaderboard = [];
+      let scores = [];
       if (leaderboardDoc.exists()) {
-        leaderboard = leaderboardDoc.data().scores || [];
+        scores = leaderboardDoc.data().scores || [];
       }
       
-      // Find existing user entry
-      const existingUserIndex = leaderboard.findIndex(entry => entry.userId === userId);
-      
+      // Update or add user entry
+      const existingIndex = scores.findIndex(entry => entry.email === email);
       const userEntry = {
-        userId,
-        userName,
-        totalScore,
-        accuracy,
-        correctNotes,
-        totalNotes,
-        lastUpdated: new Date()
+        email: email,
+        displayName: userData.displayName || email.split('@')[0],
+        totalScore: userData.totalScore,
+        accuracy: userData.accuracy,
+        correctNotes: userData.correctNotes,
+        totalNotes: userData.totalNotes,
+        lastUpdated: new Date().toISOString() // Use ISO string instead of serverTimestamp
       };
       
-      if (existingUserIndex !== -1) {
-        // Update existing entry
-        leaderboard[existingUserIndex] = userEntry;
+      if (existingIndex !== -1) {
+        scores[existingIndex] = userEntry;
       } else {
-        // Add new entry
-        leaderboard.push(userEntry);
+        scores.push(userEntry);
       }
       
-      // Sort by total score (descending)
-      leaderboard.sort((a, b) => b.totalScore - a.totalScore);
-      
-      // Keep only top 50 entries
-      leaderboard = leaderboard.slice(0, 50);
+      // Sort and limit
+      scores.sort((a, b) => b.totalScore - a.totalScore);
+      scores = scores.slice(0, 50);
       
       await setDoc(leaderboardRef, {
-        scores: leaderboard,
-        lastUpdated: serverTimestamp()
+        scores,
+        lastUpdated: serverTimestamp() // Only use serverTimestamp at document level
       });
-      
+
       return { success: true };
     } catch (error) {
       console.error('Error updating leaderboard:', error);
@@ -199,7 +63,7 @@ class ScoreboardService {
   // Subscribe to leaderboard updates
   static subscribeToLeaderboard(callback) {
     try {
-      const leaderboardRef = doc(db, 'scoreboard-db', 'leaderboard');
+      const leaderboardRef = doc(db, 'leaderboard', 'global');
       
       return onSnapshot(leaderboardRef, (doc) => {
         if (doc.exists()) {
@@ -221,9 +85,9 @@ class ScoreboardService {
   // Ensure leaderboard exists
   static async ensureLeaderboardExists() {
     try {
-      const leaderboardRef = doc(db, 'scoreboard-db', 'leaderboard');
+      const leaderboardRef = doc(db, 'leaderboard', 'global');
       const leaderboardDoc = await getDoc(leaderboardRef);
-      
+
       if (!leaderboardDoc.exists()) {
         await setDoc(leaderboardRef, {
           scores: [],
@@ -231,7 +95,7 @@ class ScoreboardService {
         });
         console.log('Leaderboard created successfully');
       }
-      
+
       return { success: true };
     } catch (error) {
       console.error('Error ensuring leaderboard exists:', error);
@@ -239,19 +103,105 @@ class ScoreboardService {
     }
   }
 
-  // Get top scores
+  // Get user stats by UID
+  static async getUserStats(uid) {
+    return await UserService.getUserStats(uid);
+  }
+
+  // Update user stats with session data by UID
+  static async updateUserStatsWithSessionData(uid, displayName, correctNotes, totalNotes, additionalScore = 0) {
+    try {
+      // Get current stats
+      const statsResult = await UserService.getUserStats(uid);
+      if (!statsResult.success) {
+        return statsResult;
+      }
+
+      let currentStats = statsResult.data;
+
+      // Update stats
+      const newCorrectNotes = currentStats.correctNotes + correctNotes;
+      const newTotalNotes = currentStats.totalNotes + totalNotes;
+      const newTotalScore = currentStats.totalScore + additionalScore;
+      const newAccuracy = newTotalNotes > 0 ? Math.round((newCorrectNotes / newTotalNotes) * 100) : 0;
+
+      const updatedStats = {
+        totalScore: newTotalScore,
+        correctNotes: newCorrectNotes,
+        totalNotes: newTotalNotes,
+        accuracy: newAccuracy,
+        sessionsPlayed: currentStats.sessionsPlayed + 1,
+        lastUpdated: serverTimestamp()
+      };
+
+      // Update user stats
+      await UserService.updateUserStats(uid, updatedStats);
+
+      // Get user profile to get email for leaderboard
+      const profileResult = await UserService.getUserProfile(uid);
+      if (profileResult.success) {
+        const userEmail = profileResult.data.email;
+        
+        // Update leaderboard with user's new stats
+        await this.updateLeaderboard(userEmail, {
+          displayName: displayName || profileResult.data.displayName,
+          totalScore: newTotalScore,
+          accuracy: newAccuracy,
+          correctNotes: newCorrectNotes,
+          totalNotes: newTotalNotes
+        });
+        
+        console.log('Updated leaderboard for user:', userEmail);
+      } else {
+        console.warn('Could not get user profile for leaderboard update');
+      }
+
+      return { success: true, data: updatedStats };
+    } catch (error) {
+      console.error('Error updating user stats with session data:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Add a score entry by UID
+  static async addScore(uid, displayName, score, chordName, isCorrect) {
+    try {
+      // Get user profile to get email
+      const profileResult = await UserService.getUserProfile(uid);
+      const userEmail = profileResult.success ? profileResult.data.email : 'unknown@user.com';
+      
+      const scoreData = {
+        uid,
+        email: userEmail,
+        displayName,
+        score,
+        chordName,
+        isCorrect,
+        timestamp: serverTimestamp()
+      };
+
+      // Add to user's scores subcollection
+      await UserService.addUserScore(uid, scoreData);
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error adding score:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Get top scores from all users
   static async getTopScores(limit = 10) {
     try {
-      const scoresRef = collection(db, 'scores');
-      const scoresQuery = query(scoresRef, orderBy('timestamp', 'desc'), limit(limit));
-      const scoresSnapshot = await getDocs(scoresQuery);
+      const leaderboardRef = doc(db, 'leaderboard', 'global');
+      const leaderboardDoc = await getDoc(leaderboardRef);
       
-      const scores = [];
-      scoresSnapshot.forEach((doc) => {
-        scores.push({ id: doc.id, ...doc.data() });
-      });
+      if (leaderboardDoc.exists()) {
+        const scores = leaderboardDoc.data().scores || [];
+        return { success: true, data: scores.slice(0, limit) };
+      }
       
-      return { success: true, data: scores };
+      return { success: true, data: [] };
     } catch (error) {
       console.error('Error getting top scores:', error);
       return { success: false, error: error.message };

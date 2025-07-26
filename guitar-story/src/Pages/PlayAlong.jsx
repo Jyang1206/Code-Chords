@@ -112,7 +112,7 @@ function PlayAlong() {
     try {
       const result = await ScoreboardService.addScore(
         currentUser.uid,
-        currentUser.email || currentUser.displayName || 'Anonymous',
+        currentUser.displayName || currentUser.email.split('@')[0] || 'Anonymous',
         scorePoints,
         selectedChord,
         true
@@ -151,7 +151,7 @@ function PlayAlong() {
     if (currentUser) {
       ScoreboardService.addScore(
         currentUser.uid,
-        currentUser.email || currentUser.displayName || 'Anonymous',
+        currentUser.displayName || currentUser.email.split('@')[0] || 'Anonymous',
         0, // No points for incorrect note
         selectedChord,
         false // Mark as incorrect
@@ -199,13 +199,18 @@ function PlayAlong() {
       // Always use chord length for total notes, regardless of how many were played
       const result = await ScoreboardService.updateUserStatsWithSessionData(
         currentUser.uid,
-        currentUser.email || currentUser.displayName || 'Anonymous',
+        currentUser.displayName || currentUser.email.split('@')[0] || 'Anonymous',
         sessionStats.correct, // Use the correct count from session
         chordLength,          // Always use chord length for total notes
         totalPoints
       );
       
-      console.log('Final scoreboard updated with session data successfully');
+      if (result.success) {
+        console.log('Final scoreboard updated with session data successfully');
+        console.log('Updated stats:', result.data);
+      } else {
+        console.error('Failed to update scoreboard:', result.error);
+      }
     } catch (error) {
       console.error('Error updating final scoreboard:', error);
     }
