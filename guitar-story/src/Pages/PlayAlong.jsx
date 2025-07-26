@@ -2,55 +2,59 @@ import React, { useState, useRef } from "react";
 import PlayAlongOverlay from "../components/PlayAlongOverlay";
 import { useAuth } from "../contexts/AuthContext";
 import { ScoreboardService } from "../services/scoreboardService";
-import { firestore as db } from "../firebase";
+import { db } from "../firebase";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 
-const CHORDS = {
+const CHORDS_ORIGINAL = {
   "C Major": [
-    { stringIdx: 5, fretNum: 3, note: "C", isRoot: true }, 
-    { stringIdx: 4, fretNum: 2, note: "E" },             
-    { stringIdx: 3, fretNum: 0, note: "G" },               
-    { stringIdx: 2, fretNum: 1, note: "C" },              
-    { stringIdx: 1, fretNum: 0, note: "E" },               
-  ],
-  "D Major": [
-    { stringIdx: 4, fretNum: 0, note: "D", isRoot: true }, 
-    { stringIdx: 3, fretNum: 2, note: "A" },            
-    { stringIdx: 2, fretNum: 3, note: "F#" },      
-    { stringIdx: 1, fretNum: 2, note: "D" },              
+    { stringIdx: 1, fretNum: 3 }, // 5th string (A)
+    { stringIdx: 2, fretNum: 2 }, // 4th string (D)
+    { stringIdx: 3, fretNum: 0 }, // 3rd string (G)
+    { stringIdx: 4, fretNum: 1 }, // 2nd string (B)
+    { stringIdx: 5, fretNum: 0 }, // 1st string (high E)
   ],
   "G Major": [
-    { stringIdx: 6, fretNum: 3, note: "G", isRoot: true }, 
-    { stringIdx: 5, fretNum: 2, note: "B" },              
-    { stringIdx: 4, fretNum: 0, note: "D" },          
-    { stringIdx: 3, fretNum: 0, note: "G" },               
-    { stringIdx: 2, fretNum: 3, note: "B" },              
-    { stringIdx: 1, fretNum: 3, note: "G" },               
-  ],
-  "A Minor": [
-    { stringIdx: 5, fretNum: 0, note: "A", isRoot: true }, 
-    { stringIdx: 4, fretNum: 2, note: "E" },               
-    { stringIdx: 3, fretNum: 2, note: "A" },               
-    { stringIdx: 2, fretNum: 1, note: "C" },              
-    { stringIdx: 1, fretNum: 0, note: "E" },              
+    { stringIdx: 0, fretNum: 3 }, // 6th string (low E)
+    { stringIdx: 1, fretNum: 2 }, // 5th string (A)
+    { stringIdx: 2, fretNum: 0 }, // 4th string (D)
+    { stringIdx: 3, fretNum: 0 }, // 3rd string (G)
+    { stringIdx: 4, fretNum: 0 }, // 2nd string (B)
+    { stringIdx: 5, fretNum: 3 }, // 1st string (high E)
   ],
   "E Major": [
-    { stringIdx: 6, fretNum: 0, note: "E", isRoot: true }, 
-    { stringIdx: 5, fretNum: 2, note: "A" },               
-    { stringIdx: 4, fretNum: 2, note: "B" },               
-    { stringIdx: 3, fretNum: 1, note: "E" },               
-    { stringIdx: 2, fretNum: 0, note: "B" },             
-    { stringIdx: 1, fretNum: 0, note: "E" },               
+    { stringIdx: 0, fretNum: 0 }, // 6th string (low E)
+    { stringIdx: 1, fretNum: 2 }, // 5th string (A)
+    { stringIdx: 2, fretNum: 2 }, // 4th string (D)
+    { stringIdx: 3, fretNum: 1 }, // 3rd string (G)
+    { stringIdx: 4, fretNum: 0 }, // 2nd string (B)
+    { stringIdx: 5, fretNum: 0 }, // 1st string (high E)
   ],
-  "F Major": [
-    { stringIdx: 6, fretNum: 1, note: "F", isRoot: true }, 
-    { stringIdx: 5, fretNum: 3, note: "C" },               
-    { stringIdx: 4, fretNum: 3, note: "F" },              
-    { stringIdx: 3, fretNum: 2, note: "A" },             
-    { stringIdx: 2, fretNum: 1, note: "C" },               
-    { stringIdx: 1, fretNum: 1, note: "F" },             
+  "A Major": [
+    { stringIdx: 0, fretNum: 0 }, // 6th string (low E)
+    { stringIdx: 1, fretNum: 0 }, // 5th string (A)
+    { stringIdx: 2, fretNum: 2 }, // 4th string (D)
+    { stringIdx: 3, fretNum: 2 }, // 3rd string (G)
+    { stringIdx: 4, fretNum: 2 }, // 2nd string (B)
+    { stringIdx: 5, fretNum: 0 }, // 1st string (high E)
+  ],
+  "D Major": [
+    { stringIdx: 0, fretNum: 0, mute: true }, // 6th string (low E, not played)
+    { stringIdx: 1, fretNum: 0, mute: true }, // 5th string (A, not played)
+    { stringIdx: 2, fretNum: 0 }, // 4th string (D)
+    { stringIdx: 3, fretNum: 2 }, // 3rd string (G)
+    { stringIdx: 4, fretNum: 3 }, // 2nd string (B)
+    { stringIdx: 5, fretNum: 2 }, // 1st string (high E)
   ],
 };
+
+const CHORDS = Object.fromEntries(
+  Object.entries(CHORDS_ORIGINAL).map(([chord, notes]) => [
+    chord,
+    notes
+      .filter(n => !n.mute)
+      .map(n => ({ ...n, stringIdx: 5 - n.stringIdx }))
+  ])
+);
 
 function PlayAlong() {
   const { user } = useAuth();
@@ -175,7 +179,7 @@ function PlayAlong() {
           return idx;
         }
       });
-    }, 1200); // 1.2s per note for demo
+    }, 1200);
   };
 
   // Update final scoreboard when chord is completed
@@ -426,7 +430,7 @@ function PlayAlong() {
     }
   };
 
-    return (
+  return (
     <div style={{
       minHeight: "100vh",
       background: "linear-gradient(135deg, #0c0e1a 0%, #1a1b2e 50%, #2d1b69 100%)",
@@ -552,7 +556,7 @@ function PlayAlong() {
             alignItems: "center",
             gap: "1.5rem"
           }}>
-            {/* Arpeggio Selector */}
+            {/* Chord Selector */}
             <div style={{
               display: "flex",
               flexDirection: "column",
@@ -685,7 +689,7 @@ function PlayAlong() {
               >
                 🏆 Test Leaderboard
               </button>
-              
+
               <button
                 onClick={createLeaderboardWithTestData}
                 style={{
@@ -719,7 +723,7 @@ function PlayAlong() {
               >
                 📊 Test Note Counting
               </button>
-              
+
               <button
                 onClick={testChordCompletionWithoutPlaying}
                 style={{
@@ -736,7 +740,7 @@ function PlayAlong() {
               >
                 🎵 Test Chord Completion (No Play)
               </button>
-              
+
               <button
                 onClick={testStopPlayback}
                 style={{
@@ -799,7 +803,7 @@ function PlayAlong() {
             transition: "all 0.3s ease"
           }}>
             {isPlaying && currentStep
-              ? `Playing: ${currentStep.note} (String ${currentStep.stringIdx + 1}, Fret ${currentStep.fretNum})`
+              ? `Playing: String ${6 - currentStep.stringIdx} • Fret ${currentStep.fretNum}`
               : `Selected: ${selectedChord}`}
           </div>
           {isPlaying && (
