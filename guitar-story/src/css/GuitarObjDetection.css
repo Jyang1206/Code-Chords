@@ -6,42 +6,27 @@
   padding: 20px;
   min-height: 100vh;
   transition: all 0.3s ease;
-  background: var(--space-bg);
-  color: var(--space-text);
-  background-image: var(--space-star-bg), var(--space-bg);
-  background-blend-mode: lighten, normal;
 }
 
 .guitar-obj-detection.light {
-  background: var(--space-bg-light);
-  color: var(--space-text-light);
-  background-image: var(--space-star-bg), var(--space-bg-light);
+  background-color: #f8f9fa;
+  color: #333;
 }
 
 .guitar-obj-detection.dark {
-  background: var(--space-bg);
-  color: var(--space-text);
-  background-image: var(--space-star-bg), var(--space-bg);
-}
-
-.guitar-video-audio-row {
-  display: flex;
-  gap: 32px;
-  align-items: stretch;
-  width: 100%;
+  background-color: #1a1a1a;
+  color: #fff;
 }
 
 .guitar-video-container {
-  flex: 1;
-  /* Remove aspect-ratio for pixel-perfect overlay */
   position: relative;
   width: 100%;
   max-width: 800px;
   margin: 0 auto;
-  border-radius: 16px;
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 8px 32px var(--space-shadow);
-  background: var(--space-card-bg);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  background-color: #000;
 }
 
 .guitar-video {
@@ -49,19 +34,15 @@
   height: auto;
   display: block;
   object-fit: contain;
-  position: relative;
-  z-index: 1;
-  background: #000;
 }
 
 .guitar-canvas {
   position: absolute;
   top: 0;
   left: 0;
+  pointer-events: none;
   width: 100%;
   height: 100%;
-  pointer-events: none;
-  z-index: 2;
 }
 
 .guitar-scale-label-overlay {
@@ -69,29 +50,32 @@
   top: 18px;
   left: 18px;
   background: rgba(40, 40, 40, 0.7);
-  color: var(--space-star);
+  color: #fff;
   font-size: 20px;
   font-weight: 600;
   padding: 8px 20px;
   border-radius: 20px;
-  box-shadow: 0 2px 12px var(--space-shadow);
-  z-index: 3;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.18);
+  z-index: 2;
   letter-spacing: 1px;
-  text-shadow: 0 1px 4px var(--space-shadow);
+  text-shadow: 0 1px 4px rgba(0,0,0,0.25);
   pointer-events: none;
 }
 
 .guitar-scale-controls {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    padding: 20px;
-    border-radius: 16px;
-    background: var(--space-card-bg);
-    backdrop-filter: blur(10px);
-    border: 1px solid var(--space-border);
-    box-shadow: 0 2px 12px var(--space-shadow);
-    margin-top: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-top: 24px;
+  margin-bottom: 8px;
+  width: 100%;
+  max-width: 800px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 24px 20px 18px 20px;
+  border: 1px solid rgba(120,120,120,0.10);
+  box-sizing: border-box;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.07);
 }
 
 .guitar-scale-controls h3 {
@@ -100,8 +84,6 @@
   font-size: 19px;
   font-weight: 700;
   letter-spacing: 0.5px;
-  color: var(--space-accent);
-  text-shadow: 0 1px 4px var(--space-shadow);
 }
 
 .guitar-scale-btns-row {
@@ -123,35 +105,35 @@
   font-weight: 600;
   margin-right: 10px;
   min-width: 80px;
-  color: var(--space-accent);
+  color: #444;
 }
 
 .guitar-scale-btn {
   padding: 8px 18px;
   border: 2px solid transparent;
   border-radius: 7px;
-  background: var(--space-btn-bg);
-  color: var(--space-text);
+  background: rgba(255, 255, 255, 0.13);
+  color: #222;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(.4,0,.2,1);
   font-size: 15px;
   font-weight: 500;
-  box-shadow: 0 1px 4px var(--space-shadow);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
   margin-bottom: 2px;
 }
 
 .guitar-scale-btn:hover {
-  background: var(--space-btn-hover);
-  color: var(--space-star);
+  background: rgba(102, 126, 234, 0.13);
+  color: #222;
   transform: translateY(-1px) scale(1.04);
-  box-shadow: 0 2px 8px var(--space-accent2);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.08);
 }
 
 .guitar-scale-btn.active {
-  background: linear-gradient(135deg, var(--space-blue), var(--space-purple));
-  color: var(--space-star);
-  border-color: var(--space-blue);
-  box-shadow: 0 2px 12px var(--space-accent2);
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border-color: #667eea;
+  box-shadow: 0 2px 12px rgba(102, 126, 234, 0.13);
 }
 
 .guitar-current-scale {
@@ -161,49 +143,13 @@
   border-radius: 8px;
   border: none;
   font-size: 15px;
-  color: var(--space-star);
 }
 
 .guitar-scale-notes {
-  margin-top: 1rem;
-  font-family: monospace;
-  font-size: 1rem;
-  word-break: break-all;
-}
-
-/* --- Preprocessing Controls --- */
-.guitar-preprocessing-controls {
-  margin-top: 2rem;
-  padding: 1rem;
-  border-top: 1px solid #444;
-}
-
-.guitar-preprocessing-toggles {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  justify-content: center;
-}
-
-.guitar-preprocessing-btn {
-  background-color: #333;
-  color: #eee;
-  border: 1px solid #555;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.2s, border-color 0.2s;
-  text-transform: capitalize;
-}
-
-.guitar-preprocessing-btn:hover {
-  background-color: #444;
-}
-
-.guitar-preprocessing-btn.active {
-  background-color: #007bff;
-  border-color: #0056b3;
-  color: white;
+  margin-top: 8px;
+  font-size: 14px;
+  opacity: 0.85;
+  color: #444;
 }
 
 .guitar-audio-note-panel {
@@ -211,10 +157,10 @@
   top: 24px;
   right: 24px;
   min-width: 120px;
-  background: var(--space-card-bg-light);
-  color: var(--space-shadow);
+  background: rgba(255,255,255,0.92);
+  color: #222;
   border-radius: 16px;
-  box-shadow: 0 4px 24px var(--space-shadow);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.13);
   padding: 18px 20px 14px 20px;
   z-index: 3;
   display: flex;
@@ -223,25 +169,28 @@
   font-family: inherit;
   font-size: 15px;
   gap: 6px;
-  border: 1.5px solid var(--space-border);
 }
+
 .guitar-audio-note-panel .audio-note-label {
   font-size: 15px;
   font-weight: 600;
   margin-bottom: 2px;
-  color: var(--space-accent);
+  color: #444;
 }
+
 .guitar-audio-note-panel .audio-note-value {
   font-size: 2.1em;
   font-weight: 700;
-  color: var(--space-blue);
+  color: #667eea;
   margin-bottom: 2px;
 }
+
 .guitar-audio-note-panel .audio-freq-value {
   font-size: 1.1em;
-  color: var(--space-shadow);
+  color: #333;
   margin-bottom: 2px;
 }
+
 .guitar-audio-note-panel .audio-warning {
   margin-top: 6px;
   color: #d32f2f;
@@ -253,11 +202,13 @@
   box-shadow: 0 2px 8px rgba(211,47,47,0.07);
   text-align: center;
 }
+
 .guitar-audio-note-panel .audio-controls {
   margin-top: 8px;
   display: flex;
   gap: 8px;
 }
+
 .guitar-audio-note-panel .start-btn, .guitar-audio-note-panel .stop-btn {
   padding: 7px 16px;
   border-radius: 7px;
@@ -265,100 +216,77 @@
   font-size: 1em;
   font-weight: 600;
   cursor: pointer;
-  background: var(--space-btn-bg);
-  color: var(--space-star);
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
   transition: background 0.2s, box-shadow 0.2s;
-  box-shadow: 0 2px 8px var(--space-accent2);
+  box-shadow: 0 2px 8px rgba(102,126,234,0.09);
 }
+
 .guitar-audio-note-panel .stop-btn {
   background: linear-gradient(135deg, #f44336, #d32f2f);
 }
+
 .guitar-audio-note-panel .start-btn:hover {
-  background: var(--space-btn-hover);
+  background: linear-gradient(135deg, #5a6eea, #6c3ba2);
 }
+
 .guitar-audio-note-panel .stop-btn:hover {
   background: linear-gradient(135deg, #d32f2f, #f44336);
 }
 
-.guitar-video-placeholder {
-  width: 100%;
-  height: 480px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, var(--space-blue) 0%, var(--space-purple) 100%);
-  color: var(--space-star);
-  font-size: 18px;
-  font-weight: 500;
+/* Light mode overrides */
+.light-mode .guitar-obj-detection {
+  background-color: #f8f9fa;
+  color: #333;
 }
 
-.guitar-video-placeholder-text {
-  text-align: center;
-  padding: 20px;
+.light-mode .guitar-scale-controls {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
 }
 
-/* Side-by-side layout for main view and preprocessed view */
-.main-view-flex-container {
-  display: flex;
-  gap: 24px;
-  align-items: flex-start;
-  width: 100%;
+.light-mode .guitar-scale-controls h3 {
+  color: #333;
 }
 
-.guitar-video-container {
-  flex: 3; /* Give more space to the main video */
+.light-mode .guitar-root-notes label, 
+.light-mode .guitar-scale-types label {
+  color: #333;
 }
 
-.preprocessed-view-container {
-  flex: 2; /* Smaller container for the preprocessed view */
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  background: var(--space-card-bg);
-  padding: 16px;
-  border-radius: 16px;
-  box-shadow: 0 4px 24px var(--space-shadow);
+.light-mode .guitar-scale-btn {
+  background: rgba(255, 255, 255, 0.8);
+  color: #333;
+  border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
-.preprocessed-canvas {
-  width: 100%;
-  height: auto;
-  border-radius: 12px;
-  background: #000;
+.light-mode .guitar-scale-btn:hover {
+  background: rgba(102, 126, 234, 0.1);
+  color: #333;
 }
 
-.filter-controls {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.light-mode .guitar-scale-btn.active {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
 }
 
-.filter-controls label {
-  font-weight: 600;
-  color: var(--space-accent);
+.light-mode .guitar-scale-notes {
+  color: #666;
 }
 
-.filter-select {
-  flex: 1;
-  padding: 8px 12px;
-  background: var(--space-shadow);
-  color: var(--space-star);
-  border: 1.5px solid var(--space-border);
-  border-radius: 8px;
-  font-family: inherit;
-  font-size: 1rem;
+.light-mode .guitar-audio-note-panel {
+  background: rgba(255, 255, 255, 0.95);
+  color: #333;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
 }
 
-.light-mode .preprocessed-view-container {
-  background: var(--space-card-bg-light);
+.light-mode .guitar-audio-note-panel .audio-note-label {
+  color: #333;
 }
-.light-mode .filter-controls label {
-  color: var(--space-accent);
-}
-.light-mode .filter-select {
-  background: #fff;
-  color: var(--space-shadow);
-  border-color: var(--space-accent);
+
+.light-mode .guitar-audio-note-panel .audio-freq-value {
+  color: #555;
 }
 
 /* Responsive design */

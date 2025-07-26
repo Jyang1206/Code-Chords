@@ -1,5 +1,6 @@
 import { InferenceEngine, CVImage } from "inferencejs";
 import { useEffect, useRef, useState, useMemo, useContext } from "react";
+import { ThemeContext } from "../App";
 import "../css/GuitarObjDetection.css";
 import AudioPitchDetector from "../utils/AudioPitchDetector";
 import {
@@ -69,6 +70,7 @@ function getStringNotePositions(stringIdx, scaleNotes, numFrets = 12) {
 // }
 
 function GuitarObjDetection() {
+  const { lightMode } = useContext(ThemeContext);
 
   const inferEngine = useMemo(() => {
     return new InferenceEngine();
@@ -632,7 +634,7 @@ function GuitarObjDetection() {
   }
 
   return (
-    <div className="guitar-obj-detection space-theme">
+    <div className={`guitar-obj-detection${lightMode ? ' light' : ' dark'}`}>
       <div className="guitar-obj-detection-content">
         {/* Calibration UI */}
         {isStreaming && showCalibrationPrompt && !calibrating && (

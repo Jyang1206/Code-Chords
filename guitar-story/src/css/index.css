@@ -1,101 +1,101 @@
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-
-  --cosmic-accent: #a18cd1;
-  --cosmic-accent2: #fbc2eb;
-  --cosmic-star: #ffee91;
-  --cosmic-nebula: #7ed6df;
-  --cosmic-shadow: #23234b;
-  --space-bg: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
-  --space-bg-light: linear-gradient(120deg, #a18cd1 0%, #fbc2eb 100%);
-  --space-star: #ffee91;
-  --space-accent: #a18cd1;
-  --space-accent2: #fbc2eb;
-  --space-nebula: #7ed6df;
-  --space-shadow: #23234b;
-  --space-purple: #764ba2;
-  --space-blue: #667eea;
-  --space-gold: #ffee91;
-  --space-pink: #fbc2eb;
-  --space-card-bg: rgba(30, 30, 60, 0.85);
-  --space-card-bg-light: rgba(255,255,255,0.85);
-  --space-border: #a18cd1;
-  --space-glow: 0 0 16px #a18cd1, 0 0 32px #764ba2;
-  --space-btn-bg: linear-gradient(135deg, #667eea, #764ba2);
-  --space-btn-bg-light: linear-gradient(135deg, #a18cd1, #fbc2eb);
-  --space-btn-hover: linear-gradient(135deg, #5a6eea, #6c3ba2);
-  --space-btn-hover-light: linear-gradient(135deg, #a18cd1, #fbc2eb);
-  --space-text: #e0e6f7;
-  --space-text-light: #23234b;
-  --space-star-bg: url('https://www.transparenttextures.com/patterns/stardust.png');
+  --cosmic-bg: #0c0e1a;
+  --cosmic-card-bg: #1a1b2e;
+  --cosmic-card-bg-light: #f8f9fa;
+  --cosmic-shadow: #2d1b69;
+  --cosmic-star: #f7c873;
+  --cosmic-nebula: #a3bffa;
+  --cosmic-accent: #7e57c2;
+  --cosmic-accent2: #f6ceff;
+  --cosmic-text: #e0e6f6;
+  --cosmic-text-light: #333;
+  --cosmic-btn-bg: #2d3250;
+  --cosmic-btn-bg-light: #e9ecef;
+  --cosmic-btn-hover: #3a3f5a;
+  --cosmic-btn-hover-light: #dee2e6;
+  --cosmic-border: #2d3250;
+  --cosmic-border-light: #dee2e6;
+  --space-bg: #0c0e1a;
+  --space-bg-light: #f8f9fa;
+  --space-card-bg: #1a1b2e;
+  --space-card-bg-light: #ffffff;
+  --space-shadow: rgba(0, 0, 0, 0.3);
+  --space-star: #f7c873;
+  --space-text: #a3bffa;
+  --space-text-light: #333;
+  --space-accent: #7e57c2;
+  --space-accent2: #f6ceff;
+  --space-border: #2d3250;
+  --space-btn-bg: #2d3250;
+  --space-btn-bg-light: #e9ecef;
+  --space-btn-hover: #3a3f5a;
+  --space-btn-hover-light: #dee2e6;
+  --space-nebula: #a3bffa;
+  --space-star-bg: radial-gradient(circle at 50% 50%, rgba(247, 200, 115, 0.1) 0%, transparent 50%);
 }
 
 * {
+  box-sizing: border-box;
   margin: 0;
   padding: 0;
-  box-sizing: border-box;
 }
 
 html, body {
-  overflow-x: hidden;
+  font-family: 'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif;
+  font-weight: 500;
+  letter-spacing: 0.5px;
 }
 
 body {
-  margin: 0;
-  width: 100%;
-  min-height: 100vh;
-  position: relative;
   background: var(--space-bg);
   color: var(--space-text);
-  min-height: 100vh;
   background-image: var(--space-star-bg), var(--space-bg);
   background-blend-mode: lighten, normal;
+  min-height: 100vh;
+  font-family: 'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif;
+  font-weight: 500;
+  letter-spacing: 0.5px;
 }
 
 body.light-mode, .light-mode #root {
   background: var(--space-bg-light);
   color: var(--space-text-light);
   background-image: var(--space-star-bg), var(--space-bg-light);
-  background-blend-mode: lighten, normal;
 }
 
 body.dark-mode, .dark-mode #root {
   background: var(--space-bg);
   color: var(--space-text);
   background-image: var(--space-star-bg), var(--space-bg);
-  background-blend-mode: lighten, normal;
 }
 
 #root {
-  width: 100%;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+  font-family: 'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif;
+  font-weight: 500;
+  letter-spacing: 0.5px;
 }
 
 a {
   font-weight: 500;
-  color: var(--cosmic-accent);
+  color: var(--space-accent);
   text-decoration: inherit;
+  font-family: 'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif;
 }
+
 a:hover {
-  color: var(--cosmic-accent2);
+  color: var(--space-accent2);
 }
 
 h1 {
   font-size: 3.2em;
   line-height: 1.1;
+  font-weight: 700;
+  font-family: 'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif;
+  letter-spacing: 1px;
 }
 
 button {
@@ -103,18 +103,21 @@ button {
   border: 1px solid transparent;
   padding: 0.6em 1.2em;
   font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
+  font-weight: 600;
+  font-family: 'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif;
   background-color: var(--cosmic-shadow);
   color: var(--cosmic-star);
   cursor: pointer;
   transition: border-color 0.25s, background 0.25s, color 0.25s;
+  letter-spacing: 0.5px;
 }
+
 button:hover {
   border-color: var(--cosmic-accent2);
   background-color: var(--cosmic-accent);
   color: var(--cosmic-shadow);
 }
+
 button:focus,
 button:focus-visible {
   outline: 4px auto var(--cosmic-accent2);
@@ -150,6 +153,9 @@ button:focus-visible {
   background: var(--space-card-bg-light) !important;
   color: var(--space-shadow) !important;
   box-shadow: 0 2px 12px var(--space-accent2);
+  font-family: 'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif;
+  font-weight: 500;
+  letter-spacing: 0.5px;
 }
 
 .light-mode .guitar-scale-btn,
@@ -161,6 +167,9 @@ button:focus-visible {
   background: var(--space-btn-bg-light) !important;
   color: var(--space-shadow) !important;
   border-color: var(--space-accent2) !important;
+  font-family: 'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.5px;
 }
 
 .light-mode .guitar-scale-btn:hover,
@@ -176,6 +185,9 @@ button:focus-visible {
 .light-mode .audio-note-label,
 .light-mode .navbar-brand {
   color: var(--space-accent) !important;
+  font-family: 'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.5px;
 }
 
 .light-mode .guitar-scale-btn.active,
@@ -189,10 +201,16 @@ button:focus-visible {
 .light-mode .audio-note-value,
 .light-mode .ytp-space-speed {
   color: var(--space-accent) !important;
+  font-family: 'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.5px;
 }
 
 .light-mode .guitar-scale-notes,
 .light-mode .song-info p,
 .light-mode .read-the-docs {
   color: var(--space-accent2) !important;
+  font-family: 'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif;
+  font-weight: 500;
+  letter-spacing: 0.5px;
 }

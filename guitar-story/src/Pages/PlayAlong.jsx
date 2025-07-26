@@ -57,7 +57,7 @@ const CHORDS = Object.fromEntries(
 );
 
 function PlayAlong() {
-  const { user } = useAuth();
+  const { currentUser } = useAuth();
   const [selectedChord, setSelectedChord] = useState("C Major");
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
@@ -78,7 +78,7 @@ function PlayAlong() {
 
   // Handle correct note played
   const handleCorrectNote = async () => {
-    if (!user) return;
+    if (!currentUser) return;
     
     // Only count this note if it hasn't been completed yet
     if (completedNotes.has(currentStepIdx)) {
@@ -110,8 +110,8 @@ function PlayAlong() {
     // Save individual score entry (for tracking purposes)
     try {
       const result = await ScoreboardService.addScore(
-        user.uid,
-        user.email || user.displayName || 'Anonymous',
+        currentUser.uid,
+        currentUser.email || currentUser.displayName || 'Anonymous',
         scorePoints,
         selectedChord,
         true
@@ -147,10 +147,10 @@ function PlayAlong() {
     setChordAccuracy(newAccuracy);
     
     // Also send incorrect note to database (with 0 points)
-    if (user) {
+    if (currentUser) {
       ScoreboardService.addScore(
-        user.uid,
-        user.email || user.displayName || 'Anonymous',
+        currentUser.uid,
+        currentUser.email || currentUser.displayName || 'Anonymous',
         0, // No points for incorrect note
         selectedChord,
         false // Mark as incorrect
@@ -184,7 +184,7 @@ function PlayAlong() {
 
   // Update final scoreboard when chord is completed
   const updateFinalScoreboard = async () => {
-    if (!user) return;
+    if (!currentUser) return;
     
     const finalAccuracy = calculateAccuracy(sessionStats.correct, sessionStats.total);
     const bonusPoints = Math.round((finalAccuracy / 100) * 50); // Bonus points based on accuracy
@@ -197,8 +197,8 @@ function PlayAlong() {
       // Use session data to update stats correctly
       // Always use chord length for total notes, regardless of how many were played
       const result = await ScoreboardService.updateUserStatsWithSessionData(
-        user.uid,
-        user.email || user.displayName || 'Anonymous',
+        currentUser.uid,
+        currentUser.email || currentUser.displayName || 'Anonymous',
         sessionStats.correct, // Use the correct count from session
         chordLength,          // Always use chord length for total notes
         totalPoints
@@ -212,22 +212,22 @@ function PlayAlong() {
 
   // Test database connection
   const testDatabaseConnection = async () => {
-    if (!user) {
+    if (!currentUser) {
       console.log('No user logged in');
       return;
     }
     
     try {
       console.log('Testing database connection...');
-      console.log('User:', user.email, 'UID:', user.uid);
+      console.log('User:', currentUser.email, 'UID:', currentUser.uid);
       
       // Ensure leaderboard exists
       await ScoreboardService.ensureLeaderboardExists();
       
       // Test 1: Add a score
       const result = await ScoreboardService.addScore(
-        user.uid,
-        user.email || 'Anonymous',
+        currentUser.uid,
+        currentUser.email || 'Anonymous',
         5,
         'test-chord',
         true
@@ -235,7 +235,7 @@ function PlayAlong() {
       console.log('Score add result:', result);
       
       // Test 2: Get user stats
-      const statsResult = await ScoreboardService.getUserStats(user.uid);
+      const statsResult = await ScoreboardService.getUserStats(currentUser.uid);
       console.log('User stats result:', statsResult);
       
       // Test 3: Subscribe to leaderboard
@@ -251,7 +251,7 @@ function PlayAlong() {
 
   // Test leaderboard update manually
   const testLeaderboardUpdate = async () => {
-    if (!user) {
+    if (!currentUser) {
       console.log('No user logged in');
       return;
     }
@@ -263,7 +263,7 @@ function PlayAlong() {
       await ScoreboardService.ensureLeaderboardExists();
       
       // Manually update leaderboard
-      await ScoreboardService.updateLeaderboard(user.uid, user.email || 'Anonymous', 25, 80, 4, 5);
+      await ScoreboardService.updateLeaderboard(currentUser.uid, currentUser.email || 'Anonymous', 25, 80, 4, 5);
       
       // Subscribe to see the update
       const unsubscribe = ScoreboardService.subscribeToLeaderboard((result) => {
@@ -278,7 +278,7 @@ function PlayAlong() {
 
   // Create leaderboard with test data
   const createLeaderboardWithTestData = async () => {
-    if (!user) {
+    if (!currentUser) {
       console.log('No user logged in');
       return;
     }
@@ -309,8 +309,8 @@ function PlayAlong() {
             lastUpdated: new Date()
           },
           {
-            userId: user.uid,
-            userName: user.email || 'Anonymous',
+            userId: currentUser.uid,
+            userName: currentUser.email || 'Anonymous',
             totalScore: 50,
             accuracy: 60,
             correctNotes: 6,
@@ -349,7 +349,7 @@ function PlayAlong() {
 
   // Test chord completion without playing notes
   const testChordCompletionWithoutPlaying = async () => {
-    if (!user) {
+    if (!currentUser) {
       console.log('No user logged in');
       return;
     }
@@ -368,8 +368,8 @@ function PlayAlong() {
     
     try {
       const result = await ScoreboardService.updateUserStatsWithSessionData(
-        user.uid,
-        user.email || user.displayName || 'Anonymous',
+        currentUser.uid,
+        currentUser.email || currentUser.displayName || 'Anonymous',
         correctCount,
         chordLength, // Should always be chord length
         totalPoints
@@ -378,7 +378,7 @@ function PlayAlong() {
       console.log('Chord completion test completed successfully');
       
       // Get updated stats to verify
-      const statsResult = await ScoreboardService.getUserStats(user.uid);
+      const statsResult = await ScoreboardService.getUserStats(currentUser.uid);
       console.log('Updated user stats:', statsResult);
       
     } catch (error) {
@@ -407,7 +407,7 @@ function PlayAlong() {
     clearInterval(playTimer.current);
     
     // Update stats when stopping, based on notes that have passed
-    if (user && currentStepIdx > 0) {
+    if (currentUser && currentStepIdx > 0) {
       const notesPassed = currentStepIdx; // Number of notes that have passed
       const chordLength = chordNotes.length;
       const correctCount = sessionStats.correct;
@@ -417,8 +417,8 @@ function PlayAlong() {
       
       // Update stats with the notes that have passed
       ScoreboardService.updateUserStatsWithSessionData(
-        user.uid,
-        user.email || user.displayName || 'Anonymous',
+        currentUser.uid,
+        currentUser.email || currentUser.displayName || 'Anonymous',
         correctCount,
         notesPassed, // Use notes passed instead of chord length
         totalPoints
@@ -498,7 +498,7 @@ function PlayAlong() {
           marginBottom: "1rem",
           textAlign: "center"
         }}>
-          <div>User: {user ? user.email : 'Not logged in'} | Auth: {user ? 'Yes' : 'No'}</div>
+          <div>User: {currentUser ? currentUser.email : 'Not logged in'} | Auth: {currentUser ? 'Yes' : 'No'}</div>
         </div>
 
         {/* Score Display */}

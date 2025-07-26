@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import "../css/Navbar.css";
 
 function NavBar() {
   const { user, logout } = useAuth();
@@ -13,111 +14,42 @@ function NavBar() {
     }
   };
 
-    return (
-    <nav style={{
-      background: "rgba(255, 255, 255, 0.05)",
-      backdropFilter: "blur(10px)",
-      padding: "1rem 2rem",
-      borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
-      position: "sticky",
-      top: 0,
-      zIndex: 1000
-    }}>
-      <div style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        maxWidth: "1200px",
-        margin: "0 auto"
-      }}>
-        <Link to="/" style={{
-          textDecoration: "none",
-          color: "#90caf9",
-          fontSize: "1.5rem",
-          fontWeight: "700",
-          fontFamily: "'Orbitron', 'Montserrat', 'Arial', sans-serif"
-        }}>
+  return (
+    <nav className="navbar">
+      <div className="navbar-container">
+        <Link to="/" className="navbar-brand">
           Code Chords
         </Link>
         
-        <div style={{
-          display: "flex",
-          gap: "2rem",
-          alignItems: "center"
-        }}>
-          <Link to="/" style={{
-            textDecoration: "none",
-            color: "#fff",
-            fontWeight: "500",
-            transition: "color 0.3s ease"
-          }}>
+        <div className="navbar-links">
+          <Link to="/" className="nav-link">
             Home
           </Link>
-          <Link to="/practice" style={{
-            textDecoration: "none",
-            color: "#fff",
-            fontWeight: "500",
-            transition: "color 0.3s ease"
-          }}>
+          <Link to="/practice" className="nav-link">
             Practice
           </Link>
-          <Link to="/playalong" style={{
-            textDecoration: "none",
-            color: "#fff",
-            fontWeight: "500",
-            transition: "color 0.3s ease"
-          }}>
+          <Link to="/playalong" className="nav-link">
             Play Along
           </Link>
-          <Link to="/scoreboard" style={{
-            textDecoration: "none",
-            color: "#fff",
-            fontWeight: "500",
-            transition: "color 0.3s ease"
-          }}>
+          <Link to="/scoreboard" className="nav-link">
             Scoreboard
           </Link>
-          <Link to="/tuner" style={{
-            textDecoration: "none",
-            color: "#fff",
-            fontWeight: "500",
-            transition: "color 0.3s ease"
-          }}>
-            Tuner
-          </Link>
-          <Link to="/debug" style={{
-            textDecoration: "none",
-            color: "#ff6b6b",
-            fontWeight: "500",
-            transition: "color 0.3s ease"
-          }}>
+          <Link to="/debug" className="nav-link debug">
             Debug
           </Link>
           {user ? (
-            <button onClick={handleLogout} style={{
-              background: "none",
-              border: "none",
-              color: "#e53935",
-              cursor: "pointer",
-              fontWeight: "500",
-              transition: "color 0.3s ease"
-            }}>
+            <button onClick={handleLogout} className="nav-button">
               Logout
             </button>
           ) : (
-            <Link to="/login" style={{
-              textDecoration: "none",
-              color: "#90caf9",
-              fontWeight: "500",
-              transition: "color 0.3s ease"
-            }}>
-              Login
+            <Link to="/Settings" className="nav-link settings">
+              Settings
             </Link>
           )}
-            </div>
-            </div>
-        </nav>
-    );
+        </div>
+      </div>
+    </nav>
+  );
 }
 
 export default NavBar;
