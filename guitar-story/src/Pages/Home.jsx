@@ -4,7 +4,7 @@ import Login from "../components/Login";
 import Signup from "../components/Signup";
 
 function Home() {
-  const { user, logout } = useAuth();
+  const { currentUser } = useAuth();
   const [showSignup, setShowSignup] = useState(false);
 
   if (!currentUser) {
