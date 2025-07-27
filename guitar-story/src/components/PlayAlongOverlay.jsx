@@ -119,9 +119,11 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
         videoRef.current.onloadedmetadata = function () {
           console.log('✅ Video metadata loaded, starting play...');
           console.log('Video dimensions:', videoRef.current.videoWidth, 'x', videoRef.current.videoHeight);
-          // Set video dimensions to match container
-          videoRef.current.width = 900;
-          videoRef.current.height = 540;
+          // Use actual video dimensions like GuitarObjDetection
+          videoRef.current.width = videoRef.current.videoWidth;
+          videoRef.current.height = videoRef.current.videoHeight;
+          canvasRef.current.width = videoRef.current.videoWidth;
+          canvasRef.current.height = videoRef.current.videoHeight;
           videoRef.current.play().then(() => {
             console.log('✅ Video play() resolved successfully');
             setVideoLoaded(true);
@@ -137,12 +139,13 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
             var ctx = canvasRef.current.getContext("2d");
             var height = videoRef.current.videoHeight;
             var width = videoRef.current.videoWidth;
+            videoRef.current.width = width;
+            videoRef.current.height = height;
             canvasRef.current.width = width;
             canvasRef.current.height = height;
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.clearRect(0, 0, width, height);
             console.log('✅ Canvas initialized with dimensions:', width, 'x', height);
-            console.log('✅ Container dimensions: 900 x 540');
           }
         };
         videoRef.current.onerror = (error) => {
@@ -486,14 +489,7 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
           }
         }, [note, expectedNote, onCorrectNote, onIncorrectNote, highlightedNotes, lastDetectedNote, lastNoteTime, consecutiveDetections]);
                 return (
-          <div className="guitar-video-container" style={{ 
-            position: 'relative', 
-            width: 900, 
-            height: 540, 
-            margin: 'auto',
-            borderRadius: '0px',
-            background: 'transparent'
-          }}>
+          <div className="guitar-video-container">
             {/* Main video/canvas always shown when streaming */}
             <>
               <video
@@ -502,13 +498,11 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
                 className="guitar-video"
                 playsInline
                 muted
-                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1 }}
               />
               <canvas
                 id="canvas"
                 ref={canvasRef}
                 className="guitar-canvas"
-                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 2, pointerEvents: 'none' }}
               />
               {/* Fallback when video not loaded */}
               {!videoLoaded && (
