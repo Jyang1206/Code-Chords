@@ -73,6 +73,10 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
   const [frequencyThreshold, setFrequencyThreshold] = useState(0.3); // minimum frequency amplitude to consider
   const [consecutiveDetections, setConsecutiveDetections] = useState(0);
   const [requiredConsecutiveDetections, setRequiredConsecutiveDetections] = useState(3); // require 3 consecutive detections
+  
+  // Add wrong note detection threshold
+  const [consecutiveWrongDetections, setConsecutiveWrongDetections] = useState(0);
+  const [requiredConsecutiveWrongDetections, setRequiredConsecutiveWrongDetections] = useState(2); // require 2 consecutive wrong detections to reduce false positives
 
   useEffect(() => {
     if (!modelLoading) {
@@ -219,6 +223,7 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
         setLastDetectedNote(null);
         setLastNoteTime(0);
         setConsecutiveDetections(0);
+        setConsecutiveWrongDetections(0);
         console.log(`[FREQ FILTER] Reset filtering for new expected note: ${noteName}`);
       } else {
         setExpectedNote(null);
@@ -363,7 +368,7 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
   }
 
   return (
-    <AudioPitchDetector>
+    <AudioPitchDetector clarityThreshold={0.98}>
       {({ note, frequency, listening, start, stop, error }) => {
         // Ensure pitch detection is always running while overlay is mounted
         React.useEffect(() => {
@@ -390,14 +395,17 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
             shouldProcessNote = false;
           }
           
-          // 2. Handle wrong notes immediately (no consecutive detection required)
+          // 2. Handle wrong notes with threshold (require consecutive detections)
           if (playedNote !== expectedNote) {
-            // Reset consecutive detections for wrong notes
-            setConsecutiveDetections(0);
-            console.log(`[FREQ FILTER] Wrong note detected: ${playedNote}, expected: ${expectedNote}`);
+            // Increment consecutive wrong detections
+            setConsecutiveWrongDetections(prev => prev + 1);
+            console.log(`[FREQ FILTER] Wrong note detected: ${playedNote}, expected: ${expectedNote}, consecutive wrong: ${consecutiveWrongDetections + 1}`);
             
-            // Process wrong notes immediately
-            if (shouldProcessNote) {
+            // Reset consecutive correct detections for wrong notes
+            setConsecutiveDetections(0);
+            
+            // Only process wrong notes if we have enough consecutive wrong detections
+            if (shouldProcessNote && consecutiveWrongDetections >= requiredConsecutiveWrongDetections - 1) {
               console.log(`[NOTE DETECTION] INCORRECT! Calling onIncorrectNote`);
               setLastFeedback("incorrect");
               
@@ -405,10 +413,15 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
               setLastDetectedNote(playedNote);
               setLastNoteTime(currentTime);
               
+              // Reset consecutive wrong detections after processing
+              setConsecutiveWrongDetections(0);
+              
               onIncorrectNote && onIncorrectNote();
               return; // Exit early for wrong notes
             }
           } else {
+            // Reset consecutive wrong detections for correct notes
+            setConsecutiveWrongDetections(0);
             // Increment consecutive detections for correct notes
             setConsecutiveDetections(prev => prev + 1);
             console.log(`[FREQ FILTER] Correct note detected: ${playedNote}, consecutive: ${consecutiveDetections + 1}`);
