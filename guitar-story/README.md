@@ -104,8 +104,16 @@ guitar-story/
 
 ## Testing
 
-The project includes comprehensive unit tests for utility functions:
+The project includes comprehensive testing at multiple levels:
 
+### **Quick Setup Test**
+Run the quick test script to verify basic project setup:
+```bash
+node quick-test.js
+```
+
+### **Unit Tests**
+Comprehensive unit tests for utility functions:
 ```bash
 # Run all tests
 npm test
@@ -116,6 +124,18 @@ npm run test:watch
 # Generate coverage report
 npm run test:coverage
 ```
+
+### **Integration Testing**
+For new users, use the comprehensive testing guide:
+- **TESTING_GUIDE.md** - Complete testing checklist with 25 test scenarios
+- Covers authentication, ML detection, YouTube integration, and more
+- Includes performance testing and error handling scenarios
+
+### **Test Coverage**
+- **Music Utilities** - Frequency-to-note conversion, scale calculations
+- **YouTube Integration** - Video ID extraction, API calls
+- **Image Processing** - Canvas filters, preprocessing utilities
+- **Calibration System** - Filter chain testing, calibration logic
 
 ## Environment Variables
 
