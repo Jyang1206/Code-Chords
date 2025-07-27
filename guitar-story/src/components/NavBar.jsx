@@ -14,7 +14,7 @@ function NavBar() {
     }
   };
 
-  return (
+    return (
     <nav className="navbar">
       <div className="navbar-container">
         <Link to="/" className="navbar-brand">
@@ -49,10 +49,10 @@ function NavBar() {
               Settings
             </Link>
           )}
-        </div>
-      </div>
-    </nav>
-  );
+            </div>
+            </div>
+        </nav>
+    );
 }
 
 export default NavBar;
