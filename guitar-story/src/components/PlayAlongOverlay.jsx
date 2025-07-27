@@ -1,6 +1,9 @@
 import React, { useEffect, useRef, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import AudioPitchDetector from "../utils/AudioPitchDetector";
 import "../css/GuitarObjDetection.css";
+import { calibrateDetection, CALIBRATION_FILTERS } from '../utils/calibrationUtils';
+import { applyFilterChainToCanvas } from '../utils/imagePreprocessing';
 
 // Try to import inferencejs, but provide fallback if it fails
 let InferenceEngine, CVImage;
@@ -53,6 +56,7 @@ function getNoteAtPosition(stringIdx, fretNum) {
 function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNotes = [], onCorrectNote, onIncorrectNote }) {
   const videoRef = useRef();
   const canvasRef = useRef();
+  const navigate = useNavigate();
   const inferEngine = useMemo(() => {
     console.log('Creating inference engine...');
     const engine = new InferenceEngine();
@@ -77,6 +81,64 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
   // Add wrong note detection threshold
   const [consecutiveWrongDetections, setConsecutiveWrongDetections] = useState(0);
   const [requiredConsecutiveWrongDetections, setRequiredConsecutiveWrongDetections] = useState(1); // require 1 consecutive wrong detection to reduce false positives
+
+  // --- Calibration State for PlayAlongOverlay ---
+  const [calibrationDone, setCalibrationDone] = useState(false);
+  const [calibratedFilter, setCalibratedFilter] = useState(null);
+  const currentCalibrationRef = useRef(null);
+
+  // Load calibrated filter from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('calibratedFilter');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        console.log('PlayAlongOverlay: Loading calibrated filter from localStorage:', parsed);
+        setCalibratedFilter(parsed);
+        setCalibrationDone(true);
+        currentCalibrationRef.current = parsed;
+        console.log('PlayAlongOverlay: Calibrated filter loaded successfully');
+        console.log('PlayAlongOverlay: Filter chain details:', parsed.filterChain ? parsed.filterChain.map(f => `${f.filter}(${f.param})`) : 'No filter chain');
+      } catch (error) {
+        console.error('PlayAlongOverlay: Error loading calibrated filter from localStorage:', error);
+      }
+    } else {
+      console.log('PlayAlongOverlay: No calibrated filter found in localStorage');
+    }
+  }, []);
+
+  // Debug function to verify calibrated filter usage
+  const debugCalibratedFilter = () => {
+    const stableCalibration = currentCalibrationRef.current;
+    const hasStableFilters = stableCalibration && Array.isArray(stableCalibration.filterChain) && stableCalibration.filterChain.length > 0;
+    
+    console.log('=== PLAYALONGOVERLAY CALIBRATION DEBUG ===');
+    console.log('Calibration Done:', calibrationDone);
+    console.log('Calibrated Filter State:', calibratedFilter);
+    console.log('Stable Calibration Ref:', stableCalibration);
+    console.log('Has Stable Filters:', hasStableFilters);
+    if (hasStableFilters) {
+      console.log('Filter Chain:', stableCalibration.filterChain);
+      console.log('Filter Details:', stableCalibration.filterChain.map(f => `${f.filter}(${f.param})`));
+    }
+    console.log('localStorage calibratedFilter:', localStorage.getItem('calibratedFilter'));
+    console.log('==========================================');
+  };
+
+  // Function to navigate to GuitarObjDetection for calibration
+  const handleCalibrateInGuitarObjDetection = () => {
+    console.log('PlayAlongOverlay: User wants to calibrate in GuitarObjDetection');
+    
+    const action = calibrationDone ? 'recalibrate' : 'calibrate';
+    const message = `Would you like to ${action} your guitar detection? You'll be redirected to the Practice page where you can ${action} your setup.`;
+    
+    if (window.confirm(message)) {
+      console.log(`PlayAlongOverlay: Navigating to Practice page for ${action}`);
+      navigate('/practice');
+    } else {
+      console.log('PlayAlongOverlay: User cancelled navigation');
+    }
+  };
 
   useEffect(() => {
     if (!modelLoading) {
@@ -190,10 +252,51 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
     if (!modelWorkerId || !videoLoaded) return;
     let running = true;
     console.log('Starting prediction loop with modelWorkerId:', modelWorkerId, 'videoLoaded:', videoLoaded);
-    const detectFrame = () => {
+    const detectFrame = async () => {
       if (!running) return;
       try {
-        const img = new CVImage(videoRef.current);
+        // Create a temporary canvas for preprocessing
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCanvas.width = videoRef.current.videoWidth;
+        tempCanvas.height = videoRef.current.videoHeight;
+        
+        // Draw the current video frame to the temp canvas
+        tempCtx.drawImage(videoRef.current, 0, 0);
+        
+        // Apply calibrated filters if available
+        let processedCanvas = tempCanvas;
+        const stableCalibration = currentCalibrationRef.current;
+        const hasStableFilters = stableCalibration && Array.isArray(stableCalibration.filterChain) && stableCalibration.filterChain.length > 0;
+        
+        if (hasStableFilters) {
+          try {
+            console.log('PlayAlongOverlay: Applying calibrated filters to inference:', stableCalibration.filterChain);
+            console.log('PlayAlongOverlay: Filter details:', stableCalibration.filterChain.map(f => `${f.filter}(${f.param})`));
+            applyFilterChainToCanvas(tempCtx, stableCalibration.filterChain, CALIBRATION_FILTERS);
+            processedCanvas = tempCanvas;
+            console.log('PlayAlongOverlay: Calibrated filters applied successfully to inference');
+            console.log('PlayAlongOverlay: Processed canvas dimensions:', processedCanvas.width, 'x', processedCanvas.height);
+          } catch (error) {
+            console.error('PlayAlongOverlay: Error applying calibrated filters:', error);
+            processedCanvas = tempCanvas;
+          }
+        } else {
+          console.log('PlayAlongOverlay: No calibrated filters to apply to inference');
+          console.log('PlayAlongOverlay: stableCalibration:', stableCalibration);
+        }
+        
+        // Create ImageBitmap from the processed canvas
+        let imgBitmap = null;
+        try {
+          imgBitmap = await createImageBitmap(processedCanvas);
+        } catch (e) {
+          console.warn('PlayAlongOverlay: Failed to create ImageBitmap for live inference', e);
+          setTimeout(detectFrame, 1000 / 6);
+          return;
+        }
+        
+        const img = new CVImage(imgBitmap);
         console.log('Created CVImage, calling infer...');
         inferEngine.infer(modelWorkerId, img).then((predictions) => {
           console.log('Received predictions:', predictions);
@@ -558,6 +661,43 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
                     ) : (
                       <button className="stop-btn" onClick={stop}>Stop Audio</button>
                     )}
+                  </div>
+                  
+                  {/* Calibration Status and Debug */}
+                  <div style={{ marginTop: '12px', padding: '8px', background: 'rgba(0,0,0,0.1)', borderRadius: '4px' }}>
+                    <div style={{ fontSize: '10px', color: '#888', marginBottom: '4px' }}>
+                      Calibration Status:
+                    </div>
+                    <div style={{ 
+                      fontSize: '11px', 
+                      color: calibrationDone ? '#4CAF50' : '#FF9800',
+                      fontWeight: 'bold'
+                    }}>
+                      {calibrationDone ? '✅ Calibrated' : '⚠️ Not Calibrated'}
+                    </div>
+                    {calibrationDone && currentCalibrationRef.current && (
+                      <div style={{ fontSize: '9px', color: '#666', marginTop: '2px' }}>
+                        Filters: {currentCalibrationRef.current.filterChain ? 
+                          currentCalibrationRef.current.filterChain.map(f => `${f.filter}(${f.param})`).join(', ') : 
+                          'None'}
+                      </div>
+                    )}
+                    <div style={{ marginTop: '8px' }}>
+                      <button 
+                        style={{ 
+                          fontSize: '9px', 
+                          padding: '2px 6px', 
+                          background: '#1976d2', 
+                          color: 'white', 
+                          border: 'none', 
+                          borderRadius: '3px',
+                          cursor: 'pointer'
+                        }}
+                        onClick={handleCalibrateInGuitarObjDetection}
+                      >
+                        {calibrationDone ? 'Recalibrate' : 'Calibrate'}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
