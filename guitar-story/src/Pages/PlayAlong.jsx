@@ -1468,50 +1468,34 @@ function PlayAlong() {
           justifyContent: "center",
           marginBottom: "2rem"
         }}>
-          <div style={{
-            position: "relative",
-            width: "100%",
-            maxWidth: "800px",
-            margin: "0 auto",
-            borderRadius: "12px",
-            overflow: "hidden",
-            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)",
-            background: "#000",
-            minHeight: "400px"
-          }}>
-
-            
-            {(() => {
-              try {
-                return (
-                  <>
-                    <PlayAlongOverlay
-                      highlightedNotes={isPlaying && playNotes[delayedStepIdx] ? [playNotes[delayedStepIdx]] : []}
-                      arpeggioNotes={playNotes}
-                      currentStep={isPlaying ? delayedStepIdx : -1}
-                      onCorrectNote={handleCorrectNote}
-                      onIncorrectNote={handleIncorrectNote}
-                    />
-                  </>
-                );
-              } catch (error) {
-                console.error('Error rendering PlayAlongOverlay:', error);
-                return (
-                  <div style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    height: "400px",
-                    background: "#000",
-                    color: "#fff",
-                    fontSize: "1.2rem"
-                  }}>
-                    Camera overlay loading...
-                  </div>
-                );
-              }
-            })()}
-          </div>
+          {(() => {
+            try {
+              return (
+                <PlayAlongOverlay
+                  highlightedNotes={isPlaying && playNotes[delayedStepIdx] ? [playNotes[delayedStepIdx]] : []}
+                  arpeggioNotes={playNotes}
+                  currentStep={isPlaying ? delayedStepIdx : -1}
+                  onCorrectNote={handleCorrectNote}
+                  onIncorrectNote={handleIncorrectNote}
+                />
+              );
+            } catch (error) {
+              console.error('Error rendering PlayAlongOverlay:', error);
+              return (
+                <div style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  height: "400px",
+                  background: "#000",
+                  color: "#fff",
+                  fontSize: "1.2rem"
+                }}>
+                  Camera overlay loading...
+                </div>
+              );
+            }
+          })()}
         </div>
 
         {/* Guitar Hero Interface */}

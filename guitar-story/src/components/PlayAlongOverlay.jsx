@@ -100,8 +100,8 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
     const constraints = {
       audio: false,
       video: {
-        width: { ideal: 640 },
-        height: { ideal: 480 },
+        width: { ideal: 900 },
+        height: { ideal: 540 },
         facingMode: "environment",
       },
     };
@@ -115,6 +115,9 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
         videoRef.current.onloadedmetadata = function () {
           console.log('✅ Video metadata loaded, starting play...');
           console.log('Video dimensions:', videoRef.current.videoWidth, 'x', videoRef.current.videoHeight);
+          // Set video dimensions to match container
+          videoRef.current.width = 900;
+          videoRef.current.height = 540;
           videoRef.current.play().then(() => {
             console.log('✅ Video play() resolved successfully');
             setVideoLoaded(true);
@@ -135,6 +138,7 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.clearRect(0, 0, width, height);
             console.log('✅ Canvas initialized with dimensions:', width, 'x', height);
+            console.log('✅ Container dimensions: 900 x 540');
           }
         };
         videoRef.current.onerror = (error) => {
@@ -446,10 +450,15 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
             onCorrectNote && onCorrectNote(timingAccuracy);
           }
         }, [note, expectedNote, onCorrectNote, onIncorrectNote, highlightedNotes, lastDetectedNote, lastNoteTime, consecutiveDetections]);
-        return (
-          <div className="guitar-video-container" style={{ minHeight: '400px' }}>
-
-            
+                return (
+          <div className="guitar-video-container" style={{ 
+            position: 'relative', 
+            width: 900, 
+            height: 540, 
+            margin: 'auto',
+            borderRadius: '0px',
+            background: 'transparent'
+          }}>
             {/* Main video/canvas always shown when streaming */}
             <>
               <video
@@ -458,32 +467,13 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
                 className="guitar-video"
                 playsInline
                 muted
-                style={{ 
-                  position: 'absolute', 
-                  top: 0, 
-                  left: 0, 
-                  width: '100%', 
-                  height: '100%', 
-                  zIndex: 1,
-                  objectFit: 'cover',
-                  background: '#000',
-                  minHeight: '400px'
-                }}
+                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1 }}
               />
               <canvas
                 id="canvas"
                 ref={canvasRef}
                 className="guitar-canvas"
-                style={{ 
-                  position: 'absolute', 
-                  top: 0, 
-                  left: 0, 
-                  width: '100%', 
-                  height: '100%', 
-                  zIndex: 2, 
-                  pointerEvents: 'none',
-                  minHeight: '400px'
-                }}
+                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 2, pointerEvents: 'none' }}
               />
               {/* Fallback when video not loaded */}
               {!videoLoaded && (
@@ -499,8 +489,7 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
                   justifyContent: 'center',
                   color: '#fff',
                   fontSize: '1.2rem',
-                  zIndex: 3,
-                  minHeight: '400px'
+                  zIndex: 3
                 }}>
                   <div style={{ textAlign: 'center' }}>
                     <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>📹</div>
@@ -511,7 +500,7 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
                   </div>
                 </div>
               )}
-
+              
               {/* AudioPitchDetector overlayed in video-container */}
               <div style={{ position: 'absolute', top: 24, right: 24, zIndex: 4 }}>
                 <div className="guitar-audio-note-panel">
