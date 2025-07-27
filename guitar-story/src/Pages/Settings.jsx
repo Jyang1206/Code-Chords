@@ -57,11 +57,13 @@ function Settings() {
             fontFamily: 'var(--font-primary)',
             fontSize: '1.5rem',
             marginBottom: '1rem',
-            color: 'var(--secondary)'
+            color: 'var(--primary)'
           }}>
             User Profile
           </h2>
-          <Profile user={currentUser} />
+          <Profile style={{
+            color: 'var(--primary)'
+          }} user={currentUser} />
         </div>
 
         {/* Theme Settings */}
@@ -89,7 +91,7 @@ function Settings() {
             gap: '1rem',
             marginBottom: '1rem'
           }}>
-            <span style={{ color: 'var(--text-secondary)' }}>
+            <span style={{ color: 'var(--primary)' }}>
               Current Theme:
             </span>
             <span style={{ 
@@ -97,7 +99,7 @@ function Settings() {
               fontWeight: 'bold',
               fontSize: '1.1rem'
             }}>
-              {isDarkMode ? 'Dark Mode (Space)' : 'Light Mode (Nebula)'}
+              {isDarkMode ? 'Dark Mode' : 'Light Mode'}
             </span>
           </div>
 
@@ -114,14 +116,10 @@ function Settings() {
           </button>
 
           <p style={{
-            color: 'var(--text-secondary)',
+            color: 'var(--primary)',
             fontSize: '0.9rem',
             lineHeight: '1.5'
           }}>
-            {isDarkMode 
-              ? 'Experience the vastness of space with our dark theme featuring stars, meteors, and cosmic elements.'
-              : 'Explore the beauty of nebulas with our light theme featuring soft gradients and celestial colors.'
-            }
           </p>
         </div>
 
@@ -156,80 +154,12 @@ function Settings() {
           </button>
 
           <p style={{
-            color: 'var(--text-secondary)',
+            color: 'var(--primary)',
             fontSize: '0.9rem',
             marginTop: '1rem'
           }}>
             Sign out of your account and return to the login screen.
           </p>
-        </div>
-
-        {/* App Information */}
-        <div className="info-section space-card" style={{
-          textAlign: 'center',
-          background: 'rgba(26, 26, 46, 0.6)',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid var(--border)',
-          boxShadow: '0 0 15px rgba(255, 179, 71, 0.3)'
-        }}>
-          <h2 style={{
-            fontFamily: 'var(--font-primary)',
-            fontSize: '1.5rem',
-            marginBottom: '1rem',
-            color: 'var(--primary)'
-          }}>
-            About Code Chords
-          </h2>
-
-          <p style={{
-            color: 'var(--text-secondary)',
-            lineHeight: '1.6',
-            marginBottom: '1rem'
-          }}>
-            Code Chords is your all-in-one guitar learning platform that combines AI technology 
-            with traditional learning methods to create the ultimate musical experience.
-          </p>
-
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: '1rem',
-            marginTop: '2rem'
-          }}>
-            <div style={{
-              padding: '1rem',
-              border: '1px solid var(--border)',
-              borderRadius: '8px',
-              background: 'rgba(255, 179, 71, 0.05)'
-            }}>
-              <h3 style={{ color: 'var(--primary)', marginBottom: '0.5rem' }}>🎸</h3>
-              <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                AI-Powered Practice
-              </p>
-            </div>
-            <div style={{
-              padding: '1rem',
-              border: '1px solid var(--border)',
-              borderRadius: '8px',
-              background: 'rgba(74, 144, 226, 0.05)'
-            }}>
-              <h3 style={{ color: 'var(--secondary)', marginBottom: '0.5rem' }}>🎵</h3>
-              <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                Play Along Mode
-              </p>
-            </div>
-            <div style={{
-              padding: '1rem',
-              border: '1px solid var(--border)',
-              borderRadius: '8px',
-              background: 'rgba(155, 89, 182, 0.05)'
-            }}>
-              <h3 style={{ color: 'var(--accent)', marginBottom: '0.5rem' }}>📊</h3>
-              <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                Progress Tracking
-              </p>
-            </div>
-          </div>
         </div>
       </div>
     </div>

@@ -14,7 +14,7 @@ const AnimatedLogo = ({ onAnimationComplete }) => {
     '> tuning("EADGBE")',
     '> practicing("scales")',
     '> playing("solo")',
-    '> explore("universe")'
+    '> explore("guitar-verse")'
   ];
 
   useEffect(() => {
@@ -27,7 +27,7 @@ const AnimatedLogo = ({ onAnimationComplete }) => {
           setTimeout(() => {
             setTextIndex(textIndex + 1);
             setCurrentText('');
-          }, 1000);
+          }, 500);
         }
       } else {
         clearInterval(textInterval);
@@ -45,7 +45,7 @@ const AnimatedLogo = ({ onAnimationComplete }) => {
   useEffect(() => {
     const cursorInterval = setInterval(() => {
       setShowCursor(!showCursor);
-    }, 500);
+    }, 100);
 
     return () => clearInterval(cursorInterval);
   }, [showCursor]);
@@ -59,7 +59,8 @@ const AnimatedLogo = ({ onAnimationComplete }) => {
           alt="Code Chords Logo" 
           className="logo-image"
         />
-        <p className="logo-subtitle">Explore your musical universe</p>
+        <p className="logo-subtitle">Begin your musical adventure</p>
+        <p className="logo-subtitle">Press any key to continue</p>
       </div>
 
       {/* Orbiting Notes */}

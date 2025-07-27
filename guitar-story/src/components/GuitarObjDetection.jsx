@@ -58,17 +58,6 @@ function getStringNotePositions(stringIdx, scaleNotes, numFrets = 12) {
 }
 // --- End Fretboard Logic ---
 
-// Utility to apply a filter chain to a canvas context
-// function applyFilterChainToCanvas(ctx, filterChain, filters) {
-//   if (!filterChain || !Array.isArray(filterChain)) return;
-//   for (const f of filterChain) {
-//     const filterObj = filters.find(fl => fl.name === f.filter);
-//     if (filterObj && filterObj.apply) {
-//       filterObj.apply(ctx, f.param);
-//     }
-//   }
-// }
-
 function GuitarObjDetection() {
   const { theme } = useTheme();
 
