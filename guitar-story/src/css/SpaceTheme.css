@@ -148,145 +148,38 @@ body {
   }
 }
 
-/* Rocket Animation - Improved visibility */
-.rocket {
+/* Space Assets - Scroll-based positioning */
+.rocket-asset,
+.moon-asset,
+.sun-asset,
+.earth-asset {
   position: absolute;
-  width: 30px;
-  height: 60px;
-  background: var(--rocket);
-  border-radius: 50% 50% 0 0;
-  animation: rocket-flight 8s ease-in-out infinite;
-  box-shadow: 0 0 30px var(--rocket), 0 0 60px rgba(255, 179, 71, 0.5);
+  transition: all 0.3s ease;
+}
+
+.rocket-asset {
   z-index: 5;
 }
 
-.rocket-flame {
-  position: absolute;
-  bottom: -10px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 20px;
-  height: 20px;
-  background: var(--meteor);
-  border-radius: 50%;
-  animation: rocket-flame 0.5s infinite alternate;
-  box-shadow: 0 0 15px var(--meteor);
-}
-
-@keyframes rocket-flight {
-  0% {
-    transform: translateX(10vw) translateY(100vh) rotate(-45deg);
-    opacity: 0;
-  }
-  10% {
-    opacity: 1;
-  }
-  25% {
-    transform: translateX(25vw) translateY(75vh) rotate(-30deg);
-  }
-  50% {
-    transform: translateX(50vw) translateY(50vh) rotate(-15deg);
-  }
-  75% {
-    transform: translateX(75vw) translateY(25vh) rotate(0deg);
-  }
-  90% {
-    transform: translateX(calc(100vw - 150px)) translateY(100px) rotate(15deg);
-    opacity: 1;
-  }
-  100% {
-    transform: translateX(calc(100vw - 150px)) translateY(100px) rotate(15deg);
-    opacity: 0;
-  }
-}
-
-@keyframes rocket-flame {
-  0% { 
-    transform: translateX(-50%) scale(1);
-    box-shadow: 0 0 15px var(--meteor);
-  }
-  100% { 
-    transform: translateX(-50%) scale(1.2);
-    box-shadow: 0 0 25px var(--meteor);
-  }
-}
-
-/* Moon Landing */
-.moon {
-  position: absolute;
-  bottom: 20px;
-  right: 20px;
-  width: 100px;
-  height: 100px;
-  background: var(--moon);
-  border-radius: 50%;
-  box-shadow: 0 0 30px var(--moon);
+.moon-asset {
   z-index: 1;
 }
 
-/* Sun and Earth Animations */
-.sun {
-  position: absolute;
-  top: 50px;
-  right: 50px;
-  width: 120px;
-  height: 120px;
-  background: radial-gradient(circle, #FFD700, #FFA500);
-  border-radius: 50%;
-  box-shadow: 0 0 40px #FFD700, 0 0 80px rgba(255, 215, 0, 0.5);
+.sun-asset {
   z-index: 2;
-  animation: sun-glow 3s ease-in-out infinite alternate;
 }
 
-@keyframes sun-glow {
-  0% { 
-    box-shadow: 0 0 40px #FFD700, 0 0 80px rgba(255, 215, 0, 0.5);
-    transform: scale(1);
-  }
-  100% { 
-    box-shadow: 0 0 60px #FFD700, 0 0 120px rgba(255, 215, 0, 0.7);
-    transform: scale(1.05);
-  }
-}
-
-.earth {
-  position: absolute;
-  width: 60px;
-  height: 60px;
-  background: radial-gradient(circle, #4A90E2, #2E5C8A);
-  border-radius: 50%;
-  box-shadow: 0 0 20px #4A90E2;
+.earth-asset {
   z-index: 3;
-  animation: earth-orbit 20s linear infinite;
 }
 
-.earth-continent {
-  position: absolute;
-  top: 10px;
-  left: 15px;
-  width: 30px;
-  height: 20px;
-  background: #8BC34A;
-  border-radius: 50%;
-  opacity: 0.8;
-}
-
-@keyframes earth-orbit {
-  0% {
-    transform: translate(calc(100vw - 200px), 100px) rotate(0deg);
-  }
-  25% {
-    transform: translate(calc(100vw - 150px), calc(100vh - 200px)) rotate(90deg);
-  }
-  50% {
-    transform: translate(200px, calc(100vh - 150px)) rotate(180deg);
-  }
-  75% {
-    transform: translate(100px, 200px) rotate(270deg);
-  }
-  100% {
-    transform: translate(calc(100vw - 200px), 100px) rotate(360deg);
-  }
+/* Hover effects for assets */
+.rocket-asset:hover,
+.moon-asset:hover,
+.sun-asset:hover,
+.earth-asset:hover {
+  transform: scale(1.1);
+  filter: brightness(1.2) !important;
 }
 
 /* Eclipse Animations */
@@ -501,24 +394,24 @@ body {
 
 /* Responsive Design */
 @media (max-width: 768px) {
-  .rocket {
-    width: 20px;
-    height: 40px;
+  .rocket-asset {
+    width: 60px !important;
+    height: 90px !important;
   }
   
-  .moon {
-    width: 60px;
-    height: 60px;
+  .moon-asset {
+    width: 80px !important;
+    height: 80px !important;
   }
   
-  .sun {
-    width: 80px;
-    height: 80px;
+  .sun-asset {
+    width: 100px !important;
+    height: 100px !important;
   }
   
-  .earth {
-    width: 40px;
-    height: 40px;
+  .earth-asset {
+    width: 60px !important;
+    height: 60px !important;
   }
   
   .space-card {

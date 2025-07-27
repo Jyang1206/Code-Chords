@@ -20,7 +20,7 @@ function NavBar() {
     <nav className="navbar space-card">
       <div className="navbar-container">
         <Link to="/" className="navbar-brand glow-text">
-          Code Chords
+          Guitar Story
         </Link>
         
         <div className="navbar-links">

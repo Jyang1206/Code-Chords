@@ -100,7 +100,7 @@ function Home() {
       {/* Hero Section */}
       <section className="hero-section space-card">
         <h1 className="glow-text hero-title">
-          Code Chords
+          Guitar Story
         </h1>
         
         <h2 className="hero-subtitle">
@@ -117,7 +117,7 @@ function Home() {
         {/* Call to Action - Moved up to hero section */}
         <div className="hero-cta">
           <h2 className="glow-text cta-title">
-            {currentUser ? "Welcome Back, Space Explorer!" : "Ready to Launch Your Musical Journey?"}
+            {currentUser ? "Welcome Back, Guitar-nomer!" : "Ready to Launch Your Musical Journey?"}
           </h2>
           
           <p className="cta-description">
