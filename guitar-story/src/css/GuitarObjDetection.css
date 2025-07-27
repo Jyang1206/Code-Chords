@@ -429,3 +429,95 @@
 .guitar-obj-detection .toggle-preprocessed-btn.hidden:hover {
   box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
 } 
+
+/* Debug canvas styles */
+.toggle-debug-canvas-btn {
+  background: linear-gradient(135deg, #4CAF50, #45a049);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  margin-left: 8px;
+}
+
+.toggle-debug-canvas-btn:hover {
+  background: linear-gradient(135deg, #45a049, #4CAF50);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(76, 175, 80, 0.3);
+}
+
+.toggle-debug-canvas-btn.hidden {
+  background: linear-gradient(135deg, #666, #555);
+}
+
+.toggle-debug-canvas-btn.hidden:hover {
+  background: linear-gradient(135deg, #555, #666);
+}
+
+/* Calibrated video container */
+.debug-roboflow-container {
+  position: absolute;
+  bottom: 24px;
+  left: 24px;
+  z-index: 10;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+  border: 2px solid #4CAF50;
+  border-radius: 8px;
+  background: #222;
+  overflow: hidden;
+  width: 220px;
+  height: 124px;
+}
+
+.debug-roboflow-label {
+  font-size: 10px;
+  color: #4CAF50;
+  background: #222;
+  padding: 2px 6px;
+  border-radius: 4px;
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  font-weight: bold;
+}
+
+/* Frame transmission status animations */
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+.frame-status-indicator {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  z-index: 5;
+  background: rgba(0,0,0,0.8);
+  padding: 8px 12px;
+  border-radius: 6px;
+  color: white;
+  font-size: 12px;
+  font-family: monospace;
+  transition: all 0.3s ease;
+}
+
+.frame-status-indicator.success {
+  border: 2px solid #4CAF50;
+}
+
+.frame-status-indicator.error {
+  border: 2px solid #F44336;
+}
+
+.frame-status-indicator.sending {
+  border: 2px solid #FF9800;
+}
+
+.frame-status-indicator.idle {
+  border: 2px solid #666;
+} 

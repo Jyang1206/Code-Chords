@@ -80,7 +80,6 @@ function GuitarObjDetection() {
 
   const videoRef = useRef();
   const canvasRef = useRef();
-  const preprocessedCanvasRef = useRef();
 
   // --- Preprocessing Filter State ---
   // In applyFilterAndPreprocess, always use calibratedFilter if calibration is done
@@ -113,8 +112,16 @@ function GuitarObjDetection() {
     autoWhiteBalance: false,
   });
 
-  // Add state to control preprocessed view visibility
-  const [showPreprocessedView, setShowPreprocessedView] = useState(false);
+  // Add state to control debug canvas visibility
+  const [showDebugCanvas, setShowDebugCanvas] = useState(false);
+  
+  // Add state to track frame transmission status
+  const [frameStatus, setFrameStatus] = useState('idle');
+  const [frameCount, setFrameCount] = useState(0);
+  const [lastFrameTime, setLastFrameTime] = useState(null);
+  
+  // Add stable reference to track current calibration state for debug canvas
+  const currentCalibrationRef = useRef(null);
 
   const handlePreprocessingChange = (option) => {
     setPreprocessingOptions(prev => ({ ...prev, [option]: !prev[option] }));
@@ -236,10 +243,6 @@ function GuitarObjDetection() {
       const ctx = canvasRef.current.getContext("2d");
       ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
     }
-    if (preprocessedCanvasRef.current) {
-      const ctx = preprocessedCanvasRef.current.getContext("2d", { willReadFrequently: true });
-      ctx.clearRect(0, 0, preprocessedCanvasRef.current.width, preprocessedCanvasRef.current.height);
-    }
     setStreamStatus("Video stream stopped");
   };
 
@@ -357,28 +360,6 @@ function GuitarObjDetection() {
     }
   };
 
-  // --- Modified applyFilterAndPreprocess to accept a filter param ---
-  const applyFilterAndPreprocess = (filterOverride = null) => {
-    if (!preprocessedCanvasRef.current || !videoRef.current || videoRef.current.paused || videoRef.current.ended) {
-      return;
-    }
-    const preprocessedCtx = preprocessedCanvasRef.current.getContext('2d', { willReadFrequently: true });
-    const width = videoRef.current.videoWidth;
-    const height = videoRef.current.videoHeight;
-
-    if (width === 0 || height === 0) return;
-    
-    preprocessedCanvasRef.current.width = width;
-    preprocessedCanvasRef.current.height = height;
-    preprocessedCtx.drawImage(videoRef.current, 0, 0, width, height);
-
-    // Always use the calibrated filterChain if available
-    const filterChain = (calibrationDone && calibratedFilter && Array.isArray(calibratedFilter.filterChain)) ? calibratedFilter.filterChain : [];
-    if (filterChain.length > 0) {
-      applyFilterChainToCanvas(preprocessedCtx, filterChain, CALIBRATION_FILTERS);
-    }
-  };
-
   // --- Modified detectFrame to use calibrated filter ---
   const detectFrame = async (forceRedraw = false) => {
     if (!modelWorkerId || !calibrationDone || calibrating) {
@@ -398,46 +379,181 @@ function GuitarObjDetection() {
       return;
     }
     if (!canvasRef.current) return;
-    // Use videoRef.current for inference
+    
+    // Create a temporary canvas for preprocessing
+    const tempCanvas = document.createElement('canvas');
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCanvas.width = videoRef.current.videoWidth;
+    tempCanvas.height = videoRef.current.videoHeight;
+    
+    // Draw the current video frame to the temp canvas
+    tempCtx.drawImage(videoRef.current, 0, 0);
+    
+    // Apply calibrated filters if available
+    let processedCanvas = tempCanvas;
+    const stableCalibration = currentCalibrationRef.current;
+    const hasStableFilters = stableCalibration && Array.isArray(stableCalibration.filterChain) && stableCalibration.filterChain.length > 0;
+    
+    if (hasStableFilters) {
+      try {
+        console.log('Applying calibrated filters to inference:', stableCalibration.filterChain);
+        console.log('Filter chain details:', stableCalibration.filterChain.map(f => `${f.filter}(${f.param})`));
+        
+        // Test the function with a simple filter first
+        console.log('Testing applyFilterChainToCanvas function...');
+        const testCanvas = document.createElement('canvas');
+        testCanvas.width = 100;
+        testCanvas.height = 100;
+        const testCtx = testCanvas.getContext('2d');
+        testCtx.fillStyle = 'red';
+        testCtx.fillRect(0, 0, 100, 100);
+        
+        try {
+          const testResult = applyFilterChainToCanvas(testCtx, [{ filter: 'brightness', param: 1.2 }], CALIBRATION_FILTERS);
+          console.log('Test filter application successful:', testResult);
+        } catch (testError) {
+          console.error('Test filter application failed:', testError);
+        }
+        
+        // Get the context of the temp canvas for filter application
+        const tempCtx = tempCanvas.getContext('2d');
+        applyFilterChainToCanvas(tempCtx, stableCalibration.filterChain, CALIBRATION_FILTERS);
+        processedCanvas = tempCanvas;
+        console.log('Calibrated filters applied successfully to inference');
+        console.log('Processed canvas dimensions:', processedCanvas.width, 'x', processedCanvas.height);
+      } catch (error) {
+        console.error('Error applying calibrated filters:', error);
+        // Fall back to unprocessed canvas
+        processedCanvas = tempCanvas;
+        console.log('Falling back to unprocessed canvas due to error');
+      }
+    } else {
+      console.log('No calibrated filters to apply to inference - stableCalibration:', stableCalibration);
+    }
+    
+    // Create ImageBitmap from the processed canvas
     let imgBitmap = null;
     try {
-      if (!(videoRef.current instanceof HTMLVideoElement)) {
-        setTimeout(detectFrame, 100 / 3);
-        return;
-      }
-      imgBitmap = await createImageBitmap(videoRef.current);
+      imgBitmap = await createImageBitmap(processedCanvas);
     } catch (e) {
       console.warn('Failed to create ImageBitmap for live inference', e);
       setTimeout(detectFrame, 100 / 3);
       return;
     }
+    
+    // Update debug canvas to show what's being sent to Roboflow
+    const debugCanvas = document.getElementById('debug-roboflow-canvas');
+    if (debugCanvas) {
+      const debugCtx = debugCanvas.getContext('2d');
+      debugCtx.clearRect(0, 0, debugCanvas.width, debugCanvas.height);
+      debugCtx.drawImage(processedCanvas, 0, 0, debugCanvas.width, debugCanvas.height);
+      
+      // Use stable calibration reference to prevent jumping
+      const stableCalibration = currentCalibrationRef.current;
+      const hasStableFilters = stableCalibration && Array.isArray(stableCalibration.filterChain) && stableCalibration.filterChain.length > 0;
+      
+      // Add a label to show filter status
+      debugCtx.fillStyle = 'white';
+      debugCtx.font = '12px Arial';
+      debugCtx.fillText('Sent to Roboflow', 10, 20);
+      if (hasStableFilters) {
+        debugCtx.fillStyle = '#4CAF50';
+        debugCtx.fillText('Filters Applied', 10, 40);
+        const filterText = stableCalibration.filterChain.map(f => `${f.filter}(${f.param})`).join(', ');
+        debugCtx.fillText(filterText, 10, 60);
+      } else {
+        debugCtx.fillStyle = '#FF9800';
+        debugCtx.fillText('No Filters', 10, 40);
+      }
+      
+      // Add timestamp and frame info
+      const now = new Date();
+      const timestamp = now.toLocaleTimeString();
+      debugCtx.fillStyle = '#FFD700';
+      debugCtx.font = '10px Arial';
+      debugCtx.fillText(`Frame: ${Date.now()}`, 10, 80);
+      debugCtx.fillText(`Time: ${timestamp}`, 10, 95);
+    }
+    
     const img = new CVImage(imgBitmap);
+    
+    // Comprehensive logging for frame transmission
+    const frameId = Date.now();
+    const frameInfo = {
+      id: frameId,
+      timestamp: new Date().toISOString(),
+      dimensions: `${imgBitmap.width}x${imgBitmap.height}`,
+      hasFilters: hasStableFilters,
+      filters: hasStableFilters ? stableCalibration.filterChain.map(f => `${f.filter}(${f.param})`) : [],
+      modelWorkerId: modelWorkerId
+    };
+    
+    console.log('🚀 SENDING FRAME TO ROBOTFLOW:', frameInfo);
+    console.log('📊 Frame details:', {
+      width: imgBitmap.width,
+      height: imgBitmap.height,
+      filtersApplied: frameInfo.hasFilters,
+      filterChain: frameInfo.filters,
+      workerId: modelWorkerId
+    });
+    
+    // Track frame sending in a global counter
+    if (!window.frameSendCount) window.frameSendCount = 0;
+    window.frameSendCount++;
+    console.log(`📈 Total frames sent: ${window.frameSendCount}`);
+    
+    // Update UI state
+    setFrameStatus('sending');
+    setFrameCount(window.frameSendCount);
+    setLastFrameTime(new Date());
+    
     inferEngine.infer(modelWorkerId, img).then((predictions) => {
-      console.log('Predictions:', predictions);
+      console.log('✅ FRAME RECEIVED FROM ROBOTFLOW:', {
+        frameId: frameId,
+        timestamp: new Date().toISOString(),
+        predictionsCount: predictions ? predictions.length : 0,
+        predictions: predictions
+      });
+      
+      // Update UI state for success
+      setFrameStatus('success');
+      
+      // Update debug canvas with success indicator
+      if (debugCanvas) {
+        const debugCtx = debugCanvas.getContext('2d');
+        debugCtx.fillStyle = '#4CAF50';
+        debugCtx.font = '10px Arial';
+        debugCtx.fillText('✅ Success', 10, 110);
+        debugCtx.fillText(`Frames: ${window.frameSendCount}`, 10, 125);
+      }
+      
       window._lastPredictions = predictions;
       if (calibrationDone && !calibrating) {
         drawOverlay(predictions);
       }
       setTimeout(detectFrame, 100 / 3); // Inference loop
+    }).catch((error) => {
+      console.error('❌ FRAME SEND FAILED:', {
+        frameId: frameId,
+        timestamp: new Date().toISOString(),
+        error: error.message
+      });
+      
+      // Update UI state for error
+      setFrameStatus('error');
+      
+      // Update debug canvas with error indicator
+      if (debugCanvas) {
+        const debugCtx = debugCanvas.getContext('2d');
+        debugCtx.fillStyle = '#F44336';
+        debugCtx.font = '10px Arial';
+        debugCtx.fillText('❌ Failed', 10, 110);
+        debugCtx.fillText(`Error: ${error.message}`, 10, 125);
+      }
+      
+      setTimeout(detectFrame, 100 / 3); // Continue loop even on error
     });
   };
-
-   // Animation loop for preprocessed view
-   useEffect(() => {
-    let rafId;
-    function drawPreprocessedLoop() {
-      if (isStreaming && showPreprocessedView) {
-        applyFilterAndPreprocess();
-        rafId = requestAnimationFrame(drawPreprocessedLoop);
-      }
-    }
-    if (isStreaming && showPreprocessedView) {
-      rafId = requestAnimationFrame(drawPreprocessedLoop);
-    }
-    return () => {
-      if (rafId) cancelAnimationFrame(rafId);
-    };
-  }, [isStreaming, showPreprocessedView, calibrationDone, calibratedFilter]);
 
   // --- Calibration State ---
   const [calibrating, setCalibrating] = useState(false);
@@ -452,6 +568,8 @@ function GuitarObjDetection() {
   useEffect(() => {
     if (calibrationDone && calibratedFilter && Array.isArray(calibratedFilter.filterChain)) {
       localStorage.setItem('calibratedFilter', JSON.stringify(calibratedFilter));
+      // Update the stable reference when calibration changes
+      currentCalibrationRef.current = calibratedFilter;
     }
   }, [calibrationDone, calibratedFilter]);
   // On mount, load filterChain from localStorage if it exists
@@ -460,9 +578,17 @@ function GuitarObjDetection() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
+        console.log('Loading calibrated filter from localStorage:', parsed);
         setCalibratedFilter(parsed);
         setCalibrationDone(true);
-      } catch {}
+        // Update the stable reference
+        currentCalibrationRef.current = parsed;
+        console.log('Calibrated filter loaded successfully');
+      } catch (error) {
+        console.error('Error loading calibrated filter from localStorage:', error);
+      }
+    } else {
+      console.log('No calibrated filter found in localStorage');
     }
   }, []);
 
@@ -555,7 +681,7 @@ function GuitarObjDetection() {
       return;
     }
 
-    setShowCalibrationPrompt(false);
+    setShowCalibrationPrompt(true);
     setNoGuitarDetected(false);
 
     // Calibration logic (refactored to allow cancellation and require 80% confidence)
@@ -607,10 +733,12 @@ function GuitarObjDetection() {
     setCalibrationResult(best);
     if (foundAbove80) {
       setCalibrationProgress('Calibration complete! (Found filter with confidence >= 80%)');
+      console.log('Calibration successful - saving filter chain:', best);
       setCalibratedFilter(best);
       setCalibrationDone(true);
     } else {
       setCalibrationProgress('Calibration failed: No filter achieved confidence >= 80%. Please adjust lighting or guitar position and try again.');
+      console.log('Calibration failed - no filter achieved 80% confidence');
       setCalibratedFilter(null);
       setCalibrationDone(false);
     }
@@ -639,6 +767,11 @@ function GuitarObjDetection() {
       setCalibrationProgress('');
       setCalibrationResult(null);
       setCalibrationDone(false);
+      setCalibratedFilter(null);
+      // Automatically start calibration after confirmation
+      setTimeout(() => {
+        handleCalibration();
+      }, 100);
     }
   }
 
@@ -741,6 +874,48 @@ function GuitarObjDetection() {
               <div className="guitar-scale-label-overlay" style={{ position: 'absolute', zIndex: 3 }}>
                 {selectedRootRef.current} {selectedScaleRef.current.replace('_', ' ')}
               </div>
+              
+              {/* Frame transmission status indicator */}
+              {isStreaming && showDebugCanvas && (
+                <div style={{
+                  position: 'absolute',
+                  top: 24,
+                  left: 24,
+                  zIndex: 5,
+                  background: 'rgba(0,0,0,0.8)',
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  border: `2px solid ${
+                    frameStatus === 'success' ? '#4CAF50' :
+                    frameStatus === 'error' ? '#F44336' :
+                    frameStatus === 'sending' ? '#FF9800' : '#666'
+                  }`,
+                  color: 'white',
+                  fontSize: '12px',
+                  fontFamily: 'monospace'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      backgroundColor: 
+                        frameStatus === 'success' ? '#4CAF50' :
+                        frameStatus === 'error' ? '#F44336' :
+                        frameStatus === 'sending' ? '#FF9800' : '#666',
+                      animation: frameStatus === 'sending' ? 'pulse 1s infinite' : 'none'
+                    }}></span>
+                    <span>
+                      {frameStatus === 'success' ? '✅ Sent' :
+                       frameStatus === 'error' ? '❌ Failed' :
+                       frameStatus === 'sending' ? '🔄 Sending' : '⏸️ Idle'}
+                    </span>
+                  </div>
+                  <div style={{ marginTop: '4px', fontSize: '10px', opacity: 0.8 }}>
+                    Frames: {frameCount} | Last: {lastFrameTime ? lastFrameTime.toLocaleTimeString() : 'Never'}
+                  </div>
+                </div>
+              )}
               {/* AudioPitchDetector overlayed in video-container */}
               <div style={{ position: 'absolute', top: 24, right: 24, zIndex: 4 }}>
                 <AudioPitchDetector>
@@ -806,34 +981,18 @@ function GuitarObjDetection() {
                   }}
                 </AudioPitchDetector>
               </div>
-              {/* Preprocessed PiP overlay */}
-              {showPreprocessedView && (
-                <div style={{
-                  position: 'absolute',
-                  bottom: 24,
-                  right: 24,
-                  zIndex: 10,
-                  boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
-                  border: '2px solid #ffc107',
-                  borderRadius: 8,
-                  background: '#222',
-                  overflow: 'hidden',
-                  width: 220,
-                  height: 124
-                }}>
+              {/* Debug canvas to show frames sent to Roboflow */}
+              {isStreaming && showDebugCanvas && (
+                <div className="debug-roboflow-container">
                   <canvas
-                    ref={preprocessedCanvasRef}
-                    className="preprocessed-canvas"
+                    id="debug-roboflow-canvas"
                     width={220}
                     height={124}
                     style={{ width: 220, height: 124, display: 'block' }}
                   />
-                  {/* Show which filter is applied after calibration */}
-                  {calibrationDone && calibratedFilter && (
-                    <div style={{ fontSize: 10, color: '#ffc107', background: '#222', padding: '2px 6px', borderRadius: 4, position: 'absolute', top: 4, left: 4 }}>
-                      {Array.isArray(calibratedFilter?.filterChain) ? calibratedFilter.filterChain.map(f => `${f.filter}(${f.param})`).join(', ') : '--'}
-                    </div>
-                  )}
+                  <div className="debug-roboflow-label">
+                    Calibrated Video
+                  </div>
                 </div>
               )}
             </>
@@ -859,10 +1018,10 @@ function GuitarObjDetection() {
           )}
           {isStreaming && (
             <button 
-              className={`toggle-preprocessed-btn ${!showPreprocessedView ? 'hidden' : ''}`}
-              onClick={() => setShowPreprocessedView(!showPreprocessedView)}
+              className={`toggle-debug-canvas-btn ${!showDebugCanvas ? 'hidden' : ''}`}
+              onClick={() => setShowDebugCanvas(!showDebugCanvas)}
             >
-              {showPreprocessedView ? 'Hide' : 'Show'} Preprocessed View
+              {showDebugCanvas ? 'Hide' : 'Show'} Calibrated Video
             </button>
           )}
         </div>
