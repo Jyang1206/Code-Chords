@@ -8,7 +8,6 @@ import { applyFilterChainToCanvas } from '../utils/imagePreprocessing';
 // Try to import inferencejs, but provide fallback if it fails
 let InferenceEngine, CVImage;
 try {
-  // Try ES6 import first
   import("inferencejs").then(module => {
     InferenceEngine = module.InferenceEngine;
     CVImage = module.CVImage;
@@ -187,7 +186,7 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
           canvasRef.current.width = videoRef.current.videoWidth;
           canvasRef.current.height = videoRef.current.videoHeight;
           videoRef.current.play().then(() => {
-            console.log('✅ Video play() resolved successfully');
+            console.log('Video play() resolved successfully');
             setVideoLoaded(true);
           }).catch((error) => {
             console.error('❌ Video play() failed:', error);
@@ -195,7 +194,7 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
         };
 
         videoRef.current.onplay = () => {
-          console.log('✅ Video started playing');
+          console.log('Video started playing');
           setVideoLoaded(true);
           if (canvasRef.current) {
             var ctx = canvasRef.current.getContext("2d");
@@ -211,16 +210,16 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
           }
         };
         videoRef.current.onerror = (error) => {
-          console.error('❌ Video error:', error);
+          console.error('Video error:', error);
         };
         videoRef.current.onloadeddata = () => {
           console.log('✅ Video data loaded');
         };
       } else {
-        console.error('❌ Video ref is null');
+        console.error('Video ref is null');
       }
     }).catch((error) => {
-      console.error('❌ Camera access denied or unavailable:', error);
+      console.error('Camera access denied or unavailable:', error);
       // Continue without camera - the component will still work for audio detection
     });
   }, []);
@@ -238,7 +237,7 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
   }, []);
 
   // Debug container dimensions
-  useEffect(() => {
+  /*useEffect(() => {
     const container = document.querySelector('.guitar-video-container');
     if (container) {
       console.log('Container dimensions:', container.offsetWidth, 'x', container.offsetHeight);
@@ -246,7 +245,7 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
     } else {
       console.log('Container not found');
     }
-  }, []);
+  }, []);*/
 
   useEffect(() => {
     if (!modelWorkerId || !videoLoaded) return;
@@ -500,7 +499,7 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
   }
 
   return (
-    <AudioPitchDetector clarityThreshold={0.92}>
+    <AudioPitchDetector clarityThreshold={0.80}>
       {({ note, frequency, listening, start, stop, error }) => {
         // Ensure pitch detection is always running while overlay is mounted
         React.useEffect(() => {

@@ -13,7 +13,19 @@ const SplashScreen = ({ onComplete, duration = 5000 }) => {
       }
     }, duration);
 
-    return () => clearTimeout(timer);
+    // Handler for skipping splash
+    const skipSplash = () => {
+      setShowLogo(false);
+      if (onComplete) onComplete();
+    };
+    window.addEventListener('mousedown', skipSplash);
+    window.addEventListener('keydown', skipSplash);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('mousedown', skipSplash);
+      window.removeEventListener('keydown', skipSplash);
+    };
   }, [duration, onComplete]);
 
   if (!showLogo) {
@@ -24,7 +36,6 @@ const SplashScreen = ({ onComplete, duration = 5000 }) => {
     <div className="splash-screen">
       <AnimatedLogo onAnimationComplete={() => {
         // The logo animation completes before the splash screen
-        // This allows for additional timing control
       }} />
     </div>
   );

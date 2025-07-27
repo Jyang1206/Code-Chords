@@ -290,6 +290,26 @@ function PlayAlong() {
   const playTimer = useRef(null);
   const latestSessionStatsRef = useRef({ correct: 0, total: 0 }); // Track latest session stats
   const noteTimestampsRef = useRef({}); // Track timestamps for song playback
+  const [showScoreboard, setShowScoreboard] = useState(false);
+
+  // Show scoreboard when play along ends, hide only when user clicks 'Try Again'
+  useEffect(() => {
+    if (!isPlaying && currentScore > 0) {
+      setShowScoreboard(true);
+    }
+    if (isPlaying) {
+      setShowScoreboard(false);
+    }
+  }, [isPlaying, currentScore]);
+
+  const handleTryAgain = () => {
+    setShowScoreboard(false);
+    setCurrentStepIdx(0);
+    setSessionStats({ correct: 0, total: playNotes ? playNotes.length : 0 });
+    setChordAccuracy(0);
+    setCurrentScore(0);
+    setCompletedNotes(new Set());
+  };
 
   // Load custom tabs when user is available
   useEffect(() => {
@@ -711,198 +731,6 @@ function PlayAlong() {
     }
   };
 
-  // Test database connection
-  const testDatabaseConnection = async () => {
-    if (!currentUser) {
-      console.log('No user logged in');
-      return;
-    }
-    
-    try {
-      console.log('Testing database connection...');
-      console.log('User:', currentUser.email, 'UID:', currentUser.uid);
-      
-      // Ensure leaderboard exists
-      await ScoreboardService.ensureLeaderboardExists();
-      
-      // Test 1: Add a score
-      const result = await ScoreboardService.addScore(
-        currentUser.uid,
-        currentUser.email || 'Anonymous',
-        5,
-        'test-chord',
-        true
-      );
-      console.log('Score add result:', result);
-      
-      // Test 2: Get user stats
-      const statsResult = await ScoreboardService.getUserStats(currentUser.uid);
-      console.log('User stats result:', statsResult);
-      
-      // Test 3: Subscribe to leaderboard
-      const unsubscribe = ScoreboardService.subscribeToLeaderboard((leaderboardResult) => {
-        console.log('Leaderboard subscription result:', leaderboardResult);
-        unsubscribe();
-      });
-      
-    } catch (error) {
-      console.error('Database test failed:', error);
-    }
-  };
-
-  // Test leaderboard update manually
-  const testLeaderboardUpdate = async () => {
-    if (!currentUser) {
-      console.log('No user logged in');
-      return;
-    }
-    
-    try {
-      console.log('Testing leaderboard update...');
-      
-      // Ensure leaderboard exists
-      await ScoreboardService.ensureLeaderboardExists();
-      
-      // Manually update leaderboard
-      await ScoreboardService.updateLeaderboard(currentUser.uid, currentUser.email || 'Anonymous', 25, 80, 4, 5);
-      
-      // Subscribe to see the update
-      const unsubscribe = ScoreboardService.subscribeToLeaderboard((result) => {
-        console.log('Leaderboard after manual update:', result);
-        unsubscribe();
-      });
-      
-    } catch (error) {
-      console.error('Leaderboard test failed:', error);
-    }
-  };
-
-  // Create leaderboard with test data
-  const createLeaderboardWithTestData = async () => {
-    if (!currentUser) {
-      console.log('No user logged in');
-      return;
-    }
-    
-    try {
-      console.log('Creating leaderboard with test data...');
-      
-      // Create leaderboard with test users
-      const leaderboardRef = doc(db, 'scoreboard-db', 'leaderboard');
-      await setDoc(leaderboardRef, {
-        scores: [
-          {
-            userId: 'test-user-1',
-            userName: 'Test User 1',
-            totalScore: 100,
-            accuracy: 85,
-            correctNotes: 17,
-            totalNotes: 20,
-            lastUpdated: new Date()
-          },
-          {
-            userId: 'test-user-2',
-            userName: 'Test User 2',
-            totalScore: 75,
-            accuracy: 72,
-            correctNotes: 14,
-            totalNotes: 19,
-            lastUpdated: new Date()
-          },
-          {
-            userId: currentUser.uid,
-            userName: currentUser.email || 'Anonymous',
-            totalScore: 50,
-            accuracy: 60,
-            correctNotes: 6,
-            totalNotes: 10,
-            lastUpdated: new Date()
-          }
-        ],
-        lastUpdated: serverTimestamp()
-      });
-      
-      console.log('Leaderboard created with test data successfully');
-      
-      // Subscribe to see the result
-      const unsubscribe = ScoreboardService.subscribeToLeaderboard((result) => {
-        console.log('Leaderboard with test data:', result);
-        unsubscribe();
-      });
-      
-    } catch (error) {
-      console.error('Error creating leaderboard with test data:', error);
-    }
-  };
-
-  // Test correct/incorrect note counting
-  const testNoteCounting = () => {
-    console.log('=== Testing Note Counting ===');
-    console.log('Current session stats:', sessionStats);
-    console.log('Current chord:', selectedChord);
-    console.log('Total notes in chord:', playNotes.length);
-    console.log('Completed notes:', Array.from(completedNotes));
-    console.log('Current accuracy:', chordAccuracy + '%');
-    console.log('Current step index:', currentStepIdx);
-    console.log('Is playing:', isPlaying);
-    console.log('===========================');
-  };
-
-  // Test chord completion without playing notes
-  const testChordCompletionWithoutPlaying = async () => {
-    if (!currentUser) {
-      console.log('No user logged in');
-      return;
-    }
-    
-    console.log('=== Testing Chord Completion Without Playing ===');
-    console.log('Current chord:', selectedChord);
-    console.log('Chord length:', playNotes.length);
-    console.log('Current session stats:', sessionStats);
-    
-    // Simulate chord completion with 0 correct notes
-    const chordLength = playNotes.length;
-    const correctCount = 0; // No notes played correctly
-    const totalPoints = 0; // No points earned
-    
-    console.log(`Simulating completion: ${correctCount}/${chordLength} notes, ${totalPoints} points`);
-    
-    try {
-      const result = await ScoreboardService.updateUserStatsWithSessionData(
-        currentUser.uid,
-        currentUser.email || currentUser.displayName || 'Anonymous',
-        correctCount,
-        chordLength, // Should always be chord length
-        totalPoints
-      );
-      
-      console.log('Chord completion test completed successfully');
-      
-      // Get updated stats to verify
-      const statsResult = await ScoreboardService.getUserStats(currentUser.uid);
-      console.log('Updated user stats:', statsResult);
-      
-    } catch (error) {
-      console.error('Error testing chord completion:', error);
-    }
-  };
-
-  // Test stopping playback at different points
-  const testStopPlayback = () => {
-    console.log('=== Testing Stop Playback ===');
-    console.log('Current step index:', currentStepIdx);
-    console.log('Current session stats:', sessionStats);
-    console.log('Is playing:', isPlaying);
-    console.log('Chord length:', playNotes.length);
-    
-    if (isPlaying) {
-      console.log('Stopping playback now...');
-      stopPlayback();
-    } else {
-      console.log('Not currently playing. Start playback first, then test stop.');
-    }
-  };
-
   const stopPlayback = () => {
     setIsPlaying(false);
     clearInterval(playTimer.current);
@@ -949,7 +777,7 @@ function PlayAlong() {
         </div>
 
         {/* Score Display */}
-        {isPlaying && (
+        {showScoreboard && (
           <div className="score-display">
             <div className="score-stats">
               <div className="score-stat">
@@ -971,6 +799,9 @@ function PlayAlong() {
                 <div className="score-label">Accuracy</div>
               </div>
             </div>
+            <button className="space-button" onClick={handleTryAgain} style={{ marginTop: 24 }}>
+              Try Again
+            </button>
           </div>
         )}
 
@@ -1054,51 +885,6 @@ function PlayAlong() {
                 STOP
               </button>
             </div>
-            
-            {/* Test Database Button */}
-            <div className="test-buttons">
-              <button
-                onClick={testDatabaseConnection}
-                className="test-button"
-              >
-                Test Database
-              </button>
-              
-              <button
-                onClick={testLeaderboardUpdate}
-                className="test-button"
-              >
-                Test Leaderboard
-              </button>
-
-              <button
-                onClick={createLeaderboardWithTestData}
-                className="test-button"
-              >
-                Create Test Leaderboard
-              </button>
-              
-              <button
-                onClick={testNoteCounting}
-                className="test-button"
-              >
-                Test Note Counting
-              </button>
-
-              <button
-                onClick={testChordCompletionWithoutPlaying}
-                className="test-button"
-              >
-                Test Chord Completion (No Play)
-              </button>
-
-              <button
-                onClick={testStopPlayback}
-                className="test-button"
-              >
-                Test Stop Playback
-              </button>
-            </div>
           </div>
         </div>
 
@@ -1176,7 +962,7 @@ function PlayAlong() {
         )}
 
         {/* Tab Overlay */}
-        {overlayActive && (
+        {isPlaying && (
           <TabOverlay 
             playNotes={playNotes}
             currentStepIdx={currentStepIdx}

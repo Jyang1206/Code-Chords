@@ -521,3 +521,53 @@
 .frame-status-indicator.idle {
   border: 2px solid #666;
 } 
+
+/* Dark mode: Improve control panel spacing and text visibility */
+[data-theme="dark"] .guitar-scale-controls {
+  margin-top: 16px;
+  padding: 12px 8px 8px 8px;
+  background: rgba(26, 26, 46, 0.85);
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(255, 179, 71, 0.08);
+}
+[data-theme="dark"] .guitar-scale-controls h3,
+[data-theme="dark"] .guitar-scale-btn,
+[data-theme="dark"] .guitar-root-notes label,
+[data-theme="dark"] .guitar-scale-types label {
+  color: #fff !important;
+  text-shadow: 0 0 8px #ffb34788, 0 0 2px #fff;
+}
+[data-theme="dark"] .guitar-scale-btn {
+  background: rgba(255, 255, 255, 0.10);
+  color: #fff;
+  border: 1.5px solid #ffb347;
+  font-weight: 600;
+  font-size: 15px;
+  padding: 7px 14px;
+}
+[data-theme="dark"] .guitar-scale-btn.active {
+  background: linear-gradient(135deg, #ffb347, #4a90e2);
+  color: #1a1a2e;
+  border-color: #ffb347;
+  box-shadow: 0 2px 12px #ffb34733;
+}
+[data-theme="dark"] .guitar-scale-btns-row {
+  gap: 12px;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+[data-theme="dark"] .guitar-root-notes, [data-theme="dark"] .guitar-scale-types {
+  gap: 6px;
+}
+[data-theme="dark"] .guitar-scale-controls label {
+  font-size: 1rem;
+  color: #fff !important;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+[data-theme="dark"] .guitar-current-scale, [data-theme="dark"] .guitar-scale-notes {
+  color: #fff !important;
+  text-shadow: 0 0 6px #ffb34744;
+  font-size: 0.98rem;
+  opacity: 0.95;
+} 

@@ -449,3 +449,82 @@ body {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 } 
+
+[data-theme="light"] .space-background {
+  /* Aurora/Nebula gradient background for light mode */
+  background: radial-gradient(ellipse at 60% 40%, #a3bffa 0%, #5f7fff 30%, #232946 70%, #0c0e1a 100%),
+              linear-gradient(120deg, #ffecd2 0%, #fcb69f 100%),
+              linear-gradient(90deg, #a1c4fd 0%, #c2e9fb 100%);
+  background-blend-mode: lighten, color-dodge, normal;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+/* GuitarObjDetection container transparency and style improvements */
+.guitar-obj-detection {
+  background: rgba(26, 26, 46, 0.6) !important;
+  border-radius: 20px;
+  box-shadow: 0 0 25px var(--glow), inset 0 0 25px rgba(255, 179, 71, 0.08);
+  border: 2px solid var(--glow);
+  padding: 2rem;
+  margin: 1rem;
+  position: relative;
+  z-index: 10;
+}
+[data-theme="light"] .guitar-obj-detection {
+  background: rgba(180, 200, 255, 0.25) !important;
+  border: 2px solid #a3bffa;
+  box-shadow: 0 0 25px #a3bffa, inset 0 0 25px rgba(163, 191, 250, 0.08);
+}
+.guitar-video-container {
+  background: rgba(30, 30, 50, 0.4);
+  border-radius: 16px;
+  box-shadow: 0 0 16px 0 var(--glow);
+  padding: 1rem;
+}
+[data-theme="light"] .guitar-video-container {
+  background: rgba(200, 220, 255, 0.18);
+  box-shadow: 0 0 16px 0 #a3bffa;
+} 
+
+[data-theme="light"] .nebula {
+  background: radial-gradient(ellipse at 60% 40%, rgba(108, 92, 231, 0.22) 0%, rgba(163, 191, 250, 0.18) 40%, transparent 80%);
+  opacity: 1;
+  mix-blend-mode: lighten;
+}
+
+/* Play Along container and scoreboard improvements */
+.playalong-container {
+  background: rgba(26, 26, 46, 0.7) !important;
+  backdrop-filter: blur(15px);
+  border: 2px solid var(--glow);
+  box-shadow: 0 0 25px var(--glow), inset 0 0 25px rgba(255, 179, 71, 0.1);
+  border-radius: 20px;
+  padding: 2rem;
+  margin: 1rem;
+  position: relative;
+  z-index: 10;
+}
+[data-theme="light"] .playalong-container {
+  background: rgba(180, 200, 255, 0.22) !important;
+  border: 2px solid #a3bffa;
+  box-shadow: 0 0 25px #a3bffa, inset 0 0 25px rgba(163, 191, 250, 0.08);
+}
+.score-display {
+  background: rgba(30, 30, 50, 0.5);
+  border-radius: 15px;
+  box-shadow: 0 0 16px 0 var(--glow);
+  padding: 1.5rem 2rem;
+  margin-bottom: 2rem;
+  color: #fff;
+}
+[data-theme="light"] .score-display {
+  background: rgba(200, 220, 255, 0.22);
+  color: #1a1a2e;
+  box-shadow: 0 0 16px 0 #a3bffa;
+}
+[data-theme="light"] .score-display .score-value,
+[data-theme="light"] .score-display .score-label {
+  color: #236cff !important;
+  text-shadow: 0 0 8px #236cff44;
+} 

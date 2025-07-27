@@ -29,9 +29,8 @@ const GuitarTuner = () => {
   const [lastNote, setLastNote] = useState(null);
 
   // Use AudioPitchDetector for pitch detection
-  // We'll use the render prop to get note, frequency, clarity, listening, start, stop, error
-  // We'll keep lastFrequency/lastNote for the UI as before
-  // We'll keep tuningStatus logic in a useEffect
+  // Use the render prop to get note, frequency, clarity, listening, start, stop, error
+  // keep lastFrequency/lastNote 
 
   // Compute the target frequency for the last detected note
   const targetFreq = lastNote ? GUITAR_STRINGS.find(s => s.note === lastNote)?.freq : null;
@@ -75,15 +74,16 @@ const GuitarTuner = () => {
               <div className="stars" />
             </div>
             <div className="tuner-container">
-              <h2 className="tuner-title">🚀 Space Guitar Tuner</h2>
+              <h2 className="tuner-title"> Tuner</h2>
               <div className="tuner-display">
                 {(lastFrequency || lastFrequency === 0) ? (
                   <>
                     <div className={`note-display${tuningStatus === 'No clear pitch' ? ' faded' : ''}`}>
-                      <span className="note">{lastNote || '--'}</span>
-                      <span className="freq">{lastFrequency ? lastFrequency.toFixed(2) : '--'} Hz</span>
+                      <span className="tuner-note">{lastNote || '--'}</span>
+                      <span className="tuner-freq">{lastFrequency ? lastFrequency.toFixed(2) : '--'} Hz</span>
                     </div>
                     <div className={`tuning-indicator ${tuningStatus.replace(/\s/g, "-").toLowerCase()}`}> 
+
                       {/* Space needle/indicator */}
                       <div className="needle-wrapper rocket-wrapper">
                         <svg
@@ -174,7 +174,7 @@ const GuitarTuner = () => {
                   </>
                 ) : (
                   <div className="note-display">
-                    <span className="note">--</span>
+                    <span className="tuner-note">--</span>
                     <span className="freq">Listening...</span>
                   </div>
                 )}

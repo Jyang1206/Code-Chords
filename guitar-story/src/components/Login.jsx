@@ -32,7 +32,7 @@ export default function Login({ onSwitch }) {
     <div className="space-loading login-container">
       <div className="space-card login-card">
         <h2 className="glow-text login-title">
-          Welcome Back, Explorer
+          Welcome to Guitar Story!
         </h2>
         
         {error && (
@@ -64,7 +64,7 @@ export default function Login({ onSwitch }) {
             type="submit" 
             className="space-button login-submit-button"
           >
-            Launch into Orbit
+            Sign In
           </button>
         </form>
         
@@ -78,7 +78,7 @@ export default function Login({ onSwitch }) {
         </button>
         
         <p className="login-switch-text">
-          New to the mission?
+          New to Guitar Story?
         </p>
         
         <button 
@@ -86,7 +86,7 @@ export default function Login({ onSwitch }) {
           onClick={onSwitch} 
           className="space-button login-switch-button"
         >
-          Join the Mission
+          Sign Up
         </button>
       </div>
     </div>

@@ -77,7 +77,7 @@
   align-items: center;
 }
 
-.note {
+.tuner-note {
   font-size: 2.8rem;
   font-weight: bold;
   letter-spacing: 2px;
@@ -85,7 +85,7 @@
   text-shadow: 0 0 8px #6cf, 0 0 2px #fff;
 }
 
-.freq {
+.tuner-freq {
   font-size: 1.1rem;
   color: #fff;
   opacity: 0.8;
@@ -222,7 +222,7 @@
   color: #222;
 }
 .space-tuner.light .tuner-title,
-.space-tuner.light .note,
+.space-tuner.light .tuner-note,
 .space-tuner.light .string-list h4 {
   color: #236cff;
   text-shadow: 0 0 8px #236cff44;
@@ -349,7 +349,7 @@
   color: var(--space-accent) !important;
   text-shadow: 0 0 8px var(--space-accent2), 0 0 2px #fff !important;
 }
-.light-mode .note,
+.light-mode .tuner-note,
 .light-mode .string-list h4 {
   color: var(--space-accent) !important;
 }
