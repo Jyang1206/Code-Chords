@@ -158,41 +158,6 @@ function Home() {
           ))}
         </div>
       </section>
-
-      {/* Animation Section */}
-      <section className="animation-section">
-        {/* Dark Mode: Rocket Animation */}
-        {isDarkMode && (
-          <div className="custom-rocket">
-            {/* Rocket Flame */}
-            <div className="rocket-flame"></div>
-          </div>
-        )}
-
-        {/* Light Mode: Earth-Sun Eclipse Animation */}
-        {!isDarkMode && (
-          <>
-            {/* Sun */}
-            <div className="animation-sun"></div>
-
-            {/* Earth */}
-            <div className="animation-earth">
-              {/* Earth's continents */}
-              <div className="earth-continent"></div>
-            </div>
-
-            {/* Eclipse Animation */}
-            {showEclipse && (
-              <div className="eclipse-animation"></div>
-            )}
-          </>
-        )}
-
-        {/* Moon Landing Zone (Dark Mode) */}
-        {isDarkMode && (
-          <div className="moon-landing"></div>
-        )}
-      </section>
     </div>
   );
 }
