@@ -57,7 +57,7 @@ const CHORDS = Object.fromEntries(
 
 // --- SONGS DATA ---
 const SONGS = {
-  "Ode to Joy": [
+  "Ode to Joy - Beethoven": [
     //1 to 6 indexing, 6th string is the lowest E, 1st string is the highest E
     { stringIdx: 2, fretNum: 0, note: "B", duration: 1 }, // 2nd string
     { stringIdx: 2, fretNum: 0, note: "B", duration: 1 }, // 2nd string
@@ -85,6 +85,30 @@ const SONGS = {
     { stringIdx: 3, fretNum: 0, note: "B", duration: 1 }, // 3rd string
     { stringIdx: 3, fretNum: 2, note: "A", duration: 2 }, // 3rd string
     // ...
+  ],
+  "River Flows in You - Yiruma": [
+    //1 to 6 indexing, 6th string is the lowest E, 1st string is the highest E
+    // Starting note: 1st string 5th fret (A)
+    // Sequence: AG#AG#AG#EAD(hold 2.0s) A(4th string)C#
+    { stringIdx: 1, fretNum: 5, note: "A", duration: 1 }, // 1st string - A
+    { stringIdx: 1, fretNum: 4, note: "G#", duration: 1 }, // 1st string - G#
+    { stringIdx: 1, fretNum: 5, note: "A", duration: 1 }, // 1st string - A
+    { stringIdx: 1, fretNum: 4, note: "G#", duration: 1 }, // 1st string - G#
+    { stringIdx: 1, fretNum: 5, note: "A", duration: 1 }, // 1st string - A
+    { stringIdx: 1, fretNum: 0, note: "E", duration: 1 }, // 1st string - E
+    { stringIdx: 1, fretNum: 5, note: "A", duration: 1 }, // 1st string - A
+    { stringIdx: 2, fretNum: 3, note: "D", duration: 3.5 }, // 2nd string - D (hold 2.0s)
+    { stringIdx: 3, fretNum: 2, note: "A", duration: 0.25 }, // 4th string - A
+    { stringIdx: 2, fretNum: 2, note: "C#", duration: 0.25 }, // 2nd string - C#
+    // Second phrase (repeat)
+    { stringIdx: 1, fretNum: 5, note: "A", duration: 1 }, // 1st string - A
+    { stringIdx: 1, fretNum: 4, note: "G#", duration: 1 }, // 1st string - G#
+    { stringIdx: 1, fretNum: 5, note: "A", duration: 1 }, // 1st string - A
+    { stringIdx: 1, fretNum: 4, note: "G#", duration: 1 }, // 1st string - G#
+    { stringIdx: 1, fretNum: 5, note: "A", duration: 1 }, // 1st string - A
+    { stringIdx: 1, fretNum: 0, note: "E", duration: 1 }, // 1st string - E
+    { stringIdx: 1, fretNum: 5, note: "A", duration: 1 }, // 1st string - A
+    { stringIdx: 2, fretNum: 3, note: "D", duration: 4 }, // 2nd string - D (hold 2.0s)
   ]
 };
 
@@ -364,7 +388,7 @@ function PlayAlong() {
   const { currentUser } = useAuth();
   const [mainMode, setMainMode] = useState("Chords"); // "Chords" or "Songs"
   const [selectedChord, setSelectedChord] = useState("C Major");
-  const [selectedSong, setSelectedSong] = useState("Ode to Joy");
+  const [selectedSong, setSelectedSong] = useState("Ode to Joy - Beethoven");
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
   const [currentScore, setCurrentScore] = useState(0);
@@ -427,10 +451,18 @@ function PlayAlong() {
   const playNotes = mainMode === 'Chords' ? CHORDS[selectedChord] : SONGS[selectedSong];
   const isChordMode = mainMode === "Chords";
   const isSongMode = mainMode === "Songs";
+  
+  // Add safety check for playNotes
+  if (!playNotes) {
+    console.error(`[ERROR] playNotes is undefined. mainMode: ${mainMode}, selectedChord: ${selectedChord}, selectedSong: ${selectedSong}`);
+    return <div>Error: Invalid selection. Please try again.</div>;
+  }
+  
   const currentStep = playNotes[currentStepIdx] || null;
 
   // Calculate currentStepIdx based on playbackTime (moved after playNotes is defined)
   const getCurrentStepIdx = () => {
+    if (!playNotes || playNotes.length === 0) return 0;
     let time = 0;
     for (let i = 0; i < playNotes.length; i++) {
       const duration = (playNotes[i].duration || 1) * 1200;
@@ -443,6 +475,7 @@ function PlayAlong() {
 
   // Calculate delayed step index for overlay (1 second delay to account for travel time)
   const getDelayedStepIdx = () => {
+    if (!playNotes || playNotes.length === 0) return 0;
     const delayedPlaybackTime = Math.max(0, playbackTime - 1000); // 1 second delay
     let time = 0;
     for (let i = 0; i < playNotes.length; i++) {
@@ -462,7 +495,7 @@ function PlayAlong() {
   // Reset completed notes and session stats when mode, chord, or song changes
   useEffect(() => {
     setCompletedNotes(new Set());
-    const newSessionStats = { correct: 0, total: playNotes.length };
+    const newSessionStats = { correct: 0, total: playNotes ? playNotes.length : 0 };
     setSessionStats(newSessionStats);
     latestSessionStatsRef.current = newSessionStats;
     setChordAccuracy(0);
@@ -671,6 +704,15 @@ function PlayAlong() {
           noteTimestampsRef.current = {};
           // Start the note progression
           playNextNote(0);
+          
+          // Auto-scroll to show webcam feed and guitar hero overlay
+          setTimeout(() => {
+            window.scrollTo({
+              top: document.body.scrollHeight,
+              behavior: 'smooth'
+            });
+          }, 100); // Small delay to ensure elements are rendered
+          
           return 0;
         }
         return prev - 1;
@@ -1464,11 +1506,14 @@ function PlayAlong() {
         )}
 
         {/* Guitar Display */}
-        <div style={{
-          display: "flex",
-          justifyContent: "center",
-          marginBottom: "2rem"
-        }}>
+        <div 
+          data-guitar-display
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            marginBottom: "2rem"
+          }}
+        >
           <div style={{
             position: "relative",
             width: "640px",
