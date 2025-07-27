@@ -1,0 +1,121 @@
+body.lessons-page {
+  background: var(--space-bg);
+  color: var(--space-text);
+  min-height: 100vh;
+  background-image: var(--space-star-bg), var(--space-bg);
+  background-blend-mode: lighten, normal;
+}
+.lessons-content {
+  padding: 2rem;
+  border-radius: 16px;
+  background: var(--space-card-bg);
+  box-shadow: 0 0 40px 5px var(--space-shadow);
+  margin: 2rem auto;
+  max-width: 700px;
+}
+.lessons-content h1 {
+  font-size: 2.5rem;
+  color: var(--space-star);
+  text-shadow: 0 0 10px var(--space-accent), 0 0 20px var(--space-star);
+}
+.lessons-content p {
+  font-size: 1.2rem;
+  color: var(--space-text);
+  text-shadow: 0 0 4px var(--space-shadow);
+} 
+
+.lessons-content {
+  padding: 2rem 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.search-form {
+  max-width: 600px;
+  margin: 0 auto 2rem;
+  display: flex;
+  gap: 1rem;
+  padding: 0 1rem;
+  box-sizing: border-box;
+}
+
+.search-input {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: 4px;
+  background-color: #333;
+  color: white;
+  font-size: 1rem;
+}
+
+.search-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px #666;
+}
+
+.search-button {
+  padding: 0.75rem 1.5rem;
+  background-color: #e50914;
+  color: white;
+  border-radius: 4px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+  white-space: nowrap;
+}
+
+.search-button:hover {
+  background-color: #f40612;
+}
+
+body.light-mode {
+  background: var(--space-bg-light);
+  color: var(--space-text-light);
+}
+body.light-mode .lessons-content {
+  background: var(--space-card-bg-light);
+  color: var(--space-shadow);
+}
+body.light-mode .lessons-content h1 {
+  color: var(--space-shadow);
+  text-shadow: 0 0 10px #fff, 0 0 20px var(--space-accent2);
+}
+body.light-mode .lessons-content p {
+  color: var(--space-shadow);
+  text-shadow: 0 0 4px #fff;
+}
+
+
+@media (max-width: 639px) {
+  .home {
+    padding: 1rem 0;
+  }
+
+  .search-form {
+    margin-bottom: 1rem;
+  }
+}
+
+.songs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  padding: 1rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Light mode overrides for Lessons.css */
+.light-mode .lessons-content {
+  background: var(--space-card-bg-light) !important;
+  color: var(--space-shadow) !important;
+  box-shadow: 0 0 40px 5px var(--space-accent2);
+}
+.light-mode .lessons-content h1 {
+  color: var(--space-shadow) !important;
+  text-shadow: 0 0 10px #fff, 0 0 20px var(--space-accent2) !important;
+}
+.light-mode .lessons-content p {
+  color: var(--space-shadow) !important;
+  text-shadow: 0 0 4px #fff !important;
+}

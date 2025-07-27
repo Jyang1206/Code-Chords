@@ -1,0 +1,411 @@
+/* Animated Logo CSS - Space Theme */
+.animated-logo-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--background);
+  z-index: 9999;
+  overflow: hidden;
+}
+
+/* Light Mode Background */
+[data-theme="light"] .animated-logo-container {
+  background: #F0F2FF;
+}
+
+/* Guitar Pick Planet */
+.guitar-pick-planet {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  margin-bottom: 3rem;
+  animation: planet-float 4s ease-in-out infinite;
+}
+
+.pick-body {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 120px;
+  height: 160px;
+  background: linear-gradient(135deg, #FFB347, #FFD700);
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  box-shadow: 0 0 30px #FFB347, inset 0 0 20px rgba(255, 179, 71, 0.3);
+  animation: pick-rotate 8s linear infinite;
+}
+
+/* Light Mode Pick Body */
+[data-theme="light"] .pick-body {
+  background: linear-gradient(135deg, #FFB347, #FFD700);
+  box-shadow: 0 0 30px #FFB347, inset 0 0 20px rgba(255, 179, 71, 0.3);
+}
+
+.pick-hole {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px;
+  height: 20px;
+  background: var(--background);
+  border-radius: 50%;
+  border: 2px solid #FFB347;
+}
+
+/* Light Mode Pick Hole */
+[data-theme="light"] .pick-hole {
+  background: #F0F2FF;
+  border: 2px solid #FFB347;
+}
+
+.pick-tip {
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 15px solid transparent;
+  border-right: 15px solid transparent;
+  border-top: 25px solid #FFB347;
+}
+
+.planet-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 180px;
+  height: 180px;
+  border: 2px solid rgba(255, 179, 71, 0.3);
+  border-radius: 50%;
+  animation: ring-rotate 12s linear infinite reverse;
+}
+
+/* Light Mode Planet Ring */
+[data-theme="light"] .planet-ring {
+  border: 2px solid rgba(255, 179, 71, 0.5);
+}
+
+/* Orbiting Notes */
+.orbiting-notes {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 300px;
+  height: 300px;
+}
+
+.note {
+  position: absolute;
+  font-size: 1.5rem;
+  color: var(--primary);
+  animation: note-orbit 6s linear infinite;
+  text-shadow: 0 0 10px var(--glow);
+}
+
+/* Light Mode Notes */
+[data-theme="light"] .note {
+  color: #FFB347;
+  text-shadow: 0 0 10px #FFB347;
+}
+
+.note-1 {
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  animation-delay: 0s;
+}
+
+.note-2 {
+  top: 25%;
+  right: 0;
+  animation-delay: -1s;
+}
+
+.note-3 {
+  bottom: 25%;
+  right: 0;
+  animation-delay: -2s;
+}
+
+.note-4 {
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  animation-delay: -3s;
+}
+
+.note-5 {
+  bottom: 25%;
+  left: 0;
+  animation-delay: -4s;
+}
+
+.note-6 {
+  top: 25%;
+  left: 0;
+  animation-delay: -5s;
+}
+
+/* Typing Container */
+.typing-container {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.code-line {
+  font-family: 'Courier New', monospace;
+  font-size: 1.2rem;
+  color: var(--text);
+  background: rgba(0, 0, 0, 0.8);
+  padding: 1rem 2rem;
+  border-radius: 10px;
+  border: 1px solid var(--glow);
+  box-shadow: 0 0 20px var(--glow);
+  min-width: 300px;
+  display: inline-block;
+}
+
+/* Light Mode Code Line */
+[data-theme="light"] .code-line {
+  background: rgba(255, 255, 255, 0.9);
+  color: #1A1A2E;
+  border: 1px solid #FFB347;
+  box-shadow: 0 0 20px #FFB347;
+}
+
+.prompt {
+  color: #00FF00;
+  margin-right: 0.5rem;
+}
+
+/* Light Mode Prompt */
+[data-theme="light"] .prompt {
+  color: #00AA00;
+}
+
+.code-text {
+  color: var(--text);
+}
+
+/* Light Mode Code Text */
+[data-theme="light"] .code-text {
+  color: #1A1A2E;
+}
+
+.cursor {
+  color: var(--primary);
+  animation: blink 1s infinite;
+  opacity: 0;
+}
+
+.cursor.visible {
+  opacity: 1;
+}
+
+/* Light Mode Cursor */
+[data-theme="light"] .cursor {
+  color: #FFB347;
+}
+
+/* Logo Container */
+.logo-container {
+  text-align: center;
+  animation: fade-in 2s ease-in-out;
+}
+
+.logo-image {
+  max-width: 300px;
+  width: 100%;
+  height: auto;
+  margin-bottom: 1rem;
+  filter: drop-shadow(0 0 20px var(--glow));
+  animation: logo-glow 3s ease-in-out infinite;
+}
+
+/* Light Mode Logo Image */
+[data-theme="light"] .logo-image {
+  filter: drop-shadow(0 0 20px #FFB347);
+  animation: logo-glow-light 3s ease-in-out infinite;
+}
+
+.logo-subtitle {
+  font-family: var(--font-secondary);
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* Light Mode Logo Subtitle */
+[data-theme="light"] .logo-subtitle {
+  color: #FFB347;
+}
+
+/* Animations */
+@keyframes planet-float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+@keyframes pick-rotate {
+  0% {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+@keyframes ring-rotate {
+  0% {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+@keyframes note-orbit {
+  0% {
+    transform: rotate(0deg) translateX(150px) rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg) translateX(150px) rotate(-360deg);
+  }
+}
+
+@keyframes blink {
+  0%, 50% {
+    opacity: 1;
+  }
+  51%, 100% {
+    opacity: 0;
+  }
+}
+
+@keyframes fade-in {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes logo-glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 20px var(--glow));
+    transform: scale(1);
+  }
+  50% {
+    filter: drop-shadow(0 0 30px var(--glow), 0 0 40px var(--glow));
+    transform: scale(1.05);
+  }
+}
+
+@keyframes logo-glow-light {
+  0%, 100% {
+    filter: drop-shadow(0 0 20px #FFB347);
+    transform: scale(1);
+  }
+  50% {
+    filter: drop-shadow(0 0 30px #FFB347, 0 0 40px #FFB347);
+    transform: scale(1.05);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .guitar-pick-planet {
+    width: 150px;
+    height: 150px;
+  }
+  
+  .pick-body {
+    width: 90px;
+    height: 120px;
+  }
+  
+  .planet-ring {
+    width: 135px;
+    height: 135px;
+  }
+  
+  .orbiting-notes {
+    width: 225px;
+    height: 225px;
+  }
+  
+  .note {
+    font-size: 1.2rem;
+  }
+  
+  .code-line {
+    font-size: 1rem;
+    min-width: 250px;
+    padding: 0.8rem 1.5rem;
+  }
+  
+  .logo-image {
+    max-width: 250px;
+  }
+  
+  .logo-subtitle {
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .guitar-pick-planet {
+    width: 120px;
+    height: 120px;
+  }
+  
+  .pick-body {
+    width: 70px;
+    height: 95px;
+  }
+  
+  .planet-ring {
+    width: 110px;
+    height: 110px;
+  }
+  
+  .orbiting-notes {
+    width: 180px;
+    height: 180px;
+  }
+  
+  .note {
+    font-size: 1rem;
+  }
+  
+  .code-line {
+    font-size: 0.9rem;
+    min-width: 200px;
+    padding: 0.6rem 1rem;
+  }
+  
+  .logo-image {
+    max-width: 200px;
+  }
+  
+  .logo-subtitle {
+    font-size: 0.9rem;
+  }
+} 

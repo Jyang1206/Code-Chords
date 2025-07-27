@@ -1,0 +1,254 @@
+/* Navbar CSS - Space Theme */
+.navbar {
+  background: rgba(26, 26, 46, 0.8);
+  backdrop-filter: blur(10px);
+  border-bottom: 2px solid var(--glow);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  transition: all 0.3s ease;
+}
+
+/* Light Mode Styles */
+[data-theme="light"] .navbar {
+  background: rgba(240, 242, 255, 0.9);
+  border-bottom: 2px solid var(--glow);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.navbar-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 70px;
+}
+
+.navbar-brand {
+  font-family: var(--font-primary);
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--primary);
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+/* Light Mode Brand */
+[data-theme="light"] .navbar-brand {
+  color: #FFB347;
+}
+
+.navbar-brand:hover {
+  text-shadow: 0 0 15px var(--glow);
+  transform: scale(1.05);
+}
+
+.navbar-links {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.nav-link {
+  color: var(--text);
+  text-decoration: none;
+  font-family: var(--font-secondary);
+  font-weight: 500;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  position: relative;
+}
+
+/* Light Mode Nav Links */
+[data-theme="light"] .nav-link {
+  color: #FFB347;
+}
+
+.nav-link:hover {
+  color: var(--primary);
+  background: rgba(255, 179, 71, 0.1);
+  text-shadow: 0 0 10px var(--glow);
+}
+
+/* Light Mode Nav Link Hover */
+[data-theme="light"] .nav-link:hover {
+  color: #FFD700;
+  background: rgba(255, 215, 0, 0.1);
+  text-shadow: 0 0 10px #FFD700;
+}
+
+.nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  width: 0;
+  height: 2px;
+  background: var(--primary);
+  transition: all 0.3s ease;
+  transform: translateX(-50%);
+}
+
+/* Light Mode Nav Link Underline */
+[data-theme="light"] .nav-link::after {
+  background: #FFB347;
+}
+
+.nav-link:hover::after {
+  width: 80%;
+}
+
+.nav-button {
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  color: var(--text);
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 25px;
+  font-family: var(--font-secondary);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+/* Light Mode Nav Button */
+[data-theme="light"] .nav-button {
+  background: linear-gradient(135deg, #FFB347, #FFD700);
+  color: #1A1A2E;
+}
+
+.nav-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  text-shadow: 0 0 10px var(--glow);
+}
+
+/* Light Mode Nav Button Hover */
+[data-theme="light"] .nav-button:hover {
+  text-shadow: 0 0 10px #FFD700;
+}
+
+.theme-toggle {
+  background: transparent;
+  border: 2px solid var(--border);
+  color: var(--text);
+  font-size: 1.2rem;
+  padding: 0.5rem;
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  margin-left: 10px;
+}
+
+/* Light Mode Theme Toggle */
+[data-theme="light"] .theme-toggle {
+  border-color: #FFB347;
+  color: #FFB347;
+}
+
+.theme-toggle:hover {
+  background: var(--primary);
+  color: var(--background);
+  box-shadow: 0 0 20px var(--glow);
+}
+
+/* Light Mode Theme Toggle Hover */
+[data-theme="light"] .theme-toggle:hover {
+  background: #FFB347;
+  color: #1A1A2E;
+  box-shadow: 0 0 20px #FFB347;
+}
+
+/* Debug link styling */
+.nav-link.debug {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.nav-link.debug:hover {
+  color: var(--primary);
+  background: rgba(155, 89, 182, 0.1);
+}
+
+/* Settings link styling */
+.nav-link.settings {
+  color: var(--secondary);
+  font-weight: 600;
+  padding: 8px 16px;
+  font-size: 0.9rem;
+}
+
+/* Light Mode Settings Link */
+[data-theme="light"] .nav-link.settings {
+  color: #FFB347;
+}
+
+.nav-link.settings:hover {
+  color: var(--primary);
+  background: rgba(74, 144, 226, 0.1);
+}
+
+/* Light Mode Settings Link Hover */
+[data-theme="light"] .nav-link.settings:hover {
+  color: #FFD700;
+  background: rgba(255, 215, 0, 0.1);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .navbar-container {
+    padding: 0 1rem;
+    flex-direction: column;
+    height: auto;
+    padding: 1rem;
+  }
+
+  .navbar-brand {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .navbar-links {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1rem;
+  }
+
+  .nav-link {
+    font-size: 0.9rem;
+    padding: 0.4rem 0.8rem;
+  }
+
+  .nav-button {
+    padding: 0.6rem 1.2rem;
+    font-size: 0.9rem;
+  }
+
+  .theme-toggle {
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .navbar-links {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .nav-link {
+    width: 100%;
+    text-align: center;
+  }
+}

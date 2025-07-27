@@ -1,0 +1,216 @@
+:root {
+  --cosmic-bg: #0c0e1a;
+  --cosmic-card-bg: #1a1b2e;
+  --cosmic-card-bg-light: #f8f9fa;
+  --cosmic-shadow: #2d1b69;
+  --cosmic-star: #f7c873;
+  --cosmic-nebula: #a3bffa;
+  --cosmic-accent: #7e57c2;
+  --cosmic-accent2: #f6ceff;
+  --cosmic-text: #e0e6f6;
+  --cosmic-text-light: #333;
+  --cosmic-btn-bg: #2d3250;
+  --cosmic-btn-bg-light: #e9ecef;
+  --cosmic-btn-hover: #3a3f5a;
+  --cosmic-btn-hover-light: #dee2e6;
+  --cosmic-border: #2d3250;
+  --cosmic-border-light: #dee2e6;
+  --space-bg: #0c0e1a;
+  --space-bg-light: #f8f9fa;
+  --space-card-bg: #1a1b2e;
+  --space-card-bg-light: #ffffff;
+  --space-shadow: rgba(0, 0, 0, 0.3);
+  --space-star: #f7c873;
+  --space-text: #a3bffa;
+  --space-text-light: #333;
+  --space-accent: #7e57c2;
+  --space-accent2: #f6ceff;
+  --space-border: #2d3250;
+  --space-btn-bg: #2d3250;
+  --space-btn-bg-light: #e9ecef;
+  --space-btn-hover: #3a3f5a;
+  --space-btn-hover-light: #dee2e6;
+  --space-nebula: #a3bffa;
+  --space-star-bg: radial-gradient(circle at 50% 50%, rgba(247, 200, 115, 0.1) 0%, transparent 50%);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  font-family: 'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+body {
+  background: var(--space-bg);
+  color: var(--space-text);
+  background-image: var(--space-star-bg), var(--space-bg);
+  background-blend-mode: lighten, normal;
+  min-height: 100vh;
+  font-family: 'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+body.light-mode, .light-mode #root {
+  background: var(--space-bg-light);
+  color: var(--space-text-light);
+  background-image: var(--space-star-bg), var(--space-bg-light);
+}
+
+body.dark-mode, .dark-mode #root {
+  background: var(--space-bg);
+  color: var(--space-text);
+  background-image: var(--space-star-bg), var(--space-bg);
+}
+
+#root {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+  font-family: 'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+a {
+  font-weight: 500;
+  color: var(--space-accent);
+  text-decoration: inherit;
+  font-family: 'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif;
+}
+
+a:hover {
+  color: var(--space-accent2);
+}
+
+h1 {
+  font-size: 3.2em;
+  line-height: 1.1;
+  font-weight: 700;
+  font-family: 'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif;
+  letter-spacing: 1px;
+}
+
+button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 600;
+  font-family: 'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif;
+  background-color: var(--cosmic-shadow);
+  color: var(--cosmic-star);
+  cursor: pointer;
+  transition: border-color 0.25s, background 0.25s, color 0.25s;
+  letter-spacing: 0.5px;
+}
+
+button:hover {
+  border-color: var(--cosmic-accent2);
+  background-color: var(--cosmic-accent);
+  color: var(--cosmic-shadow);
+}
+
+button:focus,
+button:focus-visible {
+  outline: 4px auto var(--cosmic-accent2);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #213547;
+    background-color: #ffffff;
+  }
+  a:hover {
+    color: #747bff;
+  }
+  button {
+    background-color: #f9f9f9;
+  }
+}
+
+/* Universal light mode overrides for all major panels, cards, overlays, and buttons */
+.light-mode .guitar-scale-controls,
+.light-mode .guitar-audio-note-panel,
+.light-mode .settings-content,
+.light-mode .card,
+.light-mode .lessons-content,
+.light-mode .learnsongs-content,
+.light-mode .tuner-container,
+.light-mode .ytp-space-container,
+.light-mode .song-card,
+.light-mode .cosmic-profile,
+.light-mode .cosmic-login-form,
+.light-mode .navbar,
+.light-mode .camera-permission-message {
+  background: var(--space-card-bg-light) !important;
+  color: var(--space-shadow) !important;
+  box-shadow: 0 2px 12px var(--space-accent2);
+  font-family: 'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+.light-mode .guitar-scale-btn,
+.light-mode .start-btn,
+.light-mode .stop-btn,
+.light-mode .cosmic-login-btn,
+.light-mode .favorite-btn,
+.light-mode .rating-select {
+  background: var(--space-btn-bg-light) !important;
+  color: var(--space-shadow) !important;
+  border-color: var(--space-accent2) !important;
+  font-family: 'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.light-mode .guitar-scale-btn:hover,
+.light-mode .start-btn:hover,
+.light-mode .stop-btn:hover,
+.light-mode .cosmic-login-btn:hover,
+.light-mode .favorite-btn:hover {
+  background: var(--space-btn-hover-light) !important;
+  color: var(--space-accent) !important;
+}
+
+.light-mode .guitar-scale-label-overlay,
+.light-mode .audio-note-label,
+.light-mode .navbar-brand {
+  color: var(--space-accent) !important;
+  font-family: 'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.light-mode .guitar-scale-btn.active,
+.light-mode .song-card:hover,
+.light-mode .navbar-light {
+  background: var(--space-accent2) !important;
+  color: var(--space-shadow) !important;
+}
+
+.light-mode .user-rating,
+.light-mode .audio-note-value,
+.light-mode .ytp-space-speed {
+  color: var(--space-accent) !important;
+  font-family: 'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.light-mode .guitar-scale-notes,
+.light-mode .song-info p,
+.light-mode .read-the-docs {
+  color: var(--space-accent2) !important;
+  font-family: 'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}

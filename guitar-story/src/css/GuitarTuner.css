@@ -1,0 +1,365 @@
+/* Space-themed background */
+.space-tuner {
+  position: relative;
+  min-height: 500px;
+  padding: 2rem 0 2rem 0;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 0 40px 0 var(--space-shadow), 0 0 0 2px var(--space-shadow);
+  background: var(--space-bg);
+  color: var(--space-text);
+  background-image: var(--space-star-bg), var(--space-bg);
+  background-blend-mode: lighten, normal;
+}
+
+.space-bg {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 0;
+  background: var(--space-bg);
+  overflow: hidden;
+}
+
+.planet {
+  position: absolute;
+  bottom: 10%;
+  left: 10%;
+  width: 120px;
+  height: 120px;
+  background: radial-gradient(circle at 30% 30%, var(--space-blue) 70%, var(--space-shadow) 100%);
+  border-radius: 50%;
+  box-shadow: 0 0 60px 20px var(--space-blue);
+  opacity: 0.7;
+}
+
+.stars {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  background: var(--space-star-bg);
+  opacity: 0.5;
+}
+
+.tuner-container {
+  position: relative;
+  z-index: 1;
+  max-width: 400px;
+  margin: 0 auto;
+  background: var(--space-card-bg);
+  border-radius: 16px;
+  padding: 2rem 1.5rem 1.5rem 1.5rem;
+  box-shadow: 0 0 30px 0 var(--space-shadow);
+}
+
+.tuner-title {
+  text-align: center;
+  color: var(--space-star);
+  font-family: 'Orbitron', 'Arial', sans-serif;
+  letter-spacing: 2px;
+  margin-bottom: 1.5rem;
+  text-shadow: 0 0 8px var(--space-blue), 0 0 2px #fff;
+}
+
+.tuner-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.note-display {
+  font-size: 2.2rem;
+  color: #fff;
+  margin-bottom: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.tuner-note {
+  font-size: 2.8rem;
+  font-weight: bold;
+  letter-spacing: 2px;
+  color: #6cf;
+  text-shadow: 0 0 8px #6cf, 0 0 2px #fff;
+}
+
+.tuner-freq {
+  font-size: 1.1rem;
+  color: #fff;
+  opacity: 0.8;
+}
+
+.tuning-indicator {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.needle-wrapper {
+  position: relative;
+  width: 90px;
+  height: 60px;
+  margin-bottom: 0.5rem;
+}
+
+.needle {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  width: 4px;
+  height: 48px;
+  background: linear-gradient(180deg, #fff 0%, #6cf 100%);
+  border-radius: 2px;
+  transform-origin: bottom center;
+  box-shadow: 0 0 8px #6cf8;
+  transition: transform 0.15s cubic-bezier(.4,2,.6,1);
+}
+
+.indicator-arc {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  width: 80px;
+  height: 40px;
+  border-bottom: 4px solid #6cf;
+  border-radius: 0 0 80px 80px;
+  transform: translateX(-50%);
+  opacity: 0.5;
+}
+
+.tuning-status {
+  font-size: 1.1rem;
+  color: #fff;
+  margin-top: 0.2rem;
+  text-shadow: 0 0 4px #6cf8;
+}
+
+.tuning-indicator.in-tune .needle {
+  background: linear-gradient(180deg, #fff 0%, #0f0 100%);
+  box-shadow: 0 0 12px #0f08;
+}
+.tuning-indicator.too-low .needle {
+  background: linear-gradient(180deg, #fff 0%, #f90 100%);
+  box-shadow: 0 0 12px #f908;
+}
+.tuning-indicator.too-high .needle {
+  background: linear-gradient(180deg, #fff 0%, #f33 100%);
+  box-shadow: 0 0 12px #f338;
+}
+
+.tuner-controls {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.start-btn, .stop-btn {
+  background: linear-gradient(90deg, #6cf 0%, #23a 100%);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.7rem 1.5rem;
+  font-size: 1.1rem;
+  font-family: 'Orbitron', 'Arial', sans-serif;
+  cursor: pointer;
+  box-shadow: 0 0 8px #6cf8;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+.start-btn:hover, .stop-btn:hover {
+  background: linear-gradient(90deg, #23a 0%, #6cf 100%);
+  box-shadow: 0 0 16px #6cfb;
+}
+
+.tuner-error {
+  color: #f33;
+  background: rgba(40,0,0,0.7);
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  margin-bottom: 1rem;
+  text-align: center;
+  font-weight: bold;
+  box-shadow: 0 0 8px #f338;
+}
+
+.string-list {
+  margin-top: 1.2rem;
+  background: rgba(30,30,50,0.7);
+  border-radius: 8px;
+  padding: 0.7rem 1rem;
+  color: #fff;
+  font-size: 1rem;
+}
+.string-list h4 {
+  margin-bottom: 0.5rem;
+  color: #6cf;
+  font-family: 'Orbitron', 'Arial', sans-serif;
+}
+.string-list ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.string-list li {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.2rem 0;
+}
+.string-note {
+  font-weight: bold;
+  color: #fff;
+}
+.string-freq {
+  color: #6cf;
+  opacity: 0.8;
+}
+
+/* Light mode overrides */
+.space-tuner.light .tuner-container {
+  background: rgba(255,255,255,0.85);
+  color: #222;
+}
+.space-tuner.light .tuner-title,
+.space-tuner.light .tuner-note,
+.space-tuner.light .string-list h4 {
+  color: #236cff;
+  text-shadow: 0 0 8px #236cff44;
+}
+.space-tuner.light .needle {
+  background: linear-gradient(180deg, #236cff 0%, #6cf 100%);
+}
+.space-tuner.light .indicator-arc {
+  border-bottom: 4px solid #236cff;
+}
+
+.rocket-wrapper {
+  position: relative;
+  width: 80px;
+  height: 120px;
+  margin-bottom: 0.5rem;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+}
+
+.rocket-svg {
+  width: 80px;
+  height: 120px;
+  display: block;
+  filter: drop-shadow(0 0 8px #6cf8);
+}
+
+.rocket-flame-group .rocket-flame {
+  animation: rocket-flame-flicker 0.18s infinite alternate;
+}
+@keyframes rocket-flame-flicker {
+  0% { filter: drop-shadow(0 0 10px #ff0) drop-shadow(0 0 20px #f90); }
+  100% { filter: drop-shadow(0 0 20px #ff0) drop-shadow(0 0 30px #f90); }
+}
+
+.digital-frequency-readout {
+  margin-top: 0.7rem;
+  text-align: center;
+  font-family: 'Orbitron', 'Consolas', 'monospace';
+  font-size: 1.3rem;
+  background: #111a;
+  color: #6cf;
+  border-radius: 8px;
+  padding: 0.3rem 1.2rem;
+  box-shadow: 0 0 8px #6cf4;
+  display: inline-block;
+}
+.freq-value {
+  font-weight: bold;
+  color: #ff0;
+  margin-left: 0.5rem;
+  letter-spacing: 1px;
+  text-shadow: 0 0 6px #ff08;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+  .rocket-wrapper, .rocket-svg {
+    width: 60px;
+    height: 90px;
+  }
+  .digital-frequency-readout {
+    font-size: 1rem;
+    padding: 0.2rem 0.7rem;
+  }
+}
+
+.faded {
+  opacity: 0.5;
+  filter: grayscale(0.7);
+  transition: opacity 0.2s, filter 0.2s;
+}
+
+.string-select-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.2rem;
+  gap: 0.5rem;
+}
+.string-select-label {
+  font-family: 'Orbitron', 'Arial', sans-serif;
+  color: #6cf;
+  margin-right: 0.7rem;
+  font-size: 1.1rem;
+}
+.string-select-btn {
+  background: linear-gradient(90deg, #222 0%, #1a1a40 100%);
+  color: #fff;
+  border: 2px solid #6cf;
+  border-radius: 6px;
+  padding: 0.3rem 0.9rem;
+  font-size: 1.1rem;
+  font-family: 'Orbitron', 'Arial', sans-serif;
+  cursor: pointer;
+  margin: 0 0.1rem;
+  transition: background 0.2s, border 0.2s, color 0.2s;
+  box-shadow: 0 0 6px #6cf4;
+}
+.string-select-btn.selected, .string-select-btn:hover {
+  background: linear-gradient(90deg, #6cf 0%, #23a 100%);
+  color: #222;
+  border: 2px solid #fff;
+  box-shadow: 0 0 12px #6cfb;
+}
+.target-pitch {
+  display: inline-block;
+  margin-left: 1.2rem;
+  color: #6cf;
+  font-size: 1.1rem;
+  font-family: 'Orbitron', 'Arial', sans-serif;
+  letter-spacing: 1px;
+} 
+
+/* Light mode overrides for GuitarTuner.css */
+.light-mode .space-tuner,
+.light-mode .tuner-container {
+  background: var(--space-card-bg-light) !important;
+  color: var(--space-shadow) !important;
+  box-shadow: 0 0 30px 0 var(--space-accent2);
+}
+.light-mode .tuner-title {
+  color: var(--space-accent) !important;
+  text-shadow: 0 0 8px var(--space-accent2), 0 0 2px #fff !important;
+}
+.light-mode .tuner-note,
+.light-mode .string-list h4 {
+  color: var(--space-accent) !important;
+}
+.light-mode .start-btn,
+.light-mode .stop-btn {
+  background: var(--space-btn-bg-light) !important;
+  color: var(--space-shadow) !important;
+}
+.light-mode .start-btn:hover,
+.light-mode .stop-btn:hover {
+  background: var(--space-btn-hover-light) !important;
+  color: var(--space-accent) !important;
+} 

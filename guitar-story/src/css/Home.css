@@ -1,0 +1,440 @@
+/* Home CSS - Space Theme */
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap');
+
+/* Main Container */
+.home-container {
+  min-height: 100vh;
+  position: relative;
+}
+
+/* Hero Section */
+.hero-section {
+  text-align: center;
+  padding: 4rem 2rem;
+  margin: 2rem;
+  position: relative;
+  z-index: 10;
+  background: rgba(26, 26, 46, 0.8);
+  backdrop-filter: blur(10px);
+  border: 2px solid var(--glow);
+  box-shadow: 0 0 20px var(--glow), inset 0 0 20px rgba(255, 179, 71, 0.1);
+}
+
+/* Light Mode Hero Section */
+[data-theme="light"] .hero-section {
+  background: rgba(240, 242, 255, 0.9);
+  border: 2px solid #FFB347;
+  box-shadow: 0 0 20px #FFB347, inset 0 0 20px rgba(255, 179, 71, 0.1);
+}
+
+.hero-title {
+  font-family: var(--font-primary);
+  font-size: 3.5rem;
+  margin-bottom: 1rem;
+  color: var(--primary);
+}
+
+/* Light Mode Hero Title */
+[data-theme="light"] .hero-title {
+  color: #FFB347;
+}
+
+.hero-subtitle {
+  font-size: 1.5rem;
+  color: var(--text-secondary);
+  margin-bottom: 2rem;
+  font-family: var(--font-secondary);
+}
+
+/* Light Mode Hero Subtitle */
+[data-theme="light"] .hero-subtitle {
+  color: #FFB347;
+}
+
+.hero-description {
+  font-size: 1.1rem;
+  color: var(--text);
+  max-width: 800px;
+  margin: 0 auto 2rem;
+  line-height: 1.6;
+  font-family: var(--font-secondary);
+}
+
+/* Light Mode Hero Description */
+[data-theme="light"] .hero-description {
+  color: #1A1A2E;
+}
+
+/* Hero Call to Action */
+.hero-cta {
+  margin: 3rem 0 2rem 0;
+  padding: 2rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 15px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+}
+
+/* Light Mode Hero CTA */
+[data-theme="light"] .hero-cta {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 179, 71, 0.2);
+}
+
+.hero-cta .cta-title {
+  font-family: var(--font-primary);
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+  color: var(--primary);
+}
+
+/* Light Mode CTA Title */
+[data-theme="light"] .hero-cta .cta-title {
+  color: #FFB347;
+}
+
+.hero-cta .cta-description {
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+  margin-bottom: 2rem;
+  font-family: var(--font-secondary);
+}
+
+/* Light Mode CTA Description */
+[data-theme="light"] .hero-cta .cta-description {
+  color: #FFB347;
+}
+
+.hero-cta .cta-button {
+  font-size: 1.2rem;
+  padding: 15px 30px;
+  font-family: var(--font-primary);
+}
+
+/* Light Mode CTA Button */
+[data-theme="light"] .hero-cta .cta-button {
+  background: linear-gradient(135deg, #FFB347, #FFD700);
+  color: #1A1A2E;
+}
+
+.hero-separator {
+  margin: 3rem 0;
+}
+
+/* Features Section */
+.features-section {
+  padding: 2rem;
+  position: relative;
+  z-index: 10;
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.feature-card {
+  text-align: center;
+  transition: transform 0.3s ease;
+  cursor: pointer;
+  background: rgba(26, 26, 46, 0.8);
+  backdrop-filter: blur(10px);
+  border: 2px solid var(--glow);
+  box-shadow: 0 0 20px var(--glow), inset 0 0 20px rgba(255, 179, 71, 0.1);
+}
+
+/* Light Mode Feature Card */
+[data-theme="light"] .feature-card {
+  background: rgba(240, 242, 255, 0.9);
+  border: 2px solid #FFB347;
+  box-shadow: 0 0 20px #FFB347, inset 0 0 20px rgba(255, 179, 71, 0.1);
+}
+
+.feature-card:hover {
+  transform: translateY(-10px);
+}
+
+.feature-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.feature-title {
+  font-family: var(--font-primary);
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: var(--primary);
+}
+
+/* Light Mode Feature Title */
+[data-theme="light"] .feature-title {
+  color: #FFB347;
+}
+
+.feature-title:hover {
+  text-shadow: 0 0 30px var(--glow);
+}
+
+/* Light Mode Feature Title Hover */
+[data-theme="light"] .feature-title:hover {
+  text-shadow: 0 0 30px #FFD700;
+}
+
+.feature-description {
+  color: var(--text-secondary);
+  line-height: 1.6;
+  font-size: 1rem;
+  font-family: var(--font-secondary);
+}
+
+/* Light Mode Feature Description */
+[data-theme="light"] .feature-description {
+  color: #1A1A2E;
+}
+
+/* Animation Section */
+.animation-section {
+  height: 100vh;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Custom Rocket Animation */
+.custom-rocket {
+  position: absolute;
+  width: 40px;
+  height: 80px;
+  background: var(--rocket);
+  border-radius: 50% 50% 0 0;
+  animation: custom-rocket-flight 12s ease-in-out infinite;
+  z-index: 5;
+  box-shadow: 0 0 20px var(--rocket);
+}
+
+.custom-rocket::before {
+  content: '';
+  position: absolute;
+  bottom: -15px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 25px;
+  height: 25px;
+  background: var(--meteor);
+  border-radius: 50%;
+  animation: rocket-flame 0.5s infinite alternate;
+}
+
+/* Sun and Earth Animations */
+.animation-sun {
+  position: absolute;
+  top: 50px;
+  right: 50px;
+  width: 120px;
+  height: 120px;
+  background: radial-gradient(circle, #FFD700, #FFA500);
+  border-radius: 50%;
+  box-shadow: 0 0 40px #FFD700, 0 0 80px rgba(255, 215, 0, 0.5);
+  z-index: 2;
+  animation: sun-glow 3s ease-in-out infinite alternate;
+}
+
+.animation-earth {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  background: radial-gradient(circle, #4A90E2, #2E5C8A);
+  border-radius: 50%;
+  box-shadow: 0 0 20px #4A90E2;
+  z-index: 3;
+  animation: earth-orbit 20s linear infinite;
+}
+
+.earth-continent {
+  position: absolute;
+  top: 10px;
+  left: 15px;
+  width: 30px;
+  height: 20px;
+  background: #8BC34A;
+  border-radius: 50%;
+  opacity: 0.8;
+}
+
+/* Eclipse Animation */
+.eclipse-animation {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80px;
+  height: 80px;
+  background: #C0C0C0;
+  border-radius: 50%;
+  box-shadow: 0 0 20px #C0C0C0;
+  z-index: 4;
+  animation: eclipse-alignment 2s ease-in-out;
+}
+
+/* Moon Landing Zone */
+.moon-landing {
+  position: absolute;
+  bottom: 50px;
+  right: 50px;
+  width: 120px;
+  height: 120px;
+  background: var(--moon);
+  border-radius: 50%;
+  box-shadow: 0 0 40px var(--moon);
+  z-index: 1;
+}
+
+/* Animations */
+@keyframes custom-rocket-flight {
+  0% {
+    transform: translateX(-100px) translateY(100vh) rotate(-45deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  25% {
+    transform: translateX(25vw) translateY(75vh) rotate(-30deg);
+  }
+  50% {
+    transform: translateX(50vw) translateY(50vh) rotate(-15deg);
+  }
+  75% {
+    transform: translateX(75vw) translateY(25vh) rotate(0deg);
+  }
+  90% {
+    transform: translateX(calc(100vw - 150px)) translateY(100px) rotate(15deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(calc(100vw - 150px)) translateY(100px) rotate(15deg);
+    opacity: 0;
+  }
+}
+
+@keyframes sun-glow {
+  0% { 
+    box-shadow: 0 0 40px #FFD700, 0 0 80px rgba(255, 215, 0, 0.5);
+    transform: scale(1);
+  }
+  100% { 
+    box-shadow: 0 0 60px #FFD700, 0 0 120px rgba(255, 215, 0, 0.7);
+    transform: scale(1.05);
+  }
+}
+
+@keyframes earth-orbit {
+  0% {
+    transform: translate(calc(100vw - 200px), 100px) rotate(0deg);
+  }
+  25% {
+    transform: translate(calc(100vw - 150px), calc(100vh - 200px)) rotate(90deg);
+  }
+  50% {
+    transform: translate(200px, calc(100vh - 150px)) rotate(180deg);
+  }
+  75% {
+    transform: translate(100px, 200px) rotate(270deg);
+  }
+  100% {
+    transform: translate(calc(100vw - 200px), 100px) rotate(360deg);
+  }
+}
+
+@keyframes eclipse-alignment {
+  0% {
+    transform: translate(-50%, -50%) scale(0.5);
+    opacity: 0;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.2);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes rocket-flame {
+  0% { 
+    transform: translateX(-50%) scale(1);
+    box-shadow: 0 0 15px var(--meteor);
+  }
+  100% { 
+    transform: translateX(-50%) scale(1.2);
+    box-shadow: 0 0 25px var(--meteor);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .hero-title {
+    font-size: 2.5rem;
+  }
+  
+  .hero-subtitle {
+    font-size: 1.2rem;
+  }
+  
+  .hero-description {
+    font-size: 1rem;
+  }
+  
+  .hero-cta .cta-title {
+    font-size: 2rem;
+  }
+  
+  .hero-cta .cta-description {
+    font-size: 1rem;
+  }
+  
+  .features-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .feature-card {
+    padding: 1rem;
+  }
+  
+  .feature-icon {
+    font-size: 2rem;
+  }
+  
+  .feature-title {
+    font-size: 1.2rem;
+  }
+  
+  .custom-rocket {
+    width: 30px;
+    height: 60px;
+  }
+  
+  .animation-sun {
+    width: 80px;
+    height: 80px;
+  }
+  
+  .animation-earth {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .moon-landing {
+    width: 80px;
+    height: 80px;
+  }
+}
