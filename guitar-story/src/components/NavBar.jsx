@@ -31,6 +31,9 @@ function NavBar() {
           <Link to="/playalong" className="nav-link">
             Play Along
           </Link>
+          <Link to="/tuner" className="nav-link">
+            Tuner
+          </Link>
           <Link to="/scoreboard" className="nav-link">
             Scoreboard
           </Link>
