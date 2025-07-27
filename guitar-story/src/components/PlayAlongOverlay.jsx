@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useMemo, useState } from "react";
 import AudioPitchDetector from "../utils/AudioPitchDetector";
+import "../css/GuitarObjDetection.css";
 
 // Try to import inferencejs, but provide fallback if it fails
 let InferenceEngine, CVImage;
@@ -41,8 +42,6 @@ try {
 
 const ALL_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const OPEN_STRINGS = ['E', 'A', 'D', 'G', 'B', 'E']; // 6th to 1st string
-const FRETBOARD_WIDTH = 640;
-const FRETBOARD_HEIGHT = 480;
 const NUM_STRINGS = 6;
 
 function getNoteAtPosition(stringIdx, fretNum) {
@@ -65,6 +64,7 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
   const [expectedNote, setExpectedNote] = useState(null);
   const [lastFeedback, setLastFeedback] = useState(null);
   const displayedNotesRef = useRef([]); // Store displayed notes for later reference
+  const [videoLoaded, setVideoLoaded] = useState(false);
   
   // Add frequency filtering state
   const [lastDetectedNote, setLastDetectedNote] = useState(null);
@@ -97,33 +97,88 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
 
   useEffect(() => {
     console.log('Setting up video stream...');
-    navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
-      console.log('Video stream obtained:', stream);
+    const constraints = {
+      audio: false,
+      video: {
+        width: { ideal: 640 },
+        height: { ideal: 480 },
+        facingMode: "environment",
+      },
+    };
+    
+    console.log('Calling getUserMedia with constraints:', constraints);
+    navigator.mediaDevices.getUserMedia(constraints).then((stream) => {
+      console.log('✅ Video stream obtained successfully:', stream);
       if (videoRef.current) {
+        console.log('Setting video srcObject...');
         videoRef.current.srcObject = stream;
-        videoRef.current.onloadedmetadata = () => {
-          console.log('Video metadata loaded, starting play...');
-          videoRef.current.play();
+        videoRef.current.onloadedmetadata = function () {
+          console.log('✅ Video metadata loaded, starting play...');
+          console.log('Video dimensions:', videoRef.current.videoWidth, 'x', videoRef.current.videoHeight);
+          videoRef.current.play().then(() => {
+            console.log('✅ Video play() resolved successfully');
+            setVideoLoaded(true);
+          }).catch((error) => {
+            console.error('❌ Video play() failed:', error);
+          });
         };
+
         videoRef.current.onplay = () => {
-          console.log('Video started playing');
+          console.log('✅ Video started playing');
+          setVideoLoaded(true);
+          if (canvasRef.current) {
+            var ctx = canvasRef.current.getContext("2d");
+            var height = videoRef.current.videoHeight;
+            var width = videoRef.current.videoWidth;
+            canvasRef.current.width = width;
+            canvasRef.current.height = height;
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, width, height);
+            console.log('✅ Canvas initialized with dimensions:', width, 'x', height);
+          }
         };
         videoRef.current.onerror = (error) => {
-          console.error('Video error:', error);
+          console.error('❌ Video error:', error);
+        };
+        videoRef.current.onloadeddata = () => {
+          console.log('✅ Video data loaded');
         };
       } else {
-        console.error('Video ref is null');
+        console.error('❌ Video ref is null');
       }
     }).catch((error) => {
-      console.warn('Camera access denied or unavailable:', error);
+      console.error('❌ Camera access denied or unavailable:', error);
       // Continue without camera - the component will still work for audio detection
     });
   }, []);
 
+  // Ensure canvas matches video size on window resize
   useEffect(() => {
-    if (!modelWorkerId) return;
+    function handleResize() {
+      if (videoRef.current && canvasRef.current && videoRef.current.videoWidth && videoRef.current.videoHeight) {
+        canvasRef.current.width = videoRef.current.videoWidth;
+        canvasRef.current.height = videoRef.current.videoHeight;
+      }
+    }
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Debug container dimensions
+  useEffect(() => {
+    const container = document.querySelector('.guitar-video-container');
+    if (container) {
+      console.log('Container dimensions:', container.offsetWidth, 'x', container.offsetHeight);
+      console.log('Container style:', window.getComputedStyle(container));
+    } else {
+      console.log('Container not found');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!modelWorkerId || !videoLoaded) return;
     let running = true;
-    console.log('Starting prediction loop with modelWorkerId:', modelWorkerId);
+    console.log('Starting prediction loop with modelWorkerId:', modelWorkerId, 'videoLoaded:', videoLoaded);
     const detectFrame = () => {
       if (!running) return;
       try {
@@ -148,7 +203,7 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
       running = false; 
     };
     // eslint-disable-next-line
-  }, [modelWorkerId, arpeggioNotes, currentStep]);
+  }, [modelWorkerId, videoLoaded]);
 
   // Determine the expected note for the current highlighted note
   React.useEffect(() => {
@@ -182,7 +237,8 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
       return;
     }
     const ctx = canvas.getContext("2d");
-    ctx.clearRect(0, 0, FRETBOARD_WIDTH, FRETBOARD_HEIGHT);
+    // Use actual canvas dimensions instead of hardcoded values
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     
     // Debug logs for props
     console.log('[DEBUG] highlightedNotes:', highlightedNotes);
@@ -391,57 +447,103 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
           }
         }, [note, expectedNote, onCorrectNote, onIncorrectNote, highlightedNotes, lastDetectedNote, lastNoteTime, consecutiveDetections]);
         return (
-          <div style={{ position: "relative", width: FRETBOARD_WIDTH, height: FRETBOARD_HEIGHT, margin: "0 auto" }}>
-            <video
-              ref={videoRef}
-              width={FRETBOARD_WIDTH}
-              height={FRETBOARD_HEIGHT}
-              autoPlay
-              muted
-              style={{ position: "absolute", left: 0, top: 0, zIndex: 1, background: "#000" }}
-            />
-            <canvas
-              ref={canvasRef}
-              width={FRETBOARD_WIDTH}
-              height={FRETBOARD_HEIGHT}
-              style={{ position: "absolute", left: 0, top: 0, zIndex: 2, pointerEvents: "none" }}
-            />
-            {/* Enhanced Feedback UI */}
-            <div style={{
-              position: "absolute",
-              top: 18,
-              right: 24,
-              minWidth: 180,
-              maxWidth: 240,
-              background: "#fff",
-              borderRadius: 16,
-              boxShadow: "0 2px 16px 0 #90caf9cc, 0 0 12px 1px #7e57c2aa",
-              padding: "0.7em 1.2em 0.7em 1.2em",
-              zIndex: 20,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              border: lastFeedback === "correct" ? "2.5px solid #4caf50" : lastFeedback === "incorrect" ? "2.5px solid #e53935" : "2.5px solid #e3e3e3",
-              color: "#222",
-              fontFamily: "'Orbitron', 'Montserrat', 'Arial', sans-serif",
-              letterSpacing: 0.5,
-              transition: "border 0.2s, box-shadow 0.2s"
-            }}>
-              <div style={{ fontSize: "0.95em", marginBottom: 2, letterSpacing: 1 }}>
-                <span style={{ color: "#7e57c2", fontWeight: 700, textShadow: "0 2px 8px #90caf9cc" }}>Play Along</span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "1.1em", fontWeight: 500 }}>
-                <span>Exp: <span style={{ color: "#1976d2", fontWeight: 700 }}>{expectedNote || "-"}</span></span>
-                <span>•</span>
-                <span>Det: <span style={{ color: lastFeedback === "correct" ? "#4caf50" : lastFeedback === "incorrect" ? "#e53935" : "#222", fontWeight: 700 }}>{note ? note.replace(/\d+$/, "") : (listening ? "Listening..." : "-")}</span></span>
-                <span style={{ fontSize: "1.5em", marginLeft: 8, textShadow: lastFeedback === "correct" ? "0 0 8px #4caf50aa" : lastFeedback === "incorrect" ? "0 0 8px #e53935aa" : "0 0 6px #90caf9cc" }}>
-                  {lastFeedback === "correct" ? "✔️" : lastFeedback === "incorrect" ? "✖️" : ""}
-                </span>
-              </div>
-              {error && (
-                <div style={{ color: "#e53935", marginTop: 6, fontSize: "0.95em", fontWeight: 600 }}>{error}</div>
+          <div className="guitar-video-container" style={{ minHeight: '400px' }}>
+
+            
+            {/* Main video/canvas always shown when streaming */}
+            <>
+              <video
+                id="video"
+                ref={videoRef}
+                className="guitar-video"
+                playsInline
+                muted
+                style={{ 
+                  position: 'absolute', 
+                  top: 0, 
+                  left: 0, 
+                  width: '100%', 
+                  height: '100%', 
+                  zIndex: 1,
+                  objectFit: 'cover',
+                  background: '#000',
+                  minHeight: '400px'
+                }}
+              />
+              <canvas
+                id="canvas"
+                ref={canvasRef}
+                className="guitar-canvas"
+                style={{ 
+                  position: 'absolute', 
+                  top: 0, 
+                  left: 0, 
+                  width: '100%', 
+                  height: '100%', 
+                  zIndex: 2, 
+                  pointerEvents: 'none',
+                  minHeight: '400px'
+                }}
+              />
+              {/* Fallback when video not loaded */}
+              {!videoLoaded && (
+                <div style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  background: '#000',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#fff',
+                  fontSize: '1.2rem',
+                  zIndex: 3,
+                  minHeight: '400px'
+                }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>📹</div>
+                    <div>Camera Loading...</div>
+                    <div style={{ fontSize: '0.9rem', marginTop: '0.5rem', opacity: 0.7 }}>
+                      Please allow camera access
+                    </div>
+                  </div>
+                </div>
               )}
-            </div>
+
+              {/* AudioPitchDetector overlayed in video-container */}
+              <div style={{ position: 'absolute', top: 24, right: 24, zIndex: 4 }}>
+                <div className="guitar-audio-note-panel">
+                  <div className="audio-note-label">🎤 Play Along</div>
+                  <div className="audio-note-value">
+                    Exp: <span style={{ color: "#1976d2", fontWeight: 700 }}>{expectedNote || "-"}</span>
+                  </div>
+                  <div className="audio-freq-value">
+                    Det: <span style={{ color: lastFeedback === "correct" ? "#4caf50" : lastFeedback === "incorrect" ? "#e53935" : "#222", fontWeight: 700 }}>
+                      {note ? note.replace(/\d+$/, "") : (listening ? "Listening..." : "-")}
+                    </span>
+                  </div>
+                  {lastFeedback && (
+                    <div style={{ 
+                      color: lastFeedback === "correct" ? "#4caf50" : "#e53935", 
+                      fontWeight: 700,
+                      fontSize: "1.2em"
+                    }}>
+                      {lastFeedback === "correct" ? "✔️ Correct!" : "✖️ Incorrect!"}
+                    </div>
+                  )}
+                  {error && <div className="audio-warning">{error}</div>}
+                  <div className="audio-controls">
+                    {!listening ? (
+                      <button className="start-btn" onClick={start}>Start Audio</button>
+                    ) : (
+                      <button className="stop-btn" onClick={stop}>Stop Audio</button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </>
           </div>
         );
       }}

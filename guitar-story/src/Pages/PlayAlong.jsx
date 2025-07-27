@@ -384,7 +384,6 @@ const TabOverlay = ({ playNotes, currentStepIdx, isPlaying }) => {
   };
 
 function PlayAlong() {
-  console.log('PlayAlong component is rendering!');
   const { currentUser } = useAuth();
   const [mainMode, setMainMode] = useState("Chords"); // "Chords" or "Songs"
   const [selectedChord, setSelectedChord] = useState("C Major");
@@ -1516,13 +1515,17 @@ function PlayAlong() {
         >
           <div style={{
             position: "relative",
-            width: "640px",
-            height: "480px",
-            borderRadius: "15px",
+            width: "100%",
+            maxWidth: "800px",
+            margin: "0 auto",
+            borderRadius: "12px",
             overflow: "hidden",
-            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.4)",
-            border: "2px solid rgba(255, 255, 255, 0.1)"
+            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)",
+            background: "#000",
+            minHeight: "400px"
           }}>
+
+            
             {(() => {
               try {
                 return (
@@ -1534,24 +1537,6 @@ function PlayAlong() {
                       onCorrectNote={handleCorrectNote}
                       onIncorrectNote={handleIncorrectNote}
                     />
-                    
-                    {/* Debug info for C Major */}
-                    {selectedChord === "C Major" && (
-                      <div style={{
-                        background: "rgba(255, 0, 0, 0.1)",
-                        padding: "10px",
-                        margin: "10px 0",
-                        borderRadius: "5px",
-                        fontSize: "12px"
-                      }}>
-                        <strong>C Major Debug:</strong><br/>
-                        Current Step: {JSON.stringify(currentStep)}<br/>
-                        Chord Notes: {JSON.stringify(playNotes)}<br/>
-                        Is Playing: {isPlaying.toString()}<br/>
-                        Current Step Index: {currentStepIdx}<br/>
-                        Session Stats: {JSON.stringify(sessionStats)}
-                      </div>
-                    )}
                   </>
                 );
               } catch (error) {
@@ -1561,7 +1546,7 @@ function PlayAlong() {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    height: "100%",
+                    height: "400px",
                     background: "#000",
                     color: "#fff",
                     fontSize: "1.2rem"
