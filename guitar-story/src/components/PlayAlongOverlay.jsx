@@ -234,27 +234,19 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
   }, [highlightedNotes]);
 
   function drawOverlay(predictions) {
-    console.log('drawOverlay called with predictions:', predictions);
-    const canvas = canvasRef.current;
-    if (!canvas) {
-      console.error('Canvas ref is null');
-      return;
-    }
-    const ctx = canvas.getContext("2d");
-    // Use actual canvas dimensions instead of hardcoded values
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Debug logs for props
-    console.log('[DEBUG] highlightedNotes:', highlightedNotes);
-    console.log('[DEBUG] arpeggioNotes:', arpeggioNotes);
-    console.log('[DEBUG] currentStep:', currentStep);
-    const filteredPredictions = predictions.filter(pred => pred.class !== 'Hand');
-    console.log('Filtered predictions (excluding Hand):', filteredPredictions);
+    if (!canvasRef.current) return;
+    var ctx = canvasRef.current.getContext("2d");
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+
+    // Filter out hand detections and only show predictions with confidence > 0.8
+    const filteredPredictions = predictions.filter(pred => pred.class !== 'Hand' && pred.confidence > 0.8);
+
+    // --- Heuristic Rotation Correction ---
     const fretCenters = filteredPredictions.map(pred => ({
       x: pred.bbox.x,
       y: pred.bbox.y
     }));
-    console.log('Fret centers:', fretCenters);
     let angle = 0;
     if (fretCenters.length >= 2) {
       const n = fretCenters.length;
@@ -265,23 +257,32 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
       const slope = den !== 0 ? num / den : 0;
       angle = Math.atan(slope);
     }
+    // --- End Heuristic Rotation Correction ---
+
     // --- Dynamic Scaling for Distance ---
+    // Use average bbox height as proxy for distance
     let avgFretHeight = 60; // default
     if (filteredPredictions.length > 0) {
       avgFretHeight = filteredPredictions.reduce((sum, pred) => sum + pred.bbox.height, 0) / filteredPredictions.length;
     }
-    // Make everything smaller
-    const scaleFactor = Math.max(0.4, Math.min(1.0, avgFretHeight / 90));
-    const rootRadius = 4 * scaleFactor + 4;
-    const arpeggioRadius = 8 * scaleFactor + 6;
-    const defaultRadius = 5 * scaleFactor + 3;
-    const fontSize = 8 * scaleFactor + 7;
+    // Clamp scaling factor
+    const minFretHeight = 30, maxFretHeight = 120;
+    const scaleFactor = Math.max(0.5, Math.min(1.5, avgFretHeight / 60));
+    // Dots and font sizes
+    const rootRadius = 6 * scaleFactor;
+    const scaleRadius = 5 * scaleFactor;
+    const nonScaleRadius = 2.5 * scaleFactor;
+    const fontSize = 9 * scaleFactor;
+    // --- End Dynamic Scaling ---
+
     // Encapsulate all displayed notes
     const displayedNotes = [];
     const safeHighlightedNotes = Array.isArray(highlightedNotes) ? highlightedNotes : [];
     const safeArpeggioNotes = Array.isArray(arpeggioNotes) ? arpeggioNotes : [];
-    for (let i = 0; i < filteredPredictions.length; i++) {
-      const prediction = filteredPredictions[i];
+
+    // Draw scale notes with rotation correction
+    for (var i = 0; i < filteredPredictions.length; i++) {
+      var prediction = filteredPredictions[i];
       let fretNum = 0;
       if (prediction.class.startsWith('Zone')) {
         fretNum = parseInt(prediction.class.replace('Zone', ''));
@@ -292,75 +293,96 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
       }
       if (isNaN(fretNum)) fretNum = i + 1;
       if (fretNum < 1) continue;
+
       let xCenter = prediction.bbox.x;
       let yCenter = prediction.bbox.y;
       let width = prediction.bbox.width;
       let height = prediction.bbox.height;
+
       for (let stringIdx = 0; stringIdx < 6; stringIdx++) {
-        // stringIdx=0 is top (6th string, low E), stringIdx=5 is bottom (1st string, high E)
         let yString = yCenter - height / 2 + (stringIdx * height) / 5;
         let xFret = xCenter;
         let dx = 0;
         let dy = yString - yCenter;
         let xRot = xCenter + dx * Math.cos(angle) - dy * Math.sin(angle);
         let yRot = yCenter + dx * Math.sin(angle) + dy * Math.cos(angle);
+
         let noteName = getNoteAtPosition(stringIdx, fretNum);
+        
         // For arpeggio/highlight matching, convert from 1-6 (CHORDS) to 0-5 (overlay)
         const arpeggioStringIdx = 6 - stringIdx; // Convert 0-5 to 1-6 (inverted)
+        
         // Highlight if in highlightedNotes (compare using arpeggioStringIdx)
-        let isHighlighted = safeHighlightedNotes.some(n => n && n.fretNum === fretNum && n.stringIdx === arpeggioStringIdx);
+        // For open strings (fret 0 in chord data), match against fret 1 position
+        let isHighlighted = safeHighlightedNotes.some(n => {
+          if (n && n.stringIdx === arpeggioStringIdx) {
+            // If chord note is open (fret 0), match against fret 1 position
+            if (n.fretNum === 0) {
+              return fretNum === 1;
+            }
+            // Otherwise match exact fret
+            return n.fretNum === fretNum;
+          }
+          return false;
+        });
+        
         let isArpeggio = false;
         let isRoot = false;
         if (safeArpeggioNotes && safeArpeggioNotes.length > 0 && currentStep < safeArpeggioNotes.length) {
           const step = safeArpeggioNotes[currentStep];
-          isArpeggio = step && (step.fretNum === fretNum && step.stringIdx === arpeggioStringIdx);
-          isRoot = step && step.isRoot && isArpeggio;
-        }
-        // For open string, draw just right of Fret 1 (higher x value, estimate by angle)
-        let drawX = xRot;
-        if (fretNum === 1 && safeArpeggioNotes.some(n => n && n.fretNum === 0 && n.stringIdx === arpeggioStringIdx)) {
-          // Find the open string note for this string
-          const openStep = safeArpeggioNotes.find(n => n && n.fretNum === 0 && n.stringIdx === arpeggioStringIdx);
-          if (openStep) {
-            // Draw open string note just right of Fret 1
-            // Estimate offset: project along the fretboard's angle
-            const offset = width * 0.7;
-            drawX = xRot + offset * Math.cos(angle);
-            // If this is the open string note, highlight accordingly
-            isHighlighted = safeHighlightedNotes.some(n => n && n.fretNum === 0 && n.stringIdx === arpeggioStringIdx);
-            isArpeggio = (safeArpeggioNotes[currentStep]?.fretNum === 0 && safeArpeggioNotes[currentStep]?.stringIdx === arpeggioStringIdx);
-            isRoot = openStep.isRoot && isArpeggio;
-            noteName = getNoteAtPosition(stringIdx, 0);
+          if (step && step.stringIdx === arpeggioStringIdx) {
+            // If chord note is open (fret 0), match against fret 1 position
+            if (step.fretNum === 0) {
+              isArpeggio = fretNum === 1;
+            } else {
+              isArpeggio = step.fretNum === fretNum;
+            }
+            isRoot = step.isRoot && isArpeggio;
           }
         }
-        // Only debug log for first fret when highlighting during Play
-        if (fretNum === 1 && isHighlighted && safeHighlightedNotes.length > 0) {
-          console.log(`[DEBUG PLAY HIGHLIGHT] stringIdx=${stringIdx} (arpeggioStringIdx=${arpeggioStringIdx}), fretNum=${fretNum}, noteName=${noteName}, isHighlighted=${isHighlighted}, highlightedNotes=`, safeHighlightedNotes);
-        }
+
         // Store the note for later reference
         displayedNotes.push({
-          fretNum: fretNum === 1 && safeArpeggioNotes.some(n => n && n.fretNum === 0 && n.stringIdx === arpeggioStringIdx) ? 0 : fretNum,
+          fretNum: fretNum,
           stringIdx,
-          noteName,
-          x: drawX,
+          noteName: noteName,
+          x: xRot,
           y: yRot,
           isArpeggio,
           isRoot,
           isHighlighted
         });
-        ctx.beginPath();
-        ctx.arc(drawX, yRot, isHighlighted ? arpeggioRadius : (isRoot ? rootRadius : defaultRadius), 0, 2 * Math.PI);
-        ctx.fillStyle = isHighlighted ? '#FFD600' : (isRoot ? '#e53935' : '#1976d2');
-        ctx.globalAlpha = isHighlighted ? 1 : 0.85;
-        ctx.fill();
-        ctx.globalAlpha = 1;
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = isHighlighted ? 3 : 1.5;
-        ctx.stroke();
-        ctx.font = isHighlighted ? `bold ${fontSize + 2}px Arial` : (isRoot ? `bold ${fontSize}px Arial` : `bold ${fontSize - 1}px Arial`);
-        ctx.fillStyle = '#fff';
-        ctx.textAlign = 'center';
-        ctx.fillText(noteName, drawX, yRot + 4);
+
+        // Draw with different colors but same scaling/location logic as GuitarObjDetection
+        if (isHighlighted) {
+          ctx.beginPath();
+          ctx.arc(xRot, yRot, scaleRadius, 0, 2 * Math.PI);
+          ctx.fillStyle = '#FFD600'; // Yellow for highlighted
+          ctx.fill();
+          ctx.closePath();
+        } else if (isRoot) {
+          ctx.beginPath();
+          ctx.arc(xRot, yRot, rootRadius, 0, 2 * Math.PI);
+          ctx.fillStyle = '#e53935'; // Red for root
+          ctx.fill();
+          ctx.closePath();
+        } else if (isArpeggio) {
+          ctx.beginPath();
+          ctx.arc(xRot, yRot, scaleRadius, 0, 2 * Math.PI);
+          ctx.fillStyle = '#1976d2'; // Blue for arpeggio
+          ctx.fill();
+          ctx.closePath();
+        } else {
+          ctx.beginPath();
+          ctx.arc(xRot, yRot, nonScaleRadius, 0, 2 * Math.PI);
+          ctx.fillStyle = 'grey'; // Grey for other notes
+          ctx.fill();
+          ctx.closePath();
+        }
+        
+        ctx.font = `${fontSize}px monospace`;
+        ctx.fillStyle = 'white';
+        ctx.fillText(noteName, xRot + 7 * scaleFactor, yRot + 3 * scaleFactor);
       }
     }
     displayedNotesRef.current = displayedNotes;
