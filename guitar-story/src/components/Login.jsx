@@ -1,13 +1,15 @@
 import React, { useState } from "react";
-import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
-import { auth } from "../firebase";
+import { signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
+import { auth, googleProvider } from "../firebase";
+import { useTheme } from "../contexts/ThemeContext";
+import "../css/SpaceTheme.css";
 import "../css/Login.css";
-import { Link } from 'react-router-dom';
 
 export default function Login({ onSwitch }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const { theme } = useTheme();
 
   const handleLogin = async e => {
     e.preventDefault();
@@ -18,38 +20,75 @@ export default function Login({ onSwitch }) {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   return (
-    <div className="cosmic-login-bg">
-      <form onSubmit={handleLogin} className="cosmic-login-form">
-        <h2 className="cosmic-login-title">🚀 Login to GuitarStory</h2>
-        {error && <div className="cosmic-login-error">{error}</div>}
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          required
-          className="cosmic-login-input"
-        /><br/>
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-          required
-          className="cosmic-login-input"
-        /><br/>
-        <button type="submit" className="cosmic-login-btn">Login</button>
-        <div className="cosmic-login-switch">
-          <Link className="cosmic-login-link" to="/reset_password">
-            Forgot Password?
-          </Link>
-        </div>
-        <p className="cosmic-login-switch">
-          Don't have an account?{" "}
-          <button type="button" className="cosmic-login-link" onClick={onSwitch}>Sign up</button>
+    <div className="space-loading login-container">
+      <div className="space-card login-card">
+        <h2 className="glow-text login-title">
+          Welcome Back, Explorer
+        </h2>
+        
+        {error && (
+          <div className="login-error">
+            {error}
+          </div>
+        )}
+        
+        <form onSubmit={handleLogin} className="login-form">
+          <input
+            type="email"
+            placeholder="Enter your email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            required
+            className="space-input login-input"
+          />
+          
+          <input
+            type="password"
+            placeholder="Enter your password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            required
+            className="space-input login-input"
+          />
+          
+          <button 
+            type="submit" 
+            className="space-button login-submit-button"
+          >
+            Launch into Orbit
+          </button>
+        </form>
+        
+        <div className="section-separator login-separator"></div>
+        
+        <button 
+          onClick={handleGoogleLogin} 
+          className="space-button google-button"
+        >
+          Continue with Google
+        </button>
+        
+        <p className="login-switch-text">
+          New to the mission?
         </p>
-      </form>
+        
+        <button 
+          type="button" 
+          onClick={onSwitch} 
+          className="space-button login-switch-button"
+        >
+          Join the Mission
+        </button>
+      </div>
     </div>
   );
 } 

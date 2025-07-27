@@ -32,34 +32,127 @@
     text-align: center;
 }
 
-/* Practice page layout */
+/* Practice CSS - Space Theme */
 .practice-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px;
+  background: rgba(26, 26, 46, 0.7);
+  backdrop-filter: blur(15px);
+  border: 2px solid var(--glow);
+  box-shadow: 0 0 25px var(--glow), inset 0 0 25px rgba(255, 179, 71, 0.1);
+  border-radius: 20px;
+  padding: 2rem;
+  margin: 1rem;
+  position: relative;
+  z-index: 10;
+}
+
+/* Light Mode Practice Container */
+[data-theme="light"] .practice-container {
+  background: rgba(240, 242, 255, 0.9);
+  border: 2px solid #FFB347;
+  box-shadow: 0 0 25px #FFB347, inset 0 0 25px rgba(255, 179, 71, 0.1);
 }
 
 .practice-section {
-  background: var(--space-card-bg, #1a1b26);
-  border-radius: 12px;
-  padding: 24px;
-  margin-bottom: 32px;
-  box-shadow: 0 4px 16px var(--space-shadow, rgba(0, 0, 0, 0.3));
-  border: 1px solid var(--space-border, #2d3250);
+  margin-bottom: 2rem;
+  text-align: left;
 }
 
-.practice-section h2 {
-  color: var(--space-star, #f7c873);
-  margin-bottom: 8px;
-  font-size: 1.5rem;
-  font-weight: 600;
+.practice-section:last-child {
+  margin-bottom: 0;
 }
 
-.practice-section p {
-  color: var(--space-text, #a3bffa);
-  margin-bottom: 20px;
+.practice-title {
+  color: var(--primary);
+  font-family: var(--font-primary);
+  font-size: 1.8rem;
+  margin-bottom: 1rem;
+}
+
+/* Light Mode Practice Title */
+[data-theme="light"] .practice-title {
+  color: #FFB347;
+}
+
+.practice-description {
+  color: var(--text-secondary);
+  margin-bottom: 1rem;
+  font-family: var(--font-secondary);
+}
+
+/* Light Mode Practice Description */
+[data-theme="light"] .practice-description {
+  color: #FFB347;
+}
+
+.youtube-input-container {
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.youtube-label {
+  color: var(--text);
+  font-weight: 500;
+  font-size: 1.1rem;
+  letter-spacing: 1;
+  font-family: var(--font-secondary);
+}
+
+/* Light Mode YouTube Label */
+[data-theme="light"] .youtube-label {
+  color: #1A1A2E;
+}
+
+.youtube-input {
+  margin-left: 12px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  width: 320px;
+  max-width: 90%;
   font-size: 1rem;
-  line-height: 1.5;
+}
+
+/* Light Mode YouTube Input */
+[data-theme="light"] .youtube-input {
+  background: rgba(255, 255, 255, 0.9);
+  border: 2px solid #FFB347;
+  color: #1A1A2E;
+}
+
+[data-theme="light"] .youtube-input::placeholder {
+  color: #666;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .practice-container {
+    padding: 1rem;
+    margin: 0.5rem;
+  }
+  
+  .practice-title {
+    font-size: 1.5rem;
+  }
+  
+  .youtube-input {
+    width: 280px;
+    max-width: 95%;
+  }
+}
+
+@media (max-width: 480px) {
+  .practice-container {
+    padding: 0.5rem;
+    margin: 0.25rem;
+  }
+  
+  .practice-title {
+    font-size: 1.3rem;
+  }
+  
+  .youtube-input {
+    width: 250px;
+    max-width: 98%;
+  }
 }
 
 /* Camera permission message styling */

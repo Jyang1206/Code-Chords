@@ -1,10 +1,12 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { useTheme } from "../contexts/ThemeContext";
 import "../css/Navbar.css";
 
 function NavBar() {
   const { user, logout } = useAuth();
+  const { toggleTheme, isDarkMode } = useTheme();
 
   const handleLogout = async () => {
     try {
@@ -14,10 +16,10 @@ function NavBar() {
     }
   };
 
-    return (
-    <nav className="navbar">
+  return (
+    <nav className="navbar space-card">
       <div className="navbar-container">
-        <Link to="/" className="navbar-brand">
+        <Link to="/" className="navbar-brand glow-text">
           Code Chords
         </Link>
         
@@ -40,11 +42,17 @@ function NavBar() {
           <Link to="/scoreboard" className="nav-link">
             Scoreboard
           </Link>
-          <Link to="/debug" className="nav-link debug">
-            Debug
-          </Link>
+          
+          {/* Theme Toggle Button */}
+          <button 
+            onClick={toggleTheme} 
+            className="space-button theme-toggle"
+          >
+            {isDarkMode ? '☀️' : '🌙'}
+          </button>
+          
           {user ? (
-            <button onClick={handleLogout} className="nav-button">
+            <button onClick={handleLogout} className="space-button nav-button">
               Logout
             </button>
           ) : (
@@ -52,10 +60,10 @@ function NavBar() {
               Settings
             </Link>
           )}
-            </div>
-            </div>
-        </nav>
-    );
+        </div>
+      </div>
+    </nav>
+  );
 }
 
 export default NavBar;

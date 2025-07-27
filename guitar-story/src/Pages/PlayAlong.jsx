@@ -5,6 +5,8 @@ import { ScoreboardService } from "../services/scoreboardService";
 import { CustomTabsService } from "../services/customTabsService";
 import { db } from "../firebase";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import "../css/SpaceTheme.css";
+import "../css/PlayAlong.css";
 
 const CHORDS_ORIGINAL = {
   "C Major": [
@@ -118,78 +120,28 @@ const TabOverlay = ({ playNotes, currentStepIdx, isPlaying }) => {
   const upcomingNotes = playNotes.slice(currentStepIdx, currentStepIdx + 5); // Show next 5 notes
   
   return (
-    <div style={{
-      position: 'absolute',
-      bottom: '20px',
-      left: '50%',
-      transform: 'translateX(-50%)',
-      background: 'rgba(0, 0, 0, 0.8)',
-      borderRadius: '12px',
-      padding: '12px 20px',
-      backdropFilter: 'blur(10px)',
-      border: '1px solid rgba(144, 202, 249, 0.3)',
-      zIndex: 1000,
-      minWidth: '300px',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '8px'
-    }}>
-      <div style={{
-        fontSize: '14px',
-        color: '#90caf9',
-        fontWeight: '600',
-        marginRight: '8px'
-      }}>
+    <div className="tab-overlay">
+      <div className="tab-next-label">
         Next:
       </div>
       {upcomingNotes.map((note, index) => (
         <div
           key={`${currentStepIdx + index}-${note.stringIdx}-${note.fretNum}`}
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            padding: '8px 12px',
-            background: index === 0 ? 'rgba(144, 202, 249, 0.2)' : 'rgba(255, 255, 255, 0.1)',
-            borderRadius: '8px',
-            border: index === 0 ? '2px solid #90caf9' : '1px solid rgba(255, 255, 255, 0.2)',
-            minWidth: '40px',
-            transition: 'all 0.3s ease',
-            opacity: index === 0 ? 1 : 0.7
-          }}
+          className={`tab-note ${index === 0 ? 'current' : ''}`}
         >
-          <div style={{
-            fontSize: '16px',
-            fontWeight: '700',
-            color: index === 0 ? '#fff' : '#90caf9',
-            marginBottom: '2px'
-          }}>
+          <div className="tab-note-name">
             {note.note}
           </div>
-          <div style={{
-            fontSize: '12px',
-            color: '#ccc',
-            fontWeight: '500',
-            marginBottom: '2px'
-          }}>
+          <div className="tab-note-position">
             {note.stringIdx}-{note.fretNum}
           </div>
-          <div style={{
-            fontSize: '10px',
-            color: '#888',
-            fontWeight: '400'
-          }}>
+          <div className="tab-note-duration">
             {(note.duration || 1).toFixed(1)}s
           </div>
         </div>
       ))}
       {upcomingNotes.length < 5 && (
-        <div style={{
-          fontSize: '14px',
-          color: '#666',
-          fontStyle: 'italic',
-          marginLeft: '8px'
-        }}>
+        <div className="tab-end-label">
           End
         </div>
       )}
@@ -197,192 +149,130 @@ const TabOverlay = ({ playNotes, currentStepIdx, isPlaying }) => {
   );
 };
 
-  // --- GUITAR HERO INTERFACE COMPONENT ---
-  const GuitarHeroInterface = ({ playNotes, currentStepIdx, isPlaying, playbackStartTimeRef, playbackTime, firstNoteTravelIn = 0 }) => {
-    const STRING_COUNT = 6;
-    const FRET_COUNT = 12;
-    const NOTE_WIDTH = 44; // Slightly smaller
-    const NOTE_HEIGHT = 28; // Slightly smaller
-    const STRING_HEIGHT = 30;
-    const FRET_WIDTH = 60;
-    const SPAWN_X = 1000; // Right side spawn point
-    const PLAY_ZONE_X = 100; // Left side Play zone
-    const TRAVEL_DISTANCE = SPAWN_X - PLAY_ZONE_X;
+// --- GUITAR HERO INTERFACE COMPONENT ---
+const GuitarHeroInterface = ({ playNotes, currentStepIdx, isPlaying, playbackStartTimeRef, playbackTime, firstNoteTravelIn = 0 }) => {
+  const STRING_COUNT = 6;
+  const FRET_COUNT = 12;
+  const NOTE_WIDTH = 44; // Slightly smaller
+  const NOTE_HEIGHT = 28; // Slightly smaller
+  const STRING_HEIGHT = 30;
+  const FRET_WIDTH = 60;
+  const SPAWN_X = 1000; // Right side spawn point
+  const PLAY_ZONE_X = 100; // Left side Play zone
+  const TRAVEL_DISTANCE = SPAWN_X - PLAY_ZONE_X;
 
-    // Calculate visible notes with precise travel
-    const getVisibleNotes = () => {
-      if (!isPlaying || !playbackStartTimeRef.current) return [];
-      const now = playbackTime;
-      const visibleNotes = [];
-      const TRAVEL_TIME = 1200; // 1.0s travel time
-      let cumulativeTime = 0;
+  // Calculate visible notes with precise travel
+  const getVisibleNotes = () => {
+    if (!isPlaying || !playbackStartTimeRef.current) return [];
+    const now = playbackTime;
+    const visibleNotes = [];
+    const TRAVEL_TIME = 1200; // 1.0s travel time
+    let cumulativeTime = 0;
+    
+    for (let i = 0; i < playNotes.length; i++) {
+      const note = playNotes[i];
+      const duration = (note.duration || 1) * 1200; // Duration in ms
       
-      for (let i = 0; i < playNotes.length; i++) {
-        const note = playNotes[i];
-        const duration = (note.duration || 1) * 1200; // Duration in ms
-        
-        // Each note spawns at cumulativeTime and takes TRAVEL_TIME to reach Play
-        const noteSpawnTime = cumulativeTime;
-        const notePlayTime = noteSpawnTime + TRAVEL_TIME;
-        const timeUntilPlay = notePlayTime - now;
-        
-        // Show note if it's within the travel window
-        if (timeUntilPlay <= TRAVEL_TIME && timeUntilPlay >= -1000) {
-          // progress: 1 (spawn, right), 0 (at Play zone, left)
-          const progress = Math.max(0, Math.min(1, timeUntilPlay / TRAVEL_TIME));
-          const xPosition = SPAWN_X - (TRAVEL_DISTANCE * (1 - progress));
-          const y = (STRING_COUNT - note.stringIdx) * STRING_HEIGHT + 10 - NOTE_HEIGHT / 2 + 1;
-          const isCurrent = Math.abs(timeUntilPlay) < 200;
-          visibleNotes.push({
-            ...note,
-            x: xPosition,
-            y,
-            isCurrent,
-            progress,
-            timeUntilPlay
-          });
-        }
-        
-        // Next note spawns after current note's duration
-        cumulativeTime += duration;
+      // Each note spawns at cumulativeTime and takes TRAVEL_TIME to reach Play
+      const noteSpawnTime = cumulativeTime;
+      const notePlayTime = noteSpawnTime + TRAVEL_TIME;
+      const timeUntilPlay = notePlayTime - now;
+      
+      // Show note if it's within the travel window
+      if (timeUntilPlay <= TRAVEL_TIME && timeUntilPlay >= -1000) {
+        // progress: 1 (spawn, right), 0 (at Play zone, left)
+        const progress = Math.max(0, Math.min(1, timeUntilPlay / TRAVEL_TIME));
+        const xPosition = SPAWN_X - (TRAVEL_DISTANCE * (1 - progress));
+        const y = (STRING_COUNT - note.stringIdx) * STRING_HEIGHT + 10 - NOTE_HEIGHT / 2 + 1;
+        const isCurrent = Math.abs(timeUntilPlay) < 200;
+        visibleNotes.push({
+          ...note,
+          x: xPosition,
+          y,
+          isCurrent,
+          progress,
+          timeUntilPlay
+        });
       }
       
-      return visibleNotes;
-    };
-    const visibleNotes = getVisibleNotes();
-    const playZoneHeight = STRING_COUNT * STRING_HEIGHT;
-    const playZoneTop = 10;
-    return (
-      <div style={{
-        position: 'relative',
-        width: `${SPAWN_X + 200}px`,
-        height: `${STRING_COUNT * STRING_HEIGHT + 20}px`,
-        background: 'linear-gradient(180deg, #1a1b2e 0%, #0a0a0a 100%)',
-        border: '2px solid rgba(144, 202, 249, 0.3)',
-        borderRadius: '12px',
-        overflow: 'hidden',
-        margin: '32px auto 0 auto'
-      }}>
-        {/* Guitar strings */}
-        {Array.from({ length: STRING_COUNT }, (_, i) => (
-          <div
-            key={`string-${i}`}
-            style={{
-              position: 'absolute',
-              left: 0,
-              top: i * STRING_HEIGHT + 10,
-              width: '100%',
-              height: '2px',
-              background: i === 0 || i === 5 ? '#90caf9' : '#444',
-              zIndex: 1
-            }}
-          />
-        ))}
-        {/* Fret markers */}
-        {Array.from({ length: FRET_COUNT }, (_, i) => (
-          <div
-            key={`fret-${i}`}
-            style={{
-              position: 'absolute',
-              left: 50 + i * FRET_WIDTH,
-              top: 0,
-              width: '2px',
-              height: '100%',
-              background: i === 3 || i === 5 || i === 7 || i === 9 ? '#90caf9' : '#333',
-              zIndex: 1
-            }}
-          />
-        ))}
-        {/* Play zone on the left */}
-        <div style={{
-          position: 'absolute',
-          left: PLAY_ZONE_X - 25,
-          top: 0,
-          width: '50px',
-          height: `${playZoneHeight}px`,
-          border: '3px solid #90caf9',
-          borderRadius: '25px',
-          background: 'rgba(144, 202, 249, 0.1)',
-          zIndex: 10,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexDirection: 'column'
-        }}>
-          <div style={{
-            fontSize: '14px',
-            color: '#90caf9',
-            fontWeight: 'bold',
-            writingMode: 'vertical-rl',
-            transform: 'rotate(180deg)'
-          }}>
-            PLAY
-          </div>
-        </div>
-        {/* Moving notes */}
-        {visibleNotes.map((note, index) => (
-          <div
-            key={`note-${index}`}
-            style={{
-              position: 'absolute',
-              left: note.x,
-              top: note.y,
-              width: NOTE_WIDTH,
-              height: NOTE_HEIGHT,
-              background: note.isCurrent ? '#90caf9' : '#222',
-              borderRadius: '8px',
-              border: note.isCurrent ? '3px solid #fff' : '2px solid #90caf9',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: note.isCurrent ? '#222' : '#90caf9',
-              fontSize: '1.3rem',
-              fontWeight: 'bold',
-              zIndex: 5,
-              boxShadow: note.isCurrent ? '0 0 20px 4px #90caf9' : '0 0 8px #222',
-              transform: note.isCurrent ? 'scale(1.15)' : 'scale(1)',
-              transition: 'transform 0.1s, background 0.2s, color 0.2s, border 0.2s'
-            }}
-          >
-            {note.fretNum}
-          </div>
-        ))}
-        {/* String labels */}
-        {Array.from({ length: STRING_COUNT }, (_, i) => (
-          <div
-            key={`label-${i}`}
-            style={{
-              position: 'absolute',
-              left: 10,
-              top: i * STRING_HEIGHT + 5,
-              color: '#90caf9',
-              fontSize: '14px',
-              fontWeight: 'bold',
-              zIndex: 2
-            }}
-          >
-            {STRING_COUNT - i}
-          </div>
-        ))}
-        {/* Fret labels */}
-        {Array.from({ length: FRET_COUNT }, (_, i) => (
-          <div
-            key={`fret-label-${i}`}
-            style={{
-              position: 'absolute',
-              left: 50 + i * FRET_WIDTH - 10,
-              top: 5,
-              color: '#666',
-              fontSize: '11px',
-              zIndex: 2
-            }}
-          >
-            {i}
-          </div>
-        ))}
-      </div>
-    );
+      // Next note spawns after current note's duration
+      cumulativeTime += duration;
+    }
+    
+    return visibleNotes;
   };
+  const visibleNotes = getVisibleNotes();
+  const playZoneHeight = STRING_COUNT * STRING_HEIGHT;
+  const playZoneTop = 10;
+  return (
+    <div className="guitar-hero">
+      {/* Guitar strings */}
+      {Array.from({ length: STRING_COUNT }, (_, i) => (
+        <div
+          key={`string-${i}`}
+          className={`guitar-string ${i === 0 || i === 5 ? '' : 'inner'}`}
+          style={{
+            top: i * STRING_HEIGHT + 10
+          }}
+        />
+      ))}
+      {/* Fret markers */}
+      {Array.from({ length: FRET_COUNT }, (_, i) => (
+        <div
+          key={`fret-${i}`}
+          className={`guitar-fret ${i === 3 || i === 5 || i === 7 || i === 9 ? 'marker' : ''}`}
+          style={{
+            left: 50 + i * FRET_WIDTH
+          }}
+        />
+      ))}
+      {/* Play zone on the left */}
+      <div className="play-zone">
+        <div className="play-zone-label">
+          PLAY
+        </div>
+      </div>
+      {/* Moving notes */}
+      {visibleNotes.map((note, index) => (
+        <div
+          key={`note-${index}`}
+          className={`guitar-note ${note.isCurrent ? 'current' : ''}`}
+          style={{
+            left: note.x,
+            top: note.y
+          }}
+        >
+          {note.fretNum}
+        </div>
+      ))}
+      {/* String labels */}
+      {Array.from({ length: STRING_COUNT }, (_, i) => (
+        <div
+          key={`label-${i}`}
+          className="string-label"
+          style={{
+            top: i * STRING_HEIGHT + 5
+          }}
+        >
+          {STRING_COUNT - i}
+        </div>
+      ))}
+      {/* Fret labels */}
+      {Array.from({ length: FRET_COUNT }, (_, i) => (
+        <div
+          key={`fret-label-${i}`}
+          className="fret-label"
+          style={{
+            left: 50 + i * FRET_WIDTH - 10,
+            top: 5
+          }}
+        >
+          {i}
+        </div>
+      ))}
+    </div>
+  );
+};
 
 function PlayAlong() {
   const { currentUser } = useAuth();
@@ -1043,175 +933,62 @@ function PlayAlong() {
 
   // UI: Top-level mode selector, then show only relevant dropdown
   return (
-    <div style={{
-      minHeight: "100vh",
-      background: "linear-gradient(135deg, #0c0e1a 0%, #1a1b2e 50%, #2d1b69 100%)",
-      color: "#fff",
-      fontFamily: "'Orbitron', 'Montserrat', 'Arial', sans-serif",
-      padding: "2rem 0",
-      position: "relative",
-      overflow: "hidden"
-    }}>
+    <div className="playalong-container">
       {/* Animated background elements */}
-      <div style={{
-        position: "absolute",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: "radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.1) 0%, transparent 50%)",
-        pointerEvents: "none"
-      }} />
+      <div className="playalong-background" />
       
-      <div style={{
-        maxWidth: "1200px",
-        margin: "0 auto",
-        padding: "0 2rem",
-        position: "relative",
-        zIndex: 1
-      }}>
+      <div className="playalong-content">
         {/* Header */}
-        <div style={{
-          textAlign: "center",
-          marginBottom: "3rem",
-          padding: "2rem 0"
-        }}>
-          <h1 style={{
-            fontSize: "3.5rem",
-            fontWeight: "700",
-            margin: "0 0 1rem 0",
-            background: "linear-gradient(45deg, #90caf9, #7e57c2, #f48fb1)",
-            backgroundClip: "text",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            textShadow: "0 0 30px rgba(144, 202, 249, 0.3)",
-            letterSpacing: "2px"
-          }}>
+        <div className="playalong-header">
+          <h1 className="playalong-title">
             PLAY ALONG
           </h1>
-          <p style={{
-            fontSize: "1.2rem",
-            color: "#b0bec5",
-            margin: "0",
-            fontWeight: "300",
-            letterSpacing: "1px"
-          }}>
-            Master guitar chords with real-time guidance
+          <p className="playalong-subtitle">
+            Master guitar chords and songs with real-time guidance
           </p>
-          {/* Test element to verify rendering */}
-          <div style={{
-            background: "rgba(255, 255, 255, 0.1)",
-            padding: "1rem",
-            borderRadius: "8px",
-            marginTop: "1rem",
-            fontSize: "0.9rem"
-          }}>
-            ✅ PlayAlong component is rendering successfully!
-          </div>
-        </div>
-
-        {/* Debug Info */}
-        <div style={{
-          background: "rgba(0, 0, 0, 0.7)",
-          padding: "0.5rem 1rem",
-          borderRadius: "8px",
-          fontSize: "0.8rem",
-          color: "#fff",
-          marginBottom: "1rem",
-          textAlign: "center"
-        }}>
-          <div>User: {currentUser ? currentUser.email : 'Not logged in'} | Auth: {currentUser ? 'Yes' : 'No'}</div>
         </div>
 
         {/* Score Display */}
         {isPlaying && (
-          <div style={{
-            background: "rgba(255, 255, 255, 0.05)",
-            backdropFilter: "blur(10px)",
-            borderRadius: "15px",
-            padding: "1.5rem",
-            marginBottom: "2rem",
-            border: "1px solid rgba(255, 255, 255, 0.1)",
-            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
-            textAlign: "center"
-          }}>
-            <div style={{
-              display: "flex",
-              justifyContent: "space-around",
-              alignItems: "center"
-            }}>
-              <div>
-                <div style={{ fontSize: "1.5rem", fontWeight: "700", color: "#90caf9" }}>
+          <div className="score-display">
+            <div className="score-stats">
+              <div className="score-stat">
+                <div className="score-value">
                   {currentScore}
                 </div>
-                <div style={{ fontSize: "0.9rem", color: "#b0bec5" }}>Score</div>
+                <div className="score-label">Score</div>
               </div>
-              <div>
-                <div style={{ fontSize: "1.5rem", fontWeight: "700", color: "#4caf50" }}>
+              <div className="score-stat">
+                <div className="score-value score-correct">
                   {sessionStats.correct}/{sessionStats.total}
                 </div>
-                <div style={{ fontSize: "0.9rem", color: "#b0bec5" }}>Correct/Total</div>
+                <div className="score-label">Correct/Total</div>
               </div>
-              <div>
-                <div style={{ fontSize: "1.5rem", fontWeight: "700", color: "#ffc107" }}>
+              <div className="score-stat">
+                <div className="score-value score-accuracy">
                   {chordAccuracy}%
                 </div>
-                <div style={{ fontSize: "0.9rem", color: "#b0bec5" }}>Accuracy</div>
+                <div className="score-label">Accuracy</div>
               </div>
             </div>
           </div>
         )}
 
         {/* Control Panel */}
-        <div style={{
-          background: "rgba(255, 255, 255, 0.05)",
-          backdropFilter: "blur(10px)",
-          borderRadius: "20px",
-          padding: "1.5rem",
-          marginBottom: "3rem",
-          border: "1px solid rgba(255, 255, 255, 0.1)",
-          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)"
-        }}>
-          <div style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: "1.5rem"
-          }}>
+        <div className="control-panel">
+          <div className="control-content">
             {/* Top-level mode selector */}
-            <div style={{ display: 'flex', gap: '2rem', marginBottom: '0.5rem' }}>
+            <div className="mode-selector">
               <button
                 onClick={() => setMainMode("Chords")}
-                style={{
-                  padding: '0.7em 2em',
-                  borderRadius: '10px',
-                  border: mainMode === "Chords" ? '2.5px solid #90caf9' : '2px solid #444',
-                  background: mainMode === "Chords" ? '#222b44' : '#181a2a',
-                  color: mainMode === "Chords" ? '#fff' : '#90caf9',
-                  fontWeight: 700,
-                  fontSize: '1.1em',
-                  cursor: 'pointer',
-                  boxShadow: mainMode === "Chords" ? '0 2px 12px #90caf966' : 'none',
-                  transition: 'all 0.2s'
-                }}
+                className={`mode-button ${mainMode === "Chords" ? 'active' : ''}`}
                 disabled={isPlaying}
               >
                 Chords
               </button>
               <button
                 onClick={() => setMainMode("Songs")}
-                style={{
-                  padding: '0.7em 2em',
-                  borderRadius: '10px',
-                  border: mainMode === "Songs" ? '2.5px solid #90caf9' : '2px solid #444',
-                  background: mainMode === "Songs" ? '#222b44' : '#181a2a',
-                  color: mainMode === "Songs" ? '#fff' : '#90caf9',
-                  fontWeight: 700,
-                  fontSize: '1.1em',
-                  cursor: 'pointer',
-                  boxShadow: mainMode === "Songs" ? '0 2px 12px #90caf966' : 'none',
-                  transition: 'all 0.2s'
-                }}
+                className={`mode-button ${mainMode === "Songs" ? 'active' : ''}`}
                 disabled={isPlaying}
               >
                 Songs
@@ -1220,31 +997,18 @@ function PlayAlong() {
 
             {/* Chord dropdown (only in Chord mode) */}
             {isChordMode && (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.8rem' }}>
-                <label style={{ fontSize: '1rem', fontWeight: '600', color: '#90caf9', letterSpacing: '1px' }}>
+              <div className="selection-container">
+                <label className="selection-label">
                   SELECT CHORD
                 </label>
                 <select
                   value={selectedChord}
                   onChange={e => setSelectedChord(e.target.value)}
-                  style={{
-                    fontSize: '1.1rem',
-                    padding: '0.8rem 1.5rem',
-                    borderRadius: '12px',
-                    border: '2px solid rgba(144, 202, 249, 0.3)',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    color: '#fff',
-                    fontWeight: '500',
-                    cursor: 'pointer',
-                    minWidth: '180px',
-                    textAlign: 'center',
-                    backdropFilter: 'blur(10px)',
-                    transition: 'all 0.3s ease'
-                  }}
+                  className="selection-dropdown"
                   disabled={isPlaying}
                 >
                   {Object.keys(CHORDS).map(name => (
-                    <option key={name} value={name} style={{ background: '#1a1b2e', color: '#fff' }}>{name}</option>
+                    <option key={name} value={name}>{name}</option>
                   ))}
                 </select>
               </div>
@@ -1252,197 +1016,87 @@ function PlayAlong() {
 
             {/* Song dropdown (only in Song mode) */}
             {isSongMode && (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.8rem' }}>
-                <label style={{ fontSize: '1rem', fontWeight: '600', color: '#90caf9', letterSpacing: '1px' }}>
+              <div className="selection-container">
+                <label className="selection-label">
                   SELECT SONG
                 </label>
                 <select
                   value={selectedSong}
                   onChange={e => setSelectedSong(e.target.value)}
-                  style={{
-                    fontSize: '1.1rem',
-                    padding: '0.8rem 1.5rem',
-                    borderRadius: '12px',
-                    border: '2px solid rgba(144, 202, 249, 0.3)',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    color: '#fff',
-                    fontWeight: '500',
-                    cursor: 'pointer',
-                    minWidth: '180px',
-                    textAlign: 'center',
-                    backdropFilter: 'blur(10px)',
-                    transition: 'all 0.3s ease'
-                  }}
+                  className="selection-dropdown"
                   disabled={isPlaying}
                 >
                   {Object.keys(SONGS).map(name => (
-                    <option key={name} value={name} style={{ background: '#1a1b2e', color: '#fff' }}>{name}</option>
+                    <option key={name} value={name}>{name}</option>
                   ))}
                   {customTabs.map(tab => (
-                    <option key={tab.title} value={tab.title} style={{ background: '#1a1b2e', color: '#fff' }}>{tab.title}</option>
+                    <option key={tab.title} value={tab.title}>{tab.title}</option>
                   ))}
                 </select>
               </div>
             )}
 
             {/* Control Buttons */}
-            <div style={{
-              display: "flex",
-              gap: "1.2rem",
-              alignItems: "center"
-            }}>
+            <div className="control-buttons">
               <button
                 onClick={startPlayback}
                 disabled={isPlaying}
-                style={{
-                  fontSize: "1.2rem",
-                  padding: "0.8rem 2rem",
-                  borderRadius: "50px",
-                  border: "none",
-                  fontWeight: "600",
-                  cursor: isPlaying ? "not-allowed" : "pointer",
-                  transition: "all 0.3s ease",
-                  background: isPlaying 
-                    ? "linear-gradient(45deg, #90caf9, #7e57c2)" 
-                    : "linear-gradient(45deg, #1976d2, #7e57c2)",
-                  color: "#fff",
-                  boxShadow: isPlaying 
-                    ? "0 0 20px rgba(144, 202, 249, 0.5)" 
-                    : "0 4px 15px rgba(25, 118, 210, 0.4)",
-                  opacity: isPlaying ? 0.7 : 1,
-                  letterSpacing: "1px",
-                  minWidth: "120px"
-                }}
+                className="play-button"
               >
-                ▶️ PLAY
+                PLAY
               </button>
               
               <button
                 onClick={stopPlayback}
                 disabled={!isPlaying}
-                style={{
-                  fontSize: "1.2rem",
-                  padding: "0.8rem 2rem",
-                  borderRadius: "50px",
-                  border: "none",
-                  fontWeight: "600",
-                  cursor: !isPlaying ? "not-allowed" : "pointer",
-                  transition: "all 0.3s ease",
-                  background: "linear-gradient(45deg, #e53935, #c62828)",
-                  color: "#fff",
-                  boxShadow: "0 4px 15px rgba(229, 57, 53, 0.4)",
-                  opacity: !isPlaying ? 0.5 : 1,
-                  letterSpacing: "1px",
-                  minWidth: "120px"
-                }}
+                className="stop-button"
               >
-                ⏹ STOP
+                STOP
               </button>
             </div>
             
             {/* Test Database Button */}
-            <div style={{
-              marginTop: "1rem"
-            }}>
+            <div className="test-buttons">
               <button
                 onClick={testDatabaseConnection}
-                style={{
-                  fontSize: "0.9rem",
-                  padding: "0.5rem 1rem",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(144, 202, 249, 0.3)",
-                  background: "rgba(144, 202, 249, 0.1)",
-                  color: "#90caf9",
-                  cursor: "pointer",
-                  transition: "all 0.3s ease"
-                }}
+                className="test-button"
               >
-                🧪 Test Database
+                Test Database
               </button>
               
               <button
                 onClick={testLeaderboardUpdate}
-                style={{
-                  fontSize: "0.9rem",
-                  padding: "0.5rem 1rem",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(76, 175, 80, 0.3)",
-                  background: "rgba(76, 175, 80, 0.1)",
-                  color: "#4caf50",
-                  cursor: "pointer",
-                  transition: "all 0.3s ease",
-                  marginLeft: "0.5rem"
-                }}
+                className="test-button"
               >
-                🏆 Test Leaderboard
+                Test Leaderboard
               </button>
 
               <button
                 onClick={createLeaderboardWithTestData}
-                style={{
-                  fontSize: "0.9rem",
-                  padding: "0.5rem 1rem",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(255, 152, 0, 0.3)",
-                  background: "rgba(255, 152, 0, 0.1)",
-                  color: "#ff9800",
-                  cursor: "pointer",
-                  transition: "all 0.3s ease",
-                  marginLeft: "0.5rem"
-                }}
+                className="test-button"
               >
-                👥 Create Test Leaderboard
+                Create Test Leaderboard
               </button>
               
               <button
                 onClick={testNoteCounting}
-                style={{
-                  fontSize: "0.9rem",
-                  padding: "0.5rem 1rem",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(156, 39, 176, 0.3)",
-                  background: "rgba(156, 39, 176, 0.1)",
-                  color: "#9c27b0",
-                  cursor: "pointer",
-                  transition: "all 0.3s ease",
-                  marginLeft: "0.5rem"
-                }}
+                className="test-button"
               >
-                📊 Test Note Counting
+                Test Note Counting
               </button>
 
               <button
                 onClick={testChordCompletionWithoutPlaying}
-                style={{
-                  fontSize: "0.9rem",
-                  padding: "0.5rem 1rem",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(255, 193, 7, 0.3)",
-                  background: "rgba(255, 193, 7, 0.1)",
-                  color: "#ffc107",
-                  cursor: "pointer",
-                  transition: "all 0.3s ease",
-                  marginLeft: "0.5rem"
-                }}
+                className="test-button"
               >
-                🎵 Test Chord Completion (No Play)
+                Test Chord Completion (No Play)
               </button>
 
               <button
                 onClick={testStopPlayback}
-                style={{
-                  fontSize: "0.9rem",
-                  padding: "0.5rem 1rem",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(255, 152, 0, 0.3)",
-                  background: "rgba(255, 152, 0, 0.1)",
-                  color: "#ff9800",
-                  cursor: "pointer",
-                  transition: "all 0.3s ease",
-                  marginLeft: "0.5rem"
-                }}
+                className="test-button"
               >
-                ⏹ Test Stop Playback
+                Test Stop Playback
               </button>
             </div>
           </div>
@@ -1450,110 +1104,36 @@ function PlayAlong() {
 
         {/* Visual Feedback Overlay */}
         {visualFeedback && (
-          <>
-            <style>{`
-              @keyframes feedbackPop {
-                0% {
-                  transform: translate(-50%, -50%) scale(0.5);
-                  opacity: 0;
-                }
-                50% {
-                  transform: translate(-50%, -50%) scale(1.1);
-                  opacity: 1;
-                }
-                100% {
-                  transform: translate(-50%, -50%) scale(1);
-                  opacity: 1;
-                }
-              }
-            `}</style>
-            <div style={{
-              position: 'fixed',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              zIndex: 9999,
-              pointerEvents: 'none'
-            }}>
-              <div style={{
-                background: visualFeedback.type === 'correct' 
-                  ? `linear-gradient(135deg, ${visualFeedback.color}, ${visualFeedback.color}dd)` 
-                  : 'linear-gradient(135deg, #f44336, #d32f2f)',
-                color: 'white',
-                padding: '20px 30px',
-                borderRadius: '15px',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
-                textAlign: 'center',
-                minWidth: '200px',
-                animation: 'feedbackPop 0.6s ease-out',
-                border: visualFeedback.type === 'correct' && visualFeedback.color === '#006400' 
-                  ? '2px solid #004d00' 
-                  : 'none'
-              }}>
-                <div style={{
-                  fontSize: '32px',
-                  fontWeight: 'bold',
-                  marginBottom: '8px',
-                  textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)'
-                }}>
-                  {visualFeedback.message}
-                </div>
-                {visualFeedback.type === 'correct' && visualFeedback.points > 0 && (
-                  <div style={{
-                    fontSize: '24px',
-                    fontWeight: '600',
-                    marginBottom: '4px'
-                  }}>
-                    +{visualFeedback.points} pts
-                  </div>
-                )}
-                {visualFeedback.timing !== 0 && (
-                  <div style={{
-                    fontSize: '16px',
-                    opacity: 0.9
-                  }}>
-                    {visualFeedback.timing > 0 ? '+' : ''}{visualFeedback.timing}ms
-                  </div>
-                )}
+          <div className="visual-feedback">
+            <div className="feedback-popup">
+              <div className="feedback-message">
+                {visualFeedback.message}
               </div>
+              {visualFeedback.type === 'correct' && visualFeedback.points > 0 && (
+                <div className="feedback-points">
+                  +{visualFeedback.points} pts
+                </div>
+              )}
+              {visualFeedback.timing !== 0 && (
+                <div className="feedback-timing">
+                  {visualFeedback.timing > 0 ? '+' : ''}{visualFeedback.timing}ms
+                </div>
+              )}
             </div>
-          </>
+          </div>
         )}
 
         {/* Countdown Overlay */}
         {showCountdown && countdown > 0 && (
-          <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            background: 'rgba(0, 0, 0, 0.8)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000
-          }}>
-            <div style={{
-              fontSize: '120px',
-              color: '#90caf9',
-              fontWeight: 'bold',
-              textShadow: '0 0 20px rgba(144, 202, 249, 0.8)'
-            }}>
+          <div className="countdown-overlay">
+            <div className="countdown-number">
               {countdown}
             </div>
           </div>
         )}
 
         {/* Guitar Display */}
-        <div 
-          data-guitar-display
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            marginBottom: "2rem"
-          }}
-        >
+        <div className="guitar-display" data-guitar-display>
           {(() => {
             try {
               return (

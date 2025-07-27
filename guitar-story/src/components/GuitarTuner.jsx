@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState, useContext } from "react";
-import { ThemeContext } from "../App";
+import React, { useEffect, useRef, useState } from "react";
+import { useTheme } from "../contexts/ThemeContext";
 import "../css/GuitarTuner.css";
 // You need to install pitchy: npm install pitchy
 // import { createPitchDetector } from "pitchy";
@@ -22,7 +22,7 @@ function getClosestString(freq) {
 }
 
 const GuitarTuner = () => {
-  const { lightMode } = useContext(ThemeContext);
+  const { theme } = useTheme();
   const [tuningStatus, setTuningStatus] = useState("");
   // Track last valid pitch and note
   const [lastFrequency, setLastFrequency] = useState(null);
@@ -68,7 +68,7 @@ const GuitarTuner = () => {
           : 0;
 
         return (
-          <div className={`guitar-detection-panel space-tuner${lightMode ? " light" : " dark"}`}>
+          <div className={`guitar-detection-panel space-tuner${theme.isDarkMode ? " dark" : " light"}`}>
             <div className="space-bg">
               {/* Space background with stars/planets via CSS */}
               <div className="planet" />
