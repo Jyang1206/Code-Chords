@@ -43,6 +43,8 @@ export default function AudioPitchDetector({ children, bufferLength = 2048, clar
 
   // Start microphone and pitch detection
   const start = async () => {
+    console.log('AudioPitchDetector: start() called');
+    
     // Prevent multiple simultaneous starts
     if (startingRef.current || listeningRef.current) {
       console.log('Audio detection already starting or running');
@@ -52,6 +54,7 @@ export default function AudioPitchDetector({ children, bufferLength = 2048, clar
     startingRef.current = true;
     setError(null);
     setListening(true);
+    console.log('AudioPitchDetector: setListening(true)');
     
     try {
       // Stop any existing audio context first
@@ -66,7 +69,10 @@ export default function AudioPitchDetector({ children, bufferLength = 2048, clar
         sourceRef.current = null;
       }
       
+      console.log('AudioPitchDetector: Requesting microphone access...');
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log('AudioPitchDetector: Microphone access granted');
+      
       const audioContext = new (window.AudioContext || window.webkitAudioContext)();
       const source = audioContext.createMediaStreamSource(stream);
       const analyser = audioContext.createAnalyser();
@@ -77,6 +83,7 @@ export default function AudioPitchDetector({ children, bufferLength = 2048, clar
       analyserRef.current = analyser;
       sourceRef.current = source;
       
+      console.log('AudioPitchDetector: Audio context created, starting pitch detection loop');
       // Start the pitch detection loop
       detectPitchLoop();
       
@@ -91,6 +98,7 @@ export default function AudioPitchDetector({ children, bufferLength = 2048, clar
 
   // Stop microphone and pitch detection
   const stop = () => {
+    console.log('AudioPitchDetector: stop() called');
     setListening(false);
     
     // Clear the animation timeout

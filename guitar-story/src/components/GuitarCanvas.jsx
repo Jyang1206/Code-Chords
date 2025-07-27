@@ -15,6 +15,7 @@ import {
 } from "../utils/imagePreprocessing";
 import { calibrateDetection, CALIBRATION_FILTERS } from '../utils/calibrationUtils';
 import { applyFilterChainToCanvas } from '../utils/imagePreprocessing';
+import { StreamingProvider } from '../contexts/StreamingContext';
 
 // --- Fretboard Logic ---
 const ALL_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -31,17 +32,41 @@ function GuitarCanvas({
   drawOverlay, 
   children, 
   showCalibration = true,
-  showPreprocessedView = false,
-  showDebugCanvas = false,
+  showPreprocessedView: initialShowPreprocessedView = false,
+  showDebugCanvas: initialShowDebugCanvas = false,
   containerStyle = {},
   videoStyle = {},
-  canvasStyle = {}
+  canvasStyle = {},
+  // New props for container flexibility
+  containerWidth = '100%',
+  containerHeight = '100%',
+  videoAspectRatio = '16/9',
+  compactMode = false
 }) {
   const { lightMode } = useContext(ThemeContext);
   const [modelWorkerId, setModelWorkerId] = useState(null);
   const [modelLoading, setModelLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamStatus, setStreamStatus] = useState("Ready to start video stream");
+  
+  // Add state management for preprocessed view and debug canvas
+  const [showPreprocessedView, setShowPreprocessedView] = useState(initialShowPreprocessedView);
+  const [showDebugCanvas, setShowDebugCanvas] = useState(false); // Always start hidden
+  
+  // Debug logging for streaming state
+  console.log('GuitarCanvas: isStreaming state:', isStreaming);
+  console.log('GuitarCanvas: showDebugCanvas state:', showDebugCanvas);
+  console.log('GuitarCanvas: Providing context with isStreaming:', isStreaming);
+  
+  // Track isStreaming changes
+  useEffect(() => {
+    console.log('GuitarCanvas: isStreaming changed to:', isStreaming);
+  }, [isStreaming]);
+
+  // Track context value changes
+  useEffect(() => {
+    console.log('GuitarCanvas: Context value updated - isStreaming:', isStreaming);
+  }, [isStreaming]);
   
   const videoRef = useRef();
   const canvasRef = useRef();
@@ -221,12 +246,16 @@ function GuitarCanvas({
       let processedCanvas = tempCanvas;
       if (calibrationDone && calibratedFilter && Array.isArray(calibratedFilter.filterChain) && calibratedFilter.filterChain.length > 0) {
         try {
+          console.log('Applying calibrated filters to inference:', calibratedFilter.filterChain);
           processedCanvas = applyFilterChainToCanvas(tempCanvas, calibratedFilter.filterChain);
+          console.log('Calibrated filters applied successfully to inference');
         } catch (error) {
           console.error('Error applying calibrated filters:', error);
           // Fall back to unprocessed canvas
           processedCanvas = tempCanvas;
         }
+      } else {
+        console.log('No calibrated filters to apply to inference');
       }
       
       // Run inference on the processed canvas
@@ -244,7 +273,7 @@ function GuitarCanvas({
       }
       
       // Update debug canvas if enabled
-      if (showDebugCanvas !== undefined && window.showDebugCanvas) {
+      if (showDebugCanvas) {
         const debugCanvas = document.getElementById('debug-inference-canvas');
         if (debugCanvas) {
           const debugCtx = debugCanvas.getContext('2d');
@@ -276,10 +305,14 @@ function GuitarCanvas({
     const filterChain = filterOverride || (calibratedFilter && calibratedFilter.filterChain) || [];
     if (filterChain.length > 0) {
       try {
+        console.log('Applying filter chain to preprocessed view:', filterChain);
         applyFilterChainToCanvas(preprocessedCanvasRef.current, filterChain);
+        console.log('Filter chain applied successfully to preprocessed view');
       } catch (error) {
         console.error('Error applying filters in preprocess:', error);
       }
+    } else {
+      console.log('No filter chain to apply to preprocessed view');
     }
   };
 
@@ -495,290 +528,303 @@ function GuitarCanvas({
   }
 
   return (
-    <div className="guitar-canvas">
-      <div className="guitar-canvas-content">
-        {/* Debug calibration state */}
-        {console.log('Calibration state debug:', {
-          showCalibration,
-          isStreaming,
-          showCalibrationPrompt,
-          calibrating,
-          calibrationDone,
-          calibrationResult
-        })}
-        
-        {/* Calibration UI */}
-        {showCalibration && isStreaming && showCalibrationPrompt && !calibrating && (
-          <div className="calibration-section">
-            <div className="calibration-prompt">
-              <h3>🎸 Guitar Calibration</h3>
-              <p>Please put your guitar in frame before calibrating for optimal detection.</p>
-              <button 
-                className="start-btn" 
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  console.log('Calibration button clicked in JSX');
-                  handleCalibration();
-                }} 
-                disabled={calibrating}
-                style={{ pointerEvents: 'auto', zIndex: 1000 }}
-              >
-                Start Calibration
-              </button>
-            </div>
-          </div>
-        )}
-        {showCalibration && showOverridePrompt && (
-          <div className="calibration-section">
-            <div className="calibration-override-prompt">
-              <h3>⚠️ Recalibration Warning</h3>
-              <p>Are you sure you want to recalibrate? This will override your current settings.</p>
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '16px' }}>
+    <StreamingProvider isStreaming={isStreaming}>
+      <div 
+        className={`guitar-canvas${compactMode ? ' compact' : ''}`}
+        style={{
+          width: containerWidth,
+          height: containerHeight,
+          ...containerStyle
+        }}
+      >
+        <div className="guitar-canvas-content">
+          {/* Debug calibration state */}
+          {console.log('Calibration state debug:', {
+            showCalibration,
+            isStreaming,
+            showCalibrationPrompt,
+            calibrating,
+            calibrationDone,
+            calibrationResult
+          })}
+          
+          {/* Calibration UI */}
+          {showCalibration && isStreaming && showCalibrationPrompt && !calibrating && (
+            <div className="calibration-section">
+              <div className="calibration-prompt">
+                <h3>🎸 Guitar Calibration</h3>
+                <p>Please put your guitar in frame before calibrating for optimal detection.</p>
                 <button 
                   className="start-btn" 
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    handleOverrideConfirm(true);
-                  }}
+                    console.log('Calibration button clicked in JSX');
+                    handleCalibration();
+                  }} 
+                  disabled={calibrating}
                   style={{ pointerEvents: 'auto', zIndex: 1000 }}
                 >
-                  Yes, Recalibrate
-                </button>
-                <button 
-                  className="stop-btn" 
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleOverrideConfirm(false);
-                  }}
-                  style={{ pointerEvents: 'auto', zIndex: 1000 }}
-                >
-                  Cancel
+                  Start Calibration
                 </button>
               </div>
             </div>
-          </div>
-        )}
-        {showCalibration && isStreaming && calibrating && (
-          <div className="calibration-section">
-            <div className="calibration-progress">
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginBottom: '16px' }}>
-                <button 
-                  className="stop-btn" 
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleStopCalibration();
-                  }}
-                  style={{ pointerEvents: 'auto', zIndex: 1000 }}
-                >
-                  Stop Calibration
-                </button>
+          )}
+          {showCalibration && showOverridePrompt && (
+            <div className="calibration-section">
+              <div className="calibration-override-prompt">
+                <h3>⚠️ Recalibration Warning</h3>
+                <p>Are you sure you want to recalibrate? This will override your current settings.</p>
+                <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '16px' }}>
+                  <button 
+                    className="start-btn" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleOverrideConfirm(true);
+                    }}
+                    style={{ pointerEvents: 'auto', zIndex: 1000 }}
+                  >
+                    Yes, Recalibrate
+                  </button>
+                  <button 
+                    className="stop-btn" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleOverrideConfirm(false);
+                    }}
+                    style={{ pointerEvents: 'auto', zIndex: 1000 }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          {showCalibration && isStreaming && calibrating && (
+            <div className="calibration-section">
+              <div className="calibration-progress">
+                <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginBottom: '16px' }}>
+                  <button 
+                    className="stop-btn" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleStopCalibration();
+                    }}
+                    style={{ pointerEvents: 'auto', zIndex: 1000 }}
+                  >
+                    Stop Calibration
+                  </button>
+                  <button 
+                    className="start-btn" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleRetakeFrame();
+                    }}
+                    style={{ pointerEvents: 'auto', zIndex: 1000 }}
+                  >
+                    Retake Frame
+                  </button>
+                </div>
+                <div className="progress-bar-container">
+                  <div className="space-progress-bar-bg">
+                    <div className="space-progress-bar-fill" style={{ width: `${(calibrationProgress && calibrationProgress.percent) || 0}%` }} />
+                  </div>
+                  <div className="progress-text">
+                    {typeof calibrationProgress === 'object' && calibrationProgress !== null ? calibrationProgress.text : calibrationProgress}
+                  </div>
+                </div>
+                {noGuitarDetected && (
+                  <div style={{ color: '#f44336', marginTop: 12, fontWeight: 'bold', fontSize: '16px' }}>
+                    �� NO GUITAR DETECTED
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          {showCalibration && isStreaming && !calibrating && calibrationResult && calibrationDone && (
+            <div className="calibration-section">
+              <div className="calibration-result">
+                <h3>✅ Calibration Complete</h3>
                 <button 
                   className="start-btn" 
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     handleRetakeFrame();
-                  }}
-                  style={{ pointerEvents: 'auto', zIndex: 1000 }}
+                  }} 
+                  style={{ marginBottom: '16px', pointerEvents: 'auto', zIndex: 1000 }}
                 >
-                  Retake Frame
+                  Retake Calibration Frame
+                </button>
+                <div>
+                  <p><strong>Baseline (No Preprocessing):</strong> {calibrationResult.baseline ? (calibrationResult.baseline * 100).toFixed(1) + '%' : '--'}</p>
+                  <p><strong>Best Filter:</strong> {Array.isArray(calibrationResult?.filterChain) ? calibrationResult.filterChain.map(f => `${f.filter} (${f.param})`).join(', ') : '--'}</p>
+                  <p><strong>Avg Confidence After Preprocessing:</strong> {calibrationResult.avgConfidence ? (calibrationResult.avgConfidence * 100).toFixed(1) + '%' : '--'}</p>
+                </div>
+              </div>
+            </div>
+          )}
+          {showCalibration && isStreaming && !calibrating && !calibrationDone && calibrationProgress && calibrationProgress.toString().includes('No filter achieved confidence') && (
+            <div className="calibration-section">
+              <div className="calibration-error">
+                <h3>❌ Calibration Failed</h3>
+                <p>No filter achieved confidence ≥ 80%.</p>
+                <p style={{ color: '#ccc', fontSize: '14px' }}>Please move to a location with better lighting and try again.</p>
+                <button 
+                  className="start-btn" 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowOverridePrompt(true);
+                  }} 
+                  style={{ marginTop: '16px', pointerEvents: 'auto', zIndex: 1000 }}
+                >
+                  Retry Calibration
                 </button>
               </div>
-              <div className="progress-bar-container">
-                <div className="space-progress-bar-bg">
-                  <div className="space-progress-bar-fill" style={{ width: `${(calibrationProgress && calibrationProgress.percent) || 0}%` }} />
-                </div>
-                <div className="progress-text">
-                  {typeof calibrationProgress === 'object' && calibrationProgress !== null ? calibrationProgress.text : calibrationProgress}
+            </div>
+          )}
+          
+          <div 
+            className="guitar-video-container"
+            style={{
+              aspectRatio: videoAspectRatio,
+              ...videoStyle
+            }}
+          >
+            {/* Main video/canvas always shown when streaming */}
+            {isStreaming ? (
+              <>
+                <video
+                  id="video"
+                  ref={videoRef}
+                  className="guitar-video"
+                  playsInline
+                  muted
+                  style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1, ...videoStyle }}
+                />
+                <canvas
+                  id="canvas"
+                  ref={canvasRef}
+                  className="guitar-canvas-element"
+                  style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 2, pointerEvents: 'none', ...canvasStyle }}
+                />
+                
+                {/* Children components (like AudioPitchDetector) */}
+                {children}
+                
+                {/* Preprocessed PiP overlay */}
+                {showPreprocessedView && (
+                  <div className="preprocessed-overlay">
+                    <canvas
+                      ref={preprocessedCanvasRef}
+                      className="preprocessed-canvas"
+                      width={240}
+                      height={135}
+                    />
+                    {/* Show which filter is applied after calibration */}
+                    {calibrationDone && calibratedFilter && (
+                      <div className="preprocessed-label">
+                        {Array.isArray(calibratedFilter?.filterChain) ? calibratedFilter.filterChain.map(f => `${f.filter}(${f.param})`).join(', ') : '--'}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="guitar-video-placeholder">
+                <div className="guitar-video-placeholder-text">
+                  {streamStatus || "Click 'Begin Practice' to start video stream"}
                 </div>
               </div>
-              {noGuitarDetected && (
-                <div style={{ color: '#f44336', marginTop: 12, fontWeight: 'bold', fontSize: '16px' }}>
-                  🚫 NO GUITAR DETECTED
-                </div>
-              )}
-            </div>
+            )}
           </div>
-        )}
-        {showCalibration && isStreaming && !calibrating && calibrationResult && calibrationDone && (
-          <div className="calibration-section">
-            <div className="calibration-result">
-              <h3>✅ Calibration Complete</h3>
+
+          {/* Stream and PiP toggle buttons below the video/canvas */}
+          <div className="guitar-canvas-controls">
+            {!isStreaming ? (
               <button 
                 className="start-btn" 
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  handleRetakeFrame();
-                }} 
-                style={{ marginBottom: '16px', pointerEvents: 'auto', zIndex: 1000 }}
+                  console.log('GuitarCanvas: Begin Practice button clicked, current isStreaming:', isStreaming);
+                  setIsStreaming(true);
+                  console.log('GuitarCanvas: setIsStreaming(true) called, new value should be true');
+                }}
+                style={{ pointerEvents: 'auto', zIndex: 1000 }}
               >
-                Retake Calibration Frame
+                Begin Practice
               </button>
-              <div>
-                <p><strong>Baseline (No Preprocessing):</strong> {calibrationResult.baseline ? (calibrationResult.baseline * 100).toFixed(1) + '%' : '--'}</p>
-                <p><strong>Best Filter:</strong> {Array.isArray(calibrationResult?.filterChain) ? calibrationResult.filterChain.map(f => `${f.filter} (${f.param})`).join(', ') : '--'}</p>
-                <p><strong>Avg Confidence After Preprocessing:</strong> {calibrationResult.avgConfidence ? (calibrationResult.avgConfidence * 100).toFixed(1) + '%' : '--'}</p>
-              </div>
-            </div>
-          </div>
-        )}
-        {showCalibration && isStreaming && !calibrating && !calibrationDone && calibrationProgress && calibrationProgress.toString().includes('No filter achieved confidence') && (
-          <div className="calibration-section">
-            <div className="calibration-error">
-              <h3>❌ Calibration Failed</h3>
-              <p>No filter achieved confidence ≥ 80%.</p>
-              <p style={{ color: '#ccc', fontSize: '14px' }}>Please move to a location with better lighting and try again.</p>
+            ) : (
               <button 
-                className="start-btn" 
+                className="stop-btn" 
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  setShowOverridePrompt(true);
-                }} 
-                style={{ marginTop: '16px', pointerEvents: 'auto', zIndex: 1000 }}
+                  console.log('GuitarCanvas: Stop Stream button clicked, current isStreaming:', isStreaming);
+                  setIsStreaming(false);
+                  console.log('GuitarCanvas: setIsStreaming(false) called, new value should be false');
+                }}
+                style={{ pointerEvents: 'auto', zIndex: 1000 }}
               >
-                Retry Calibration
+                Stop Stream
               </button>
-            </div>
+            )}
+            {isStreaming && showPreprocessedView !== undefined && (
+              <button 
+                className={`toggle-preprocessed-btn ${!showPreprocessedView ? 'hidden' : ''}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('Toggle preprocessed view clicked');
+                  setShowPreprocessedView(!showPreprocessedView);
+                }}
+                style={{ pointerEvents: 'auto', zIndex: 1000 }}
+              >
+                {showPreprocessedView ? 'Hide' : 'Show'} Preprocessed View
+              </button>
+            )}
+            {isStreaming && showDebugCanvas !== undefined && (
+              <button 
+                className="toggle-debug-btn"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('Toggle debug canvas clicked');
+                  setShowDebugCanvas(!showDebugCanvas);
+                }}
+                style={{ pointerEvents: 'auto', zIndex: 1000 }}
+              >
+                {showDebugCanvas ? 'Hide' : 'Show'} Debug Inference
+              </button>
+            )}
           </div>
-        )}
-        
-        <div className="guitar-video-container">
-          {/* Main video/canvas always shown when streaming */}
-          {isStreaming ? (
-            <>
-              <video
-                id="video"
-                ref={videoRef}
-                className="guitar-video"
-                playsInline
-                muted
-                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1, ...videoStyle }}
-              />
+
+          {/* Debug canvas to show what's being sent to Roboflow */}
+          {isStreaming && showDebugCanvas && (
+            <div className="debug-section">
+              <div className="debug-title">
+                Debug: Image Being Sent to Roboflow
+              </div>
               <canvas
-                id="canvas"
-                ref={canvasRef}
-                className="guitar-canvas-element"
-                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 2, pointerEvents: 'none', ...canvasStyle }}
+                id="debug-inference-canvas"
+                className="debug-canvas"
+                width={320}
+                height={180}
               />
-              
-              {/* Children components (like AudioPitchDetector) */}
-              {children}
-              
-              {/* Preprocessed PiP overlay */}
-              {showPreprocessedView && (
-                <div className="preprocessed-overlay">
-                  <canvas
-                    ref={preprocessedCanvasRef}
-                    className="preprocessed-canvas"
-                    width={240}
-                    height={135}
-                  />
-                  {/* Show which filter is applied after calibration */}
-                  {calibrationDone && calibratedFilter && (
-                    <div className="preprocessed-label">
-                      {Array.isArray(calibratedFilter?.filterChain) ? calibratedFilter.filterChain.map(f => `${f.filter}(${f.param})`).join(', ') : '--'}
-                    </div>
-                  )}
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="guitar-video-placeholder">
-              <div className="guitar-video-placeholder-text">
-                {streamStatus || "Click 'Begin Practice' to start video stream"}
+              <div className="debug-description">
+                This shows the preprocessed image with calibrated filters applied
               </div>
             </div>
           )}
         </div>
-
-        {/* Stream and PiP toggle buttons below the video/canvas */}
-        <div className="guitar-canvas-controls">
-          {!isStreaming ? (
-            <button 
-              className="start-btn" 
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('Begin Practice button clicked');
-                setIsStreaming(true);
-              }}
-              style={{ pointerEvents: 'auto', zIndex: 1000 }}
-            >
-              Begin Practice
-            </button>
-          ) : (
-            <button 
-              className="stop-btn" 
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('Stop Stream button clicked');
-                setIsStreaming(false);
-              }}
-              style={{ pointerEvents: 'auto', zIndex: 1000 }}
-            >
-              Stop Stream
-            </button>
-          )}
-          {isStreaming && showPreprocessedView !== undefined && (
-            <button 
-              className={`toggle-preprocessed-btn ${!showPreprocessedView ? 'hidden' : ''}`}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('Toggle preprocessed view clicked');
-                setShowPreprocessedView(!showPreprocessedView);
-              }}
-              style={{ pointerEvents: 'auto', zIndex: 1000 }}
-            >
-              {showPreprocessedView ? 'Hide' : 'Show'} Preprocessed View
-            </button>
-          )}
-          {isStreaming && showDebugCanvas !== undefined && (
-            <button 
-              className="toggle-debug-btn"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('Toggle debug canvas clicked');
-                window.showDebugCanvas = !window.showDebugCanvas;
-                const debugCanvas = document.getElementById('debug-inference-canvas');
-                if (debugCanvas) {
-                  debugCanvas.style.display = window.showDebugCanvas ? 'block' : 'none';
-                }
-              }}
-              style={{ pointerEvents: 'auto', zIndex: 1000 }}
-            >
-              {window.showDebugCanvas ? 'Hide' : 'Show'} Debug Inference
-            </button>
-          )}
-        </div>
-
-        {/* Debug canvas to show what's being sent to Roboflow */}
-        {isStreaming && showDebugCanvas !== undefined && (
-          <div className="debug-section" style={{ display: window.showDebugCanvas ? 'block' : 'none' }}>
-            <div className="debug-title">
-              Debug: Image Being Sent to Roboflow
-            </div>
-            <canvas
-              id="debug-inference-canvas"
-              className="debug-canvas"
-              width={320}
-              height={180}
-            />
-            <div className="debug-description">
-              This shows the preprocessed image with calibrated filters applied
-            </div>
-          </div>
-        )}
       </div>
-    </div>
+    </StreamingProvider>
   );
 }
 

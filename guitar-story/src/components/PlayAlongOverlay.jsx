@@ -213,6 +213,14 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
       showCalibration={true}
       showPreprocessedView={false}
       showDebugCanvas={false}
+      containerWidth="100%"
+      containerHeight="100%"
+      videoAspectRatio="16/9"
+      compactMode={true}
+      containerStyle={{
+        minHeight: '300px',
+        maxHeight: '600px'
+      }}
     >
       <AudioPitchDetector>
         {({ note, frequency, listening, start, stop, error }) => {

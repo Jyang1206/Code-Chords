@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, useMemo, useContext } from "react";
+import React, { useEffect, useRef, useState, useMemo, useContext } from "react";
 import { ThemeContext } from "../App";
 import "../css/GuitarObjDetection.css";
 import "../css/GuitarCanvas.css";
 import AudioPitchDetector from "../utils/AudioPitchDetector";
 import GuitarCanvas from "./GuitarCanvas";
+import { useStreamingContext } from "../contexts/StreamingContext";
 
 // --- Fretboard Logic ---
 const ALL_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -48,6 +49,25 @@ function getStringNotePositions(stringIdx, scaleNotes, numFrets = 12) {
 
 function GuitarObjDetection() {
   const { lightMode } = useContext(ThemeContext);
+  
+  // Try to get isStreaming from context, with fallback
+  let isStreaming = false;
+  try {
+    const context = useStreamingContext();
+    isStreaming = context.isStreaming;
+    console.log('GuitarObjDetection: Successfully got isStreaming from context:', isStreaming);
+  } catch (error) {
+    console.log('GuitarObjDetection: Failed to get isStreaming from context, using fallback:', error);
+    isStreaming = false;
+  }
+  
+  // Debug logging for streaming state
+  console.log('GuitarObjDetection: Final isStreaming value:', isStreaming);
+  
+  // Track isStreaming changes
+  useEffect(() => {
+    console.log('GuitarObjDetection: isStreaming changed to:', isStreaming);
+  }, [isStreaming]);
 
   // --- Scale/Key Controls State ---
   const ROOT_NOTES = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
@@ -59,8 +79,31 @@ function GuitarObjDetection() {
   // Add state to control preprocessed view visibility
   const [showPreprocessedView, setShowPreprocessedView] = useState(false);
 
+  // Track component lifecycle and state changes
+  useEffect(() => {
+    console.log('GuitarObjDetection: Component mounted');
+    return () => {
+      console.log('GuitarObjDetection: Component unmounted');
+    };
+  }, []);
+
+  useEffect(() => {
+    console.log('GuitarObjDetection: selectedRoot changed to:', selectedRoot);
+  }, [selectedRoot]);
+
+  useEffect(() => {
+    console.log('GuitarObjDetection: selectedScale changed to:', selectedScale);
+  }, [selectedScale]);
+
+  useEffect(() => {
+    console.log('GuitarObjDetection: scaleNotes updated:', scaleNotes);
+  }, [scaleNotes]);
+
   // Draw overlay using latest scaleNotes and selectedRoot
   const drawOverlay = (predictions) => {
+    console.log('GuitarObjDetection: drawOverlay called with predictions:', predictions);
+    console.log('GuitarObjDetection: Current scale state - root:', selectedRoot, 'scale:', selectedScale, 'notes:', scaleNotes);
+    
     const canvas = document.getElementById('canvas');
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -103,10 +146,12 @@ function GuitarObjDetection() {
     const fontSize = 9 * scaleFactor;
     // --- End Dynamic Scaling ---
 
-    // Use current state values directly
+    // Use current state values directly - these are always up to date
     const currentRoot = selectedRoot;
     const currentScale = selectedScale;
     const currentScaleNotes = scaleNotes;
+
+    console.log('GuitarObjDetection: Drawing with current values - root:', currentRoot, 'scale:', currentScale, 'notes:', currentScaleNotes);
 
     // Draw scale notes with rotation correction
     for (var i = 0; i < filteredPredictions.length; i++) {
@@ -138,6 +183,12 @@ function GuitarObjDetection() {
         let noteName = getNoteAtPosition(stringIdx, fretNum);
         let isRoot = noteName === currentRoot;
         let isInScale = currentScaleNotes.includes(noteName);
+        
+        // Debug log for first few notes
+        if (fretNum <= 3 && stringIdx <= 2) {
+          console.log(`GuitarObjDetection: Note ${noteName} at fret ${fretNum}, string ${stringIdx} - isRoot: ${isRoot}, isInScale: ${isInScale}`);
+        }
+        
         if (isRoot) {
           ctx.beginPath();
           ctx.arc(xRot, yRot, rootRadius, 0, 2 * Math.PI);
@@ -191,23 +242,42 @@ function GuitarObjDetection() {
                 const [displayNote, setDisplayNote] = useState(null);
                 const [displayFreq, setDisplayFreq] = useState(null);
                 const [displayTimeout, setDisplayTimeout] = useState(null);
+                const [showScaleWarning, setShowScaleWarning] = useState(false);
                 
-                // Auto-start audio detection when component mounts
+                // Auto-start audio detection when stream is active
                 useEffect(() => {
-                  // Start audio detection automatically
-                  start();
+                  console.log('GuitarObjDetection: Audio useEffect triggered, isStreaming:', isStreaming);
+                  
+                  // Start audio detection when component mounts and stream is active
+                  if (isStreaming) {
+                    console.log('GuitarObjDetection: Starting audio detection, calling start()');
+                    start();
+                  } else {
+                    console.log('GuitarObjDetection: Audio detection not starting, isStreaming:', isStreaming);
+                  }
                   
                   // Cleanup on unmount
                   return () => {
+                    console.log('GuitarObjDetection: Cleaning up audio detection, calling stop()');
                     stop();
                   };
-                }, []); // Empty dependency array - only run once on mount
+                }, [isStreaming]); // Depend on isStreaming to restart when stream starts
                 
                 // Update displayNote/freq on new detection
                 useEffect(() => {
                   if (note && frequency) {
                     setDisplayNote(note);
                     setDisplayFreq(frequency);
+                    
+                    // Show scale warning if note is not in scale
+                    if (noteName && !isInScale) {
+                      setShowScaleWarning(true);
+                      // Hide warning after 4 seconds
+                      setTimeout(() => setShowScaleWarning(false), 4000);
+                    } else {
+                      setShowScaleWarning(false);
+                    }
+                    
                     if (displayTimeout) clearTimeout(displayTimeout);
                     // If not in scale, display for 4s, else 2s
                     const timeoutMs = (!isInScale && noteName) ? 4000 : 2000;
@@ -236,15 +306,19 @@ function GuitarObjDetection() {
                     <div className="audio-note-label">🎤 Detected Note</div>
                     <div className="audio-note-value">{displayNote || '--'}</div>
                     <div className="audio-freq-value">{displayFreq ? displayFreq.toFixed(2) + ' Hz' : '--'}</div>
-                    {!isInScale && noteName && (
+                    {showScaleWarning && noteName && (
                       <div className="audio-warning">
-                        Note {noteName} is not in the {selectedRoot} {selectedScale.replace('_',' ')} scale!
+                        ⚠️ Note {noteName} is not in the {selectedRoot} {selectedScale.replace('_',' ')} scale!
                       </div>
                     )}
                     {error && <div className="audio-warning">{error}</div>}
                     <div className="audio-controls">
                       <div className={`audio-status ${listening ? 'listening' : 'stopped'}`}>
                         {listening ? '🎤 Listening...' : '🔇 Audio Off'}
+                      </div>
+                      {/* Debug info */}
+                      <div style={{ fontSize: '10px', color: '#666', marginTop: '4px' }}>
+                        Debug: isStreaming={isStreaming}, listening={listening.toString()}, error={error || 'none'}
                       </div>
                     </div>
                   </div>
@@ -264,7 +338,14 @@ function GuitarObjDetection() {
                 <button
                   key={note}
                   className={`guitar-scale-btn${selectedRoot === note ? ' active' : ''}`}
-                  onClick={() => setSelectedRoot(note)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('GuitarObjDetection: Root note button clicked:', note);
+                    console.log('GuitarObjDetection: Current selectedRoot before change:', selectedRoot);
+                    setSelectedRoot(note);
+                    console.log('GuitarObjDetection: setSelectedRoot called with:', note);
+                  }}
                 >
                   {note}
                 </button>
@@ -276,7 +357,14 @@ function GuitarObjDetection() {
                 <button
                   key={type}
                   className={`guitar-scale-btn${selectedScale === type ? ' active' : ''}`}
-                  onClick={() => setSelectedScale(type)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('GuitarObjDetection: Scale type button clicked:', type);
+                    console.log('GuitarObjDetection: Current selectedScale before change:', selectedScale);
+                    setSelectedScale(type);
+                    console.log('GuitarObjDetection: setSelectedScale called with:', type);
+                  }}
                 >
                   {type.replace('_', ' ')}
                 </button>
