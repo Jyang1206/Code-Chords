@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import PlayAlongOverlay from "../components/PlayAlongOverlay";
 import { useAuth } from "../contexts/AuthContext";
 import { ScoreboardService } from "../services/scoreboardService";
+import { CustomTabsService } from "../services/customTabsService";
 import { db } from "../firebase";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 
@@ -388,6 +389,8 @@ function PlayAlong() {
   const [mainMode, setMainMode] = useState("Chords"); // "Chords" or "Songs"
   const [selectedChord, setSelectedChord] = useState("C Major");
   const [selectedSong, setSelectedSong] = useState("Ode to Joy - Beethoven");
+  const [customTabs, setCustomTabs] = useState([]);
+  const [loadingCustomTabs, setLoadingCustomTabs] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
   const [currentScore, setCurrentScore] = useState(0);
@@ -397,6 +400,30 @@ function PlayAlong() {
   const playTimer = useRef(null);
   const latestSessionStatsRef = useRef({ correct: 0, total: 0 }); // Track latest session stats
   const noteTimestampsRef = useRef({}); // Track timestamps for song playback
+
+  // Load custom tabs when user is available
+  useEffect(() => {
+    if (currentUser) {
+      loadCustomTabs();
+    }
+  }, [currentUser]);
+
+  const loadCustomTabs = async () => {
+    try {
+      setLoadingCustomTabs(true);
+      const result = await CustomTabsService.getUserTabs(currentUser.uid);
+      if (result.success) {
+        setCustomTabs(result.data);
+        console.log(`[PLAY ALONG] Loaded ${result.data.length} custom tabs`);
+      } else {
+        console.error('Failed to load custom tabs:', result.error);
+      }
+    } catch (error) {
+      console.error('Error loading custom tabs:', error);
+    } finally {
+      setLoadingCustomTabs(false);
+    }
+  };
 
   // Add countdown state
   const [countdown, setCountdown] = useState(0);
@@ -447,7 +474,18 @@ function PlayAlong() {
       : 0;
 
   // Determine which notes to use: arpeggio or song
-  const playNotes = mainMode === 'Chords' ? CHORDS[selectedChord] : SONGS[selectedSong];
+  let playNotes;
+  if (mainMode === 'Chords') {
+    playNotes = CHORDS[selectedChord];
+  } else {
+    // Check if selectedSong is a custom tab
+    const customTab = customTabs.find(tab => tab.title === selectedSong);
+    if (customTab) {
+      playNotes = customTab.notes;
+    } else {
+      playNotes = SONGS[selectedSong];
+    }
+  }
   const isChordMode = mainMode === "Chords";
   const isSongMode = mainMode === "Songs";
   
@@ -1239,6 +1277,9 @@ function PlayAlong() {
                 >
                   {Object.keys(SONGS).map(name => (
                     <option key={name} value={name} style={{ background: '#1a1b2e', color: '#fff' }}>{name}</option>
+                  ))}
+                  {customTabs.map(tab => (
+                    <option key={tab.title} value={tab.title} style={{ background: '#1a1b2e', color: '#fff' }}>{tab.title}</option>
                   ))}
                 </select>
               </div>
