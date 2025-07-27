@@ -6,6 +6,7 @@ import LearnSongs from "./Pages/LearnSongs";
 import Settings from "./Pages/Settings";
 import Tuner from "./Pages/Tuner";
 import PlayAlong from "./Pages/PlayAlong";
+import CustomTabs from "./Pages/CustomTabs";
 import SearchHistory from "./Pages/SearchHistory";
 import Scoreboard from "./Pages/Scoreboard";
 import Login from "./components/Login";
@@ -60,6 +61,7 @@ function AppContent() {
           <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
           <Route path="/tuner" element={<RequireAuth><Tuner /></RequireAuth>} />
           <Route path="/scoreboard" element={<RequireAuth><Scoreboard /></RequireAuth>} />
+          <Route path="/custom-tabs" element={<RequireAuth><CustomTabs /></RequireAuth>} />
           {/* Redirect any unknown route to home or login */}
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>

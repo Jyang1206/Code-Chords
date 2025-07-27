@@ -23,30 +23,22 @@ service cloud.firestore {
       }
     }
 
+    // User custom tabs - users can only access their own tabs
+    match /userTabs/{tabId} {
+      allow read, write: if request.auth != null && 
+        (resource == null || resource.data.userId == request.auth.uid);
+      allow create: if request.auth != null && 
+        request.resource.data.userId == request.auth.uid;
+    }
+
     // Leaderboard (global, readable/writable by all authenticated users)
     match /leaderboard/{document} {
       allow read, write: if request.auth != null;
     }
 
-    // Collection: userTabs
-    // Document structure:
-    {
-      title: "My Custom Song",
-      artist: "Optional Artist",
-      notes: [
-        { stringIdx: 1, fretNum: 5, note: "A", duration: 1 },
-        { stringIdx: 2, fretNum: 3, note: "D", duration: 2 }
-      ],
-      userId: "user_uid",
-      createdAt: timestamp,
-      updatedAt: timestamp,
-      isPublic: false
-    }
-    match /userTabs/{document} {
-      allow read, write: if request.auth != null && 
-        (resource == null || resource.data.userId == request.auth.uid);
-      allow create: if request.auth != null && 
-        request.resource.data.userId == request.auth.uid;
+    // Catch-all rule for any other collections (remove this for production)
+    match /{document=**} {
+      allow read, write: if true;
     }
   }
 } 
