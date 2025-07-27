@@ -76,7 +76,7 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
   
   // Add wrong note detection threshold
   const [consecutiveWrongDetections, setConsecutiveWrongDetections] = useState(0);
-  const [requiredConsecutiveWrongDetections, setRequiredConsecutiveWrongDetections] = useState(2); // require 2 consecutive wrong detections to reduce false positives
+  const [requiredConsecutiveWrongDetections, setRequiredConsecutiveWrongDetections] = useState(1); // require 1 consecutive wrong detection to reduce false positives
 
   useEffect(() => {
     if (!modelLoading) {
@@ -368,7 +368,7 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
   }
 
   return (
-    <AudioPitchDetector clarityThreshold={0.98}>
+    <AudioPitchDetector clarityThreshold={0.92}>
       {({ note, frequency, listening, start, stop, error }) => {
         // Ensure pitch detection is always running while overlay is mounted
         React.useEffect(() => {
