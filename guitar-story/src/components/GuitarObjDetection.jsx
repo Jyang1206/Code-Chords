@@ -18,8 +18,10 @@ import { calibrateDetection, CALIBRATION_FILTERS } from '../utils/calibrationUti
 import { applyFilterChainToCanvas } from '../utils/imagePreprocessing';
 
 // --- Fretboard Logic ---
-const ALL_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const ALL_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']; // All 12 notes
 const OPEN_STRINGS = ['E', 'A', 'D', 'G', 'B', 'E']; // 6th to 1st string
+
+//Intervals for each scale
 const SCALES = {
   major: [0, 2, 4, 5, 7, 9, 11],
   minor: [0, 2, 3, 5, 7, 8, 10],
@@ -45,19 +47,10 @@ function getNoteAtPosition(stringIdx, fretNum) {
   return ALL_NOTES[noteIdx];
 }
 
-function getStringNotePositions(stringIdx, scaleNotes, numFrets = 12) {
-  const openNoteIdx = ALL_NOTES.indexOf(OPEN_STRINGS[stringIdx]);
-  let positions = [];
-  for (let fret = 0; fret <= numFrets; fret++) {
-    const noteIdx = (openNoteIdx + fret) % 12;
-    if (scaleNotes.includes(ALL_NOTES[noteIdx])) {
-      positions.push(fret);
-    }
-  }
-  return positions;
-}
 // --- End Fretboard Logic ---
 
+
+//Detection of Guitar Frets using Roboflow YOLOv8 model
 function GuitarObjDetection() {
   const { theme } = useTheme();
 
@@ -112,11 +105,7 @@ function GuitarObjDetection() {
   // Add stable reference to track current calibration state for debug canvas
   const currentCalibrationRef = useRef(null);
 
-  const handlePreprocessingChange = (option) => {
-    setPreprocessingOptions(prev => ({ ...prev, [option]: !prev[option] }));
-  };
-
-  // --- Fix: Use refs to always access latest state in async callbacks ---
+  // --- Use refs to always access latest state in async callbacks ---
   const selectedRootRef = useRef(selectedRoot);
   const selectedScaleRef = useRef(selectedScale);
   const scaleNotesRef = useRef(scaleNotes);
@@ -125,10 +114,6 @@ function GuitarObjDetection() {
   useEffect(() => { selectedScaleRef.current = selectedScale; }, [selectedScale]);
   useEffect(() => { scaleNotesRef.current = scaleNotes; }, [scaleNotes]);
   useEffect(() => { preprocessingOptionsRef.current = preprocessingOptions; }, [preprocessingOptions]);
-  // --- End fix ---
-
-  // --- Confidence Tracking ---
-  const confidenceStatsRef = useRef({ sum: 0, count: 0 });
 
   useEffect(() => {
     if (!modelLoading) {
@@ -157,7 +142,6 @@ function GuitarObjDetection() {
     if (!isStreaming) {
       stopWebcam();
     }
-    // eslint-disable-next-line
   }, [isStreaming, modelWorkerId]);
 
   // Cleanup on unmount
@@ -242,7 +226,6 @@ function GuitarObjDetection() {
       // Force a redraw by calling detectFrame once
       detectFrame(true);
     }
-    // eslint-disable-next-line
   }, [selectedRoot, selectedScale]);
 
   // Draw overlay using latest scaleNotes and selectedRoot
@@ -252,8 +235,9 @@ function GuitarObjDetection() {
     if (!ctx) return;
     ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
 
-    // Filter out hand detections and only show predictions with confidence > 0.8
-    const filteredPredictions = predictions.filter(pred => pred.class !== 'Hand' && pred.confidence > 0.8);
+    const CONFIDENCE_THRESHOLD = 0.8;
+    // Filter out hand detections and only show predictions with confidence > CONFIDENCE_THRESHOLD
+    const filteredPredictions = predictions.filter(pred => pred.class !== 'Hand' && pred.confidence > CONFIDENCE_THRESHOLD);
 
     // --- Heuristic Rotation Correction ---
     const fretCenters = filteredPredictions.map(pred => ({
@@ -321,8 +305,11 @@ function GuitarObjDetection() {
         let yRot = yCenter + dx * Math.sin(angle) + dy * Math.cos(angle);
 
         let noteName = getNoteAtPosition(stringIdx, fretNum);
+
+        //Conditionals to check if notes are root or in selected scale
         let isRoot = noteName === currentRoot;
         let isInScale = currentScaleNotes.includes(noteName);
+
         if (isRoot) {
           ctx.beginPath();
           ctx.arc(xRot, yRot, rootRadius, 0, 2 * Math.PI);
@@ -477,8 +464,8 @@ function GuitarObjDetection() {
       modelWorkerId: modelWorkerId
     };
     
-    console.log('🚀 SENDING FRAME TO ROBOTFLOW:', frameInfo);
-    console.log('📊 Frame details:', {
+    console.log('SENDING FRAME TO ROBOTFLOW:', frameInfo);
+    console.log('Frame details:', {
       width: imgBitmap.width,
       height: imgBitmap.height,
       filtersApplied: frameInfo.hasFilters,
@@ -489,7 +476,7 @@ function GuitarObjDetection() {
     // Track frame sending in a global counter
     if (!window.frameSendCount) window.frameSendCount = 0;
     window.frameSendCount++;
-    console.log(`📈 Total frames sent: ${window.frameSendCount}`);
+    console.log(`Total frames sent: ${window.frameSendCount}`);
     
     // Update UI state
     setFrameStatus('sending');
@@ -497,7 +484,7 @@ function GuitarObjDetection() {
     setLastFrameTime(new Date());
     
     inferEngine.infer(modelWorkerId, img).then((predictions) => {
-      console.log('✅ FRAME RECEIVED FROM ROBOTFLOW:', {
+      console.log('FRAME RECEIVED FROM ROBOTFLOW:', {
         frameId: frameId,
         timestamp: new Date().toISOString(),
         predictionsCount: predictions ? predictions.length : 0,
@@ -512,7 +499,7 @@ function GuitarObjDetection() {
         const debugCtx = debugCanvas.getContext('2d');
         debugCtx.fillStyle = '#4CAF50';
         debugCtx.font = '10px Arial';
-        debugCtx.fillText('✅ Success', 10, 110);
+        debugCtx.fillText('Success', 10, 110);
         debugCtx.fillText(`Frames: ${window.frameSendCount}`, 10, 125);
       }
       
@@ -522,7 +509,7 @@ function GuitarObjDetection() {
       }
       setTimeout(detectFrame, 100 / 3); // Inference loop
     }).catch((error) => {
-      console.error('❌ FRAME SEND FAILED:', {
+      console.error('FRAME SEND FAILED:', {
         frameId: frameId,
         timestamp: new Date().toISOString(),
         error: error.message
@@ -536,7 +523,7 @@ function GuitarObjDetection() {
         const debugCtx = debugCanvas.getContext('2d');
         debugCtx.fillStyle = '#F44336';
         debugCtx.font = '10px Arial';
-        debugCtx.fillText('❌ Failed', 10, 110);
+        debugCtx.fillText('Failed', 10, 110);
         debugCtx.fillText(`Error: ${error.message}`, 10, 125);
       }
       
@@ -895,9 +882,9 @@ function GuitarObjDetection() {
                       animation: frameStatus === 'sending' ? 'pulse 1s infinite' : 'none'
                     }}></span>
                     <span>
-                      {frameStatus === 'success' ? '✅ Sent' :
-                       frameStatus === 'error' ? '❌ Failed' :
-                       frameStatus === 'sending' ? '🔄 Sending' : '⏸️ Idle'}
+                      {frameStatus === 'success' ? 'Sent' :
+                       frameStatus === 'error' ? 'Failed' :
+                       frameStatus === 'sending' ? 'Sending' : 'Idle'}
                     </span>
                   </div>
                   <div style={{ marginTop: '4px', fontSize: '10px', opacity: 0.8 }}>

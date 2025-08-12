@@ -11,6 +11,7 @@ function NavBar({ setShowAuthModal, setShowSignup }) {
   const { toggleTheme, isDarkMode } = useTheme();
   const navigate = useNavigate();
 
+  //Potential logout button in NavBar in future releases
   const handleLogout = async () => {
     try {
       await logout();
