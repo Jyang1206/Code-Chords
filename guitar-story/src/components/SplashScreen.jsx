@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import AnimatedLogo from './AnimatedLogo';
 import '../css/SplashScreen.css';
 
-const SplashScreen = ({ onComplete, duration = 5000 }) => {
+const SplashScreen = ({ onComplete, duration = Infinity }) => {
   const [showLogo, setShowLogo] = useState(true);
 
   useEffect(() => {
