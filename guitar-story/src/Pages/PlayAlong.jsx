@@ -84,8 +84,8 @@ const SONGS = {
     { stringIdx: 4, fretNum: 0, note: "D", duration: 1 }, // 4th string
     { stringIdx: 3, fretNum: 2, note: "A", duration: 1 }, // 3rd string
     { stringIdx: 3, fretNum: 2, note: "A", duration: 1 }, // 3rd string
-    { stringIdx: 3, fretNum: 0, note: "B", duration: 1 }, // 3rd string
-    { stringIdx: 3, fretNum: 0, note: "B", duration: 1 }, // 3rd string
+    { stringIdx: 3, fretNum: 4, note: "B", duration: 1 }, // 3rd string
+    { stringIdx: 3, fretNum: 4, note: "B", duration: 1 }, // 3rd string
     { stringIdx: 3, fretNum: 2, note: "A", duration: 2 }, // 3rd string
     // ...
   ],
