@@ -971,7 +971,6 @@ function PlayAlong() {
           />
         )}
       </div>
-      <YouTubePlayer />
     </div>
   );
 }
