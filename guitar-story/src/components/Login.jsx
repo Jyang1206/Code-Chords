@@ -70,13 +70,6 @@ export default function Login({ onSwitch }) {
         
         <div className="section-separator login-separator"></div>
         
-        <button 
-          onClick={handleGoogleLogin} 
-          className="space-button google-button"
-        >
-          Continue with Google
-        </button>
-        
         <p className="login-switch-text">
           New to Guitar Story?
         </p>
