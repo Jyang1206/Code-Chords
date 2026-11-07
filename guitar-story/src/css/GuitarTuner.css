@@ -1,6 +1,9 @@
 /* Tuner — one instrument: an analog cents gauge, the note, the six strings */
 
-.tuner-page { max-width: 760px; }
+/* one centred column: the gauge is symmetrical, so the page is too */
+.tuner-page { max-width: 760px; margin-inline: auto; }
+.tuner-page .page-head { max-width: none; text-align: center; }
+.tuner-page .page-head p { margin-inline: auto; }
 
 .tuner-instrument {
   --state: var(--dust-2);

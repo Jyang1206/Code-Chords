@@ -4,7 +4,9 @@ import { CustomTabsService } from '../services/customTabsService';
 import '../css/CustomTabs.css';
 
 const ALL_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-const OPEN_STRINGS = ['E', 'A', 'D', 'G', 'B', 'E']; // 6th to 1st string
+// Index 0 is string 1 (high e) through index 5, string 6 (low E) —
+// the same numbering Play along uses for stringIdx.
+const OPEN_STRINGS = ['E', 'B', 'G', 'D', 'A', 'E'];
 
 function getNoteAtPosition(stringIdx, fretNum) {
   const openNoteIdx = ALL_NOTES.indexOf(OPEN_STRINGS[stringIdx]);
@@ -13,18 +15,18 @@ function getNoteAtPosition(stringIdx, fretNum) {
 }
 
 /* ---------- Presentation helpers ---------- */
-const STAFF_ROWS = [6, 5, 4, 3, 2, 1]; // top line to bottom line, as tab is read
+const STAFF_ROWS = [1, 2, 3, 4, 5, 6]; // top line (high e) to bottom line (low E), as tab is read
 const FRETS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
 // the name printed at the left of each tab line
 function stringLabel(stringNum) {
   const name = OPEN_STRINGS[stringNum - 1];
-  return stringNum === 6 ? name.toLowerCase() : name;
+  return stringNum === 1 ? name.toLowerCase() : name;
 }
 
 function stringName(stringNum) {
-  if (stringNum === 1) return 'Low E string';
-  if (stringNum === 6) return 'High e string';
+  if (stringNum === 1) return 'High e string';
+  if (stringNum === 6) return 'Low E string';
   return `${OPEN_STRINGS[stringNum - 1]} string`;
 }
 
