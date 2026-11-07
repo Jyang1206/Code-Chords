@@ -18,6 +18,16 @@ const Glyph = ({ name }) => {
     "aria-hidden": true,
   };
   switch (name) {
+    case "learn": // the circle of fifths
+      return (
+        <svg {...common}>
+          <circle cx="16" cy="16" r="11" />
+          <circle cx="16" cy="16" r="5.5" opacity=".45" />
+          <circle cx="16" cy="5" r="2.4" fill="currentColor" stroke="none" />
+          <circle cx="25.5" cy="10.5" r="1.6" fill="currentColor" stroke="none" />
+          <circle cx="6.5" cy="10.5" r="1.6" fill="currentColor" stroke="none" />
+        </svg>
+      );
     case "practice": // a lens over strings
       return (
         <svg {...common}>
@@ -68,6 +78,13 @@ const Glyph = ({ name }) => {
 
 const TOOLS = [
   {
+    key: "learn",
+    title: "Learn",
+    path: "/learn",
+    open: true,
+    body: "Notes, intervals, scales, triads and the circle of fifths, drawn on a fretboard you can click to hear. No account needed.",
+  },
+  {
     key: "practice",
     title: "Practice",
     path: "/practice",
@@ -103,8 +120,8 @@ function Home({ setShowAuthModal, setShowSignup }) {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
 
-  const go = (path) => {
-    if (!currentUser) {
+  const go = (path, open = false) => {
+    if (!currentUser && !open) {
       setShowAuthModal(true);
       setShowSignup(false);
     } else {
@@ -160,7 +177,7 @@ function Home({ setShowAuthModal, setShowSignup }) {
         <ul className="tool-list">
           {TOOLS.map((t) => (
             <li key={t.key}>
-              <button className="tool-row" onClick={() => go(t.path)}>
+              <button className="tool-row" onClick={() => go(t.path, t.open)}>
                 <span className="tool-glyph"><Glyph name={t.key} /></span>
                 <span className="tool-title">{t.title}</span>
                 <span className="tool-body">{t.body}</span>

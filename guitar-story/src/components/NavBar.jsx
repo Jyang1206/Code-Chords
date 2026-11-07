@@ -7,6 +7,7 @@ import logoImage from "../assets/Code-Chords Logo.png";
 import logoImageLight from "../assets/Code-Chords Logo-light.png";
 
 const LINKS = [
+  { path: "/learn", label: "Learn", open: true },
   { path: "/practice", label: "Practice" },
   { path: "/playalong", label: "Play along" },
   { path: "/custom-tabs", label: "Tabs" },
@@ -40,8 +41,8 @@ function NavBar({ setShowAuthModal, setShowSignup }) {
 
   useEffect(() => setOpen(false), [pathname]);
 
-  const go = (path) => {
-    if (!currentUser) {
+  const go = (path, open = false) => {
+    if (!currentUser && !open) {
       setShowAuthModal(true);
       setShowSignup(false);
     } else {
@@ -76,7 +77,7 @@ function NavBar({ setShowAuthModal, setShowSignup }) {
               key={l.path}
               className={`nav-link${isActive(l.path) ? " active" : ""}`}
               aria-current={isActive(l.path) ? "page" : undefined}
-              onClick={() => go(l.path)}
+              onClick={() => go(l.path, l.open)}
             >
               {l.label}
             </button>

@@ -12,6 +12,7 @@ import CustomTabs from "./Pages/CustomTabs";
 import Tuner from "./Pages/Tuner";
 import Scoreboard from "./Pages/Scoreboard";
 import Settings from "./Pages/Settings";
+import Learn from "./Pages/Learn";
 import SearchHistory from "./Pages/SearchHistory";
 import ResetPassword from "./Pages/ResetPassword";
 import SplashScreen from "./components/SplashScreen";
@@ -86,6 +87,7 @@ function AppContent() {
       <main className="main-content">
         <Routes>
           <Route path="/" element={<Home setShowAuthModal={setShowAuthModal} setShowSignup={setShowSignup} />} />
+          <Route path="/learn" element={<Learn />} />
           <Route path="/practice" element={<Practice />} />
           <Route path="/playalong" element={<PlayAlong />} />
           <Route path="/custom-tabs" element={<CustomTabs />} />
