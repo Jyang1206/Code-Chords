@@ -3,6 +3,8 @@ import { useAuth } from "../contexts/AuthContext";
 import { ScoreboardService } from "../services/scoreboardService";
 import { MigrationHelper } from "../utils/migrationHelper";
 import { createLeaderboardCollection, checkLeaderboardExists, addTestEntry } from "../utils/createLeaderboard";
+import { Link } from "react-router-dom";
+import "../css/Scoreboard.css";
 
 function Scoreboard() {
   const { currentUser } = useAuth();
@@ -63,250 +65,159 @@ function Scoreboard() {
     loadScoreboardData();
   }, [currentUser]);
 
+  const PageHead = (
+    <header className="page-head">
+      <h1>Scoreboard</h1>
+      <p>Every note you land in Play along adds to your total. Here is where you stand.</p>
+    </header>
+  );
+
   if (!currentUser) {
     return (
-      <div style={{
-        minHeight: "100vh",
-        background: "linear-gradient(135deg, #0c0e1a 0%, #1a1b2e 50%, #2d1b69 100%)",
-        color: "#fff",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center"
-      }}>
-        <div style={{ textAlign: "center" }}>
-          <h1>Please log in to view the scoreboard</h1>
-          <p>You need to be authenticated to see your scores and the leaderboard.</p>
-        </div>
+      <div className="scoreboard">
+        {PageHead}
+        <section className="sb-state space-card">
+          <h2>Sign in to see the scoreboard</h2>
+          <p>Use the sign in button at the top of the page. Your scores and rank will show up here.</p>
+        </section>
       </div>
     );
   }
 
   if (loading) {
     return (
-      <div style={{
-        minHeight: "100vh",
-        background: "linear-gradient(135deg, #0c0e1a 0%, #1a1b2e 50%, #2d1b69 100%)",
-        color: "#fff",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center"
-      }}>
-        <div style={{ textAlign: "center" }}>
-          <h2>Loading Scoreboard...</h2>
-          <p>Please wait while we fetch your data.</p>
-        </div>
+      <div className="scoreboard">
+        {PageHead}
+        <section className="sb-state space-card" aria-live="polite" aria-busy="true">
+          <h2>Loading the leaderboard</h2>
+          <p>This usually takes a second.</p>
+        </section>
       </div>
     );
   }
 
+  const isMe = (entry) => entry.email === currentUser.email;
+  const fmt = (n) => Number(n || 0).toLocaleString();
+  const podium = leaderboard.slice(0, 3);
+  const rest = leaderboard.slice(3);
+  const medalNames = ["First place", "Second place", "Third place"];
+
   return (
-    <div style={{
-      minHeight: "100vh",
-      background: "linear-gradient(135deg, #0c0e1a 0%, #1a1b2e 50%, #2d1b69 100%)",
-      color: "#fff",
-      padding: "2rem"
-    }}>
-      <div style={{
-        maxWidth: "1200px",
-        margin: "0 auto",
-        display: "flex",
-        flexDirection: "column",
-        gap: "2rem"
-      }}>
-        <h1 style={{
-          fontSize: "3rem",
-          fontWeight: "700",
-          color: "#90caf9",
-          textAlign: "center",
-          marginBottom: "1rem"
-        }}>
-          Scoreboard
-        </h1>
+    <div className="scoreboard">
+      {PageHead}
 
-        {/* Error Messages */}
-        {leaderboardError && (
-          <div style={{
-            background: "rgba(244, 67, 54, 0.1)",
-            border: "1px solid rgba(244, 67, 54, 0.3)",
-            borderRadius: "12px",
-            padding: "1rem",
-            color: "#f44336"
-          }}>
-            <strong>Leaderboard Error:</strong> {leaderboardError}
-          </div>
-        )}
+      {leaderboardError && (
+        <div className="sb-alert" role="alert">
+          <strong>We couldn't load the leaderboard.</strong> Check your connection and refresh the page.
+          <span className="sb-alert-detail">{leaderboardError}</span>
+        </div>
+      )}
 
-        {userStatsError && (
-          <div style={{
-            background: "rgba(244, 67, 54, 0.1)",
-            border: "1px solid rgba(244, 67, 54, 0.3)",
-            borderRadius: "12px",
-            padding: "1rem",
-            color: "#f44336"
-          }}>
-            <strong>User Stats Error:</strong> {userStatsError}
-          </div>
-        )}
+      {userStatsError && (
+        <div className="sb-alert" role="alert">
+          <strong>We couldn't load your stats.</strong> Refresh the page to try again.
+          <span className="sb-alert-detail">{userStatsError}</span>
+        </div>
+      )}
 
-        {/* User Stats Section */}
-        {userStats && (
-          <div style={{
-            background: "rgba(255, 255, 255, 0.05)",
-            backdropFilter: "blur(10px)",
-            borderRadius: "20px",
-            padding: "2rem",
-            border: "1px solid rgba(255, 255, 255, 0.1)",
-            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)"
-          }}>
-            <h2 style={{
-              fontSize: "2rem",
-              fontWeight: "600",
-              color: "#90caf9",
-              marginBottom: "1.5rem",
-              textAlign: "center"
-            }}>
-              Your Stats
-            </h2>
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-              gap: "1.5rem"
-            }}>
-              <div style={{
-                textAlign: "center",
-                padding: "1rem",
-                background: "rgba(144, 202, 249, 0.1)",
-                borderRadius: "12px",
-                border: "1px solid rgba(144, 202, 249, 0.3)"
-              }}>
-                <div style={{ fontSize: "2rem", fontWeight: "700", color: "#90caf9" }}>
-                  {userStats.totalScore || 0}
-                </div>
-                <div style={{ fontSize: "0.9rem", color: "#b0bec5" }}>Total Score</div>
-              </div>
-              <div style={{
-                textAlign: "center",
-                padding: "1rem",
-                background: "rgba(76, 175, 80, 0.1)",
-                borderRadius: "12px",
-                border: "1px solid rgba(76, 175, 80, 0.3)"
-              }}>
-                <div style={{ fontSize: "2rem", fontWeight: "700", color: "#4caf50" }}>
-                  {userStats.accuracy || 0}%
-                </div>
-                <div style={{ fontSize: "0.9rem", color: "#b0bec5" }}>Accuracy</div>
-              </div>
-              <div style={{
-                textAlign: "center",
-                padding: "1rem",
-                background: "rgba(255, 193, 7, 0.1)",
-                borderRadius: "12px",
-                border: "1px solid rgba(255, 193, 7, 0.3)"
-              }}>
-                <div style={{ fontSize: "2rem", fontWeight: "700", color: "#ffc107" }}>
-                  {userStats.correctNotes || 0}
-                </div>
-                <div style={{ fontSize: "0.9rem", color: "#b0bec5" }}>Correct Notes</div>
-              </div>
-              <div style={{
-                textAlign: "center",
-                padding: "1rem",
-                background: "rgba(156, 39, 176, 0.1)",
-                borderRadius: "12px",
-                border: "1px solid rgba(156, 39, 176, 0.3)"
-              }}>
-                <div style={{ fontSize: "2rem", fontWeight: "700", color: "#9c27b0" }}>
-                  {userStats.totalNotes || 0}
-                </div>
-                <div style={{ fontSize: "0.9rem", color: "#b0bec5" }}>Total Notes</div>
-              </div>
+      {userStats && (
+        <section className="sb-you space-card" aria-labelledby="sb-you-title">
+          <h2 id="sb-you-title">Your numbers</h2>
+          <dl className="sb-stats">
+            <div className="sb-stat sb-stat--lead">
+              <dt>Total score</dt>
+              <dd>{fmt(userStats.totalScore)}</dd>
             </div>
-          </div>
-        )}
+            <div className="sb-stat">
+              <dt>Accuracy</dt>
+              <dd>{userStats.accuracy || 0}<span className="sb-unit">%</span></dd>
+            </div>
+            <div className="sb-stat">
+              <dt>Correct notes</dt>
+              <dd>{fmt(userStats.correctNotes)}</dd>
+            </div>
+            <div className="sb-stat">
+              <dt>Notes played</dt>
+              <dd>{fmt(userStats.totalNotes)}</dd>
+            </div>
+          </dl>
+        </section>
+      )}
 
-        {/* Leaderboard Section */}
-        <div style={{
-          background: "rgba(255, 255, 255, 0.05)",
-          backdropFilter: "blur(10px)",
-          borderRadius: "20px",
-          padding: "2rem",
-          border: "1px solid rgba(255, 255, 255, 0.1)",
-          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)"
-        }}>
-          <h2 style={{
-            fontSize: "2rem",
-            fontWeight: "600",
-            color: "#90caf9",
-            marginBottom: "1.5rem",
-            textAlign: "center"
-          }}>
-            Leaderboard
-          </h2>
-          
-          {leaderboard.length === 0 ? (
-            <div style={{
-              textAlign: "center",
-              padding: "3rem",
-              color: "#b0bec5"
-            }}>
-              <p>No scores yet. Start practicing to see the leaderboard!</p>
-              <p style={{ fontSize: "0.9rem", marginTop: "1rem" }}>
-                Try playing some chords in the Practice or Play Along sections to generate scores.
-              </p>
-            </div>
-          ) : (
-            <div style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "1rem"
-            }}>
-              {leaderboard.map((entry, index) => (
-                <div key={entry.email} style={{
-                  display: "flex",
-                  alignItems: "center",
-                  padding: "1rem",
-                  background: entry.email === currentUser.email 
-                    ? "rgba(144, 202, 249, 0.2)" 
-                    : "rgba(255, 255, 255, 0.05)",
-                  borderRadius: "12px",
-                  border: entry.email === currentUser.email 
-                    ? "2px solid rgba(144, 202, 249, 0.5)" 
-                    : "1px solid rgba(255, 255, 255, 0.1)"
-                }}>
-                  <div style={{
-                    fontSize: "1.5rem",
-                    fontWeight: "700",
-                    color: index === 0 ? "#ffd700" : index === 1 ? "#c0c0c0" : index === 2 ? "#cd7f32" : "#90caf9",
-                    minWidth: "60px"
-                  }}>
-                    #{index + 1}
-                  </div>
-                  <div style={{
-                    flex: 1,
-                    marginLeft: "1rem"
-                  }}>
-                    <div style={{
-                      fontSize: "1.1rem",
-                      fontWeight: "600",
-                      color: "#fff"
-                    }}>
-                      {entry.displayName}
-                    </div>
-                    <div style={{
-                      fontSize: "0.9rem",
-                      color: "#b0bec5"
-                    }}>
-                      Score: {entry.totalScore} | Accuracy: {entry.accuracy}% | Notes: {entry.correctNotes}/{entry.totalNotes}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+      <section className="sb-board" aria-labelledby="sb-board-title">
+        <div className="sb-board-head">
+          <h2 id="sb-board-title">Leaderboard</h2>
+          {leaderboard.length > 0 && (
+            <p>{leaderboard.length} {leaderboard.length === 1 ? "player" : "players"}, ranked by total score</p>
           )}
         </div>
-      </div>
+
+        {leaderboard.length === 0 ? (
+          <div className="sb-state space-card">
+            <h2>No scores yet</h2>
+            <p>Play a song in Play along and your score will be the first one here.</p>
+            <Link to="/playalong" className="btn-walnut">Start a play-along</Link>
+          </div>
+        ) : (
+          <>
+            <ol className="sb-podium">
+              {podium.map((entry, index) => (
+                <li
+                  key={entry.email}
+                  className={`sb-podium-spot sb-podium-spot--${index + 1}${isMe(entry) ? " is-me" : ""}`}
+                >
+                  <div className="sb-podium-rank">
+                    <span className={`sb-medal sb-medal--${index + 1}`} role="img" aria-label={medalNames[index]} />
+                    <span className="sb-podium-num" aria-hidden="true">{index + 1}</span>
+                  </div>
+                  <div className="sb-podium-name">
+                    {entry.displayName}
+                    {isMe(entry) && <span className="sb-you-tag">You</span>}
+                  </div>
+                  <div className="sb-podium-score">{fmt(entry.totalScore)}</div>
+                  <div className="sb-podium-meta">
+                    <span>{entry.accuracy || 0}%</span> accuracy
+                  </div>
+                </li>
+              ))}
+            </ol>
+
+            {rest.length > 0 && (
+              <div className="sb-table-wrap space-card">
+                <table className="sb-table">
+                  <thead>
+                    <tr>
+                      <th scope="col" className="sb-col-rank">Rank</th>
+                      <th scope="col">Player</th>
+                      <th scope="col" className="sb-num">Accuracy</th>
+                      <th scope="col" className="sb-num sb-col-notes">Notes</th>
+                      <th scope="col" className="sb-num">Score</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rest.map((entry, i) => (
+                      <tr key={entry.email} className={isMe(entry) ? "is-me" : undefined}>
+                        <td className="sb-col-rank sb-mono">{i + 4}</td>
+                        <td className="sb-player">
+                          {entry.displayName}
+                          {isMe(entry) && <span className="sb-you-tag">You</span>}
+                        </td>
+                        <td className="sb-num sb-mono">{entry.accuracy || 0}%</td>
+                        <td className="sb-num sb-mono sb-col-notes">
+                          {fmt(entry.correctNotes)}<span className="sb-of">/{fmt(entry.totalNotes)}</span>
+                        </td>
+                        <td className="sb-num sb-mono sb-score">{fmt(entry.totalScore)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        )}
+      </section>
     </div>
   );
 }
 
-export default Scoreboard; 
+export default Scoreboard;

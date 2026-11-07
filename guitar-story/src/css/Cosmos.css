@@ -1,0 +1,507 @@
+/* ==========================================================================
+   Cosmos — Guitar Story design system
+   Deep-space base, walnut + amber as the highlight.
+   Loaded last (from App.jsx) so it re-skins the legacy page stylesheets.
+   ========================================================================== */
+
+:root {
+  --font-display: 'Archivo', 'Arial Narrow', system-ui, sans-serif;
+  --font-body: 'Schibsted Grotesk', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'Martian Mono', ui-monospace, 'Cascadia Mono', monospace;
+  /* keep legacy names pointing at the new faces */
+  --font-primary: var(--font-display);
+  --font-secondary: var(--font-body);
+
+  --radius-s: 8px;
+  --radius-m: 14px;
+  --radius-l: 22px;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* walnut never changes with the theme — it is a physical material */
+  --walnut-0: #1f110a;
+  --walnut-1: #2e190e;
+  --walnut-2: #4a2a17;
+  --walnut-3: #6e3f22;
+  --walnut-edge: #c89a62;
+  --walnut-grain: linear-gradient(
+      100deg,
+      rgba(255, 220, 170, 0.05) 0%,
+      rgba(0, 0, 0, 0) 18%,
+      rgba(255, 220, 170, 0.06) 31%,
+      rgba(0, 0, 0, 0.12) 47%,
+      rgba(255, 220, 170, 0.04) 63%,
+      rgba(0, 0, 0, 0.1) 82%,
+      rgba(255, 220, 170, 0.05) 100%
+    ),
+    linear-gradient(180deg, var(--walnut-3) 0%, var(--walnut-2) 45%, var(--walnut-1) 100%);
+}
+
+/* ---------- Night (default) ---------- */
+[data-theme='dark'],
+:root:not([data-theme]) {
+  color-scheme: dark;
+  --void: #070815;
+  --void-2: #0d0f22;
+  --surface: rgba(18, 20, 44, 0.72);
+  --surface-solid: #121430;
+  --surface-hi: rgba(32, 34, 70, 0.75);
+  --line: rgba(168, 172, 240, 0.14);
+  --line-strong: rgba(168, 172, 240, 0.26);
+  --star: #f3ede2;
+  --dust: #a3a5c6;
+  --dust-2: #6f7196;
+  --amber: #f5b544;
+  --amber-ink: #f5b544;
+  --amber-soft: rgba(245, 181, 68, 0.14);
+  --ember: #ea6a32;
+  --violet: #6b5bd6;
+  --nebula-a: rgba(92, 72, 196, 0.32);
+  --nebula-b: rgba(234, 120, 50, 0.1);
+  --star-dot: #f6f1ff;
+  --shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.7);
+  --ok: #7fd6a4;
+  --bad: #ff8a7a;
+
+  /* legacy aliases used across older stylesheets */
+  --primary: var(--amber);
+  --secondary: #8e9bff;
+  --accent: var(--ember);
+  --background: var(--void);
+  --text: var(--star);
+  --text-secondary: var(--dust);
+  --border: var(--line-strong);
+  --glow: var(--amber);
+  --stars: var(--star-dot);
+  --nebula: var(--nebula-a);
+}
+
+/* ---------- Dawn (light) ---------- */
+[data-theme='light'] {
+  color-scheme: light;
+  --void: #eceaf4;
+  --void-2: #e2dfee;
+  --surface: rgba(255, 255, 255, 0.78);
+  --surface-solid: #ffffff;
+  --surface-hi: rgba(255, 255, 255, 0.95);
+  --line: rgba(40, 34, 90, 0.12);
+  --line-strong: rgba(40, 34, 90, 0.24);
+  --star: #17152b;
+  --dust: #555372;
+  --dust-2: #8a88a6;
+  --amber: #e2a03a;
+  --amber-ink: #9a5d07;
+  --amber-soft: rgba(226, 160, 58, 0.16);
+  --ember: #c9521f;
+  --violet: #5646c4;
+  --nebula-a: rgba(120, 100, 230, 0.16);
+  --nebula-b: rgba(234, 150, 70, 0.14);
+  --star-dot: #3b3470;
+  --shadow: 0 24px 50px -28px rgba(30, 24, 80, 0.35);
+  --ok: #1f8a52;
+  --bad: #c2382a;
+
+  --primary: var(--amber-ink);
+  --secondary: var(--violet);
+  --accent: var(--ember);
+  --background: var(--void);
+  --text: var(--star);
+  --text-secondary: var(--dust);
+  --border: var(--line-strong);
+  --glow: var(--amber);
+  --stars: var(--star-dot);
+  --nebula: var(--nebula-a);
+}
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+
+html,
+body {
+  font-family: var(--font-body);
+  font-weight: 400;
+  letter-spacing: 0;
+  background: var(--void);
+  color: var(--star);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  font-size: 16px;
+  line-height: 1.55;
+  background-image: none;
+}
+
+html #root {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+  font-family: var(--font-body);
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-stretch: 75%;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.05;
+  word-spacing: 0.06em;
+  color: var(--star);
+}
+
+a {
+  font-family: inherit;
+  color: var(--amber-ink);
+}
+a:hover { color: var(--star); }
+
+::selection { background: var(--amber); color: #1a0f05; }
+
+:where(button, a, input, select, textarea, [tabindex]):focus { outline: none; }
+html button:focus:not(:focus-visible) { outline: none; }
+html :is(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+/* Buttons: reset the legacy purple defaults, components opt in to styles */
+html button {
+  font-family: var(--font-body);
+  font-weight: 600;
+  letter-spacing: 0;
+  background-color: var(--surface-hi);
+  color: var(--star);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s, transform 0.2s var(--ease-out);
+}
+html button:hover {
+  background-color: var(--surface-hi);
+  border-color: var(--amber);
+  color: var(--star);
+}
+html button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.App {
+  position: relative;
+  min-height: 100vh;
+  isolation: isolate;
+  overflow-x: clip;
+}
+
+html .main-content {
+  min-height: calc(100vh - 76px);
+  padding: 0 clamp(16px, 4vw, 48px) 80px;
+  max-width: 1320px;
+  margin: 0 auto;
+}
+
+/* ==========================================================================
+   Sky
+   ========================================================================== */
+
+.cosmos {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 80% at 50% -10%, var(--void-2) 0%, var(--void) 60%);
+  pointer-events: none;
+}
+
+.cosmos-nebula {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+}
+.cosmos-nebula--violet {
+  width: 70vmax; height: 50vmax;
+  left: -18vmax; top: -16vmax;
+  background: radial-gradient(closest-side, var(--nebula-a), transparent 70%);
+}
+.cosmos-nebula--amber {
+  width: 60vmax; height: 40vmax;
+  right: -20vmax; bottom: -18vmax;
+  background: radial-gradient(closest-side, var(--nebula-b), transparent 70%);
+}
+
+.cosmos-star {
+  position: absolute;
+  width: 1px; height: 1px;
+  border-radius: 50%;
+  background: var(--star-dot);
+  opacity: 0.55;
+}
+.cosmos-star.t2 { width: 2px; height: 2px; opacity: 0.75; }
+.cosmos-star.t3 {
+  width: 3px; height: 3px; opacity: 0.95;
+  box-shadow: 0 0 6px 1px currentColor;
+  color: var(--star-dot);
+}
+.cosmos-star.warm { background: #ffd79a; color: #ffb347; }
+.cosmos-star.twinkle { animation: cosmos-twinkle 5s ease-in-out infinite; }
+[data-theme='light'] .cosmos-star { opacity: 0.22; }
+[data-theme='light'] .cosmos-star.warm { background: var(--amber); }
+
+@keyframes cosmos-twinkle {
+  0%, 100% { opacity: 0.35; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+
+.cosmos-grain {
+  position: absolute; inset: -50%;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* the old sky pieces, in case any page still mounts them */
+.space-background, .rocket-asset, .earth-asset, .moon-asset, .sun-asset, .eclipse-overlay { display: none !important; }
+
+/* ==========================================================================
+   Primitives (legacy class names, new skin)
+   ========================================================================== */
+
+html .space-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(14px) saturate(120%);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  color: var(--star);
+  margin: 0;
+  transform: none;
+}
+html .space-card:hover {
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow);
+  transform: none;
+}
+
+html .glow-text {
+  text-shadow: none;
+  color: var(--star);
+  animation: none;
+}
+
+html .glow-border {
+  border: 1px solid var(--line-strong);
+  box-shadow: none;
+  animation: none;
+}
+
+/* Primary action: walnut plate with an amber lip */
+html .space-button,
+html .start-btn,
+html .btn-walnut {
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  color: #fff4e2;
+  background: var(--walnut-grain);
+  border: 1px solid rgba(200, 154, 98, 0.55);
+  border-radius: 999px;
+  padding: 0.72em 1.4em;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 220, 170, 0.28),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.35),
+    0 10px 24px -12px rgba(234, 106, 50, 0.6);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  transition: transform 0.2s var(--ease-out), box-shadow 0.2s, border-color 0.2s, filter 0.2s;
+}
+html .space-button:hover,
+html .start-btn:hover,
+html .btn-walnut:hover {
+  color: #fff;
+  background: var(--walnut-grain);
+  border-color: var(--amber);
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 220, 170, 0.32),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.35),
+    0 14px 30px -12px rgba(245, 181, 68, 0.7);
+}
+html .space-button:active,
+html .start-btn:active,
+html .btn-walnut:active { transform: translateY(0); filter: brightness(0.95); }
+
+/* Secondary / stop: quiet outline */
+html .stop-btn,
+html .btn-ghost {
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--star);
+  background: transparent;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 0.72em 1.4em;
+  box-shadow: none;
+  cursor: pointer;
+  transition: border-color 0.2s, background-color 0.2s, color 0.2s;
+}
+html .stop-btn:hover,
+html .btn-ghost:hover {
+  background: var(--surface-hi);
+  border-color: var(--amber);
+  color: var(--star);
+}
+html .btn-ghost { display: inline-flex; align-items: center; gap: 0.5em; text-decoration: none; }
+
+html .space-input,
+html .login-input,
+html .signup-input,
+html .selection-dropdown,
+html .main-content input[type='text'],
+html .main-content input[type='email'],
+html .main-content input[type='password'],
+html .main-content input[type='url'],
+html .main-content input[type='number'],
+html .main-content select,
+html .main-content textarea {
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  color: var(--star);
+  background: rgba(5, 6, 18, 0.45);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-s);
+  padding: 0.7em 0.9em;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+[data-theme='light'] .space-input,
+[data-theme='light'] .login-input,
+[data-theme='light'] .signup-input,
+[data-theme='light'] .selection-dropdown,
+[data-theme='light'] .main-content input,
+[data-theme='light'] .main-content select,
+[data-theme='light'] .main-content textarea {
+  background: #fff;
+}
+html .space-input:focus,
+html .main-content input:focus,
+html .main-content select:focus,
+html .main-content textarea:focus {
+  outline: none;
+  border-color: var(--amber);
+  box-shadow: 0 0 0 3px var(--amber-soft);
+}
+html .main-content input::placeholder,
+html .main-content textarea::placeholder { color: var(--dust-2); }
+
+html .section-separator {
+  height: 1px;
+  background: var(--line);
+  margin: 2.5rem 0;
+  box-shadow: none;
+  animation: none;
+}
+
+/* Musical readouts read as instruments, not prose */
+html .note,
+html .tuner-note,
+html .tuner-freq,
+html .audio-note-value,
+html .audio-freq-value,
+html .score-value {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  text-shadow: none;
+}
+html .score-label,
+html .audio-note-label,
+html .selection-label {
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  color: var(--dust);
+}
+
+/* Page heading block shared by inner pages */
+.page-head { padding: clamp(28px, 5vw, 56px) 0 clamp(20px, 3vw, 32px); max-width: 64ch; }
+.page-head h1 {
+  font-size: clamp(2.6rem, 6vw, 4.4rem);
+  font-style: italic;
+  font-weight: 900;
+  font-stretch: 62%;
+  line-height: 0.92;
+  letter-spacing: -0.015em;
+}
+.page-head p { margin-top: 0.8rem; color: var(--dust); font-size: 1.05rem; max-width: 56ch; }
+
+/* ==========================================================================
+   Auth modal
+   ========================================================================== */
+
+.auth-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(4, 4, 14, 0.62);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: overlay-in 0.25s var(--ease-out);
+}
+.auth-dialog {
+  position: relative;
+  width: min(420px, 100%);
+  animation: dialog-in 0.35s var(--ease-out);
+}
+html .auth-close {
+  position: absolute;
+  top: 14px; right: 14px;
+  z-index: 2;
+  width: 34px; height: 34px;
+  padding: 0;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--dust);
+  font-size: 18px;
+  line-height: 1;
+}
+html .auth-close:hover { color: var(--star); border-color: var(--amber); background: var(--surface-hi); }
+
+@keyframes overlay-in { from { opacity: 0; } }
+@keyframes dialog-in { from { opacity: 0; transform: translateY(10px) scale(0.98); } }
+
+/* Login / signup forms */
+html .cosmic-login-form,
+html .login-container,
+html .signup-container,
+html .login-form,
+html .signup-form {
+  background: var(--surface-solid);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  box-shadow: 0 40px 80px -30px rgba(0, 0, 0, 0.8);
+  color: var(--star);
+  font-family: var(--font-body);
+  text-align: left;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

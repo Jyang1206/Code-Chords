@@ -84,51 +84,25 @@ const YouTubePlayer = ({ url }) => {
   const videoId = extractVideoId(url);
 
   return (
-    <div className="ytp-space-container space-card" style={{
-      padding: '2rem',
-      margin: '2rem',
-      position: 'relative',
-      zIndex: 10,
-      background: 'rgba(26, 26, 46, 0.8)',
-      backdropFilter: 'blur(10px)',
-      border: '2px solid var(--glow)',
-      boxShadow: '0 0 20px var(--glow), inset 0 0 20px rgba(255, 179, 71, 0.1)'
-    }}>
-      <div className="ytp-space-header" style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '1.5rem',
-        flexWrap: 'wrap',
-        gap: '1rem'
-      }}>
-        <h3 style={{
-          color: 'var(--primary)',
-          fontFamily: 'var(--font-primary)',
-          fontSize: '1.5rem',
-          margin: 0
-        }}>
-          YouTube Practice
-        </h3>
-        <button 
-          className="history-btn space-button"
+    <div className="ytp-space-container">
+      <div className="ytp-space-header">
+        <h3>Lesson video</h3>
+        <button
+          type="button"
+          className="history-btn btn-ghost"
           onClick={handleViewHistory}
-          style={{
-            fontSize: '0.9rem',
-            padding: '0.5rem 1rem'
-          }}
         >
-          View History
+          See past videos
         </button>
       </div>
-      
-      <div className="ytp-space-player" style={{
-        marginBottom: '1.5rem'
-      }}>
+
+      <div className="ytp-space-player">
         {videoId ? (
           <YouTube
             videoId={videoId}
             onReady={onReady}
+            className="ytp-embed"
+            iframeClassName="ytp-embed-frame"
             opts={{
               width: '100%',
               height: '400',
@@ -139,87 +113,46 @@ const YouTubePlayer = ({ url }) => {
                 rel: 0
               }
             }}
-            style={{
-              borderRadius: '10px',
-              overflow: 'hidden',
-              border: '2px solid var(--border)'
-            }}
           />
         ) : (
-          <div style={{
-            width: '100%',
-            height: '400px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'var(--surface)',
-            border: '2px solid var(--border)',
-            borderRadius: '10px',
-            color: 'var(--text-secondary)',
-            fontFamily: 'var(--font-secondary)',
-            fontSize: '1.1rem'
-          }}>
-            Enter a YouTube URL to start practicing
+          <div className="ytp-empty">
+            That link doesn't look like a YouTube video. Paste a full youtube.com or youtu.be link.
           </div>
         )}
       </div>
 
       {/* Playback Rate Controls */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '1rem',
-        flexWrap: 'wrap',
-        padding: '1rem',
-        background: 'rgba(255, 255, 255, 0.05)',
-        borderRadius: '10px',
-        border: '1px solid var(--border)'
-      }}>
-        <label style={{
-          color: 'var(--text)',
-          fontFamily: 'var(--font-secondary)',
-          fontWeight: '600',
-          minWidth: '120px'
-        }}>
-          Playback Speed:
+      <div className="ytp-space-slider-container">
+        <label className="ytp-space-label" htmlFor="ytp-speed">
+          Speed
         </label>
-        <input
-          type="range"
-          min="0.25"
-          max="2"
-          step="0.25"
-          value={playbackRate}
-          onChange={handleSliderChange}
-          style={{
-            flex: 1,
-            minWidth: '200px',
-            accentColor: 'var(--primary)'
-          }}
-        />
-        <span style={{
-          color: 'var(--primary)',
-          fontFamily: 'var(--font-primary)',
-          fontWeight: 'bold',
-          minWidth: '60px',
-          textAlign: 'center'
-        }}>
-          {playbackRate}x
-        </span>
+        <div className="ytp-speed-track">
+          <input
+            id="ytp-speed"
+            className="ytp-space-slider"
+            type="range"
+            min="0.25"
+            max="2"
+            step="0.25"
+            value={playbackRate}
+            onChange={handleSliderChange}
+            aria-valuetext={`${playbackRate} times speed`}
+          />
+          <div className="ytp-speed-scale" aria-hidden="true">
+            <span>0.25×</span>
+            <span>1×</span>
+            <span>2×</span>
+          </div>
+        </div>
+        <output className="ytp-space-speed" htmlFor="ytp-speed">
+          {playbackRate}×
+        </output>
       </div>
 
       {/* Status Message */}
       {isSaving && (
-        <div style={{
-          marginTop: '1rem',
-          padding: '0.5rem 1rem',
-          background: 'rgba(0, 184, 148, 0.1)',
-          border: '1px solid #00b894',
-          borderRadius: '8px',
-          color: '#00b894',
-          fontSize: '0.9rem',
-          textAlign: 'center'
-        }}>
-          Saving to history...
+        <div className="ytp-status" role="status">
+          Saving to your history…
         </div>
       )}
     </div>

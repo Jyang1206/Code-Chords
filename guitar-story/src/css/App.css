@@ -40,11 +40,7 @@ html {
   scroll-behavior: smooth;
 }
 
-/* Focus styles for accessibility */
-*:focus {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
-}
+/* Focus styles live in Cosmos.css (keyboard-only :focus-visible ring) */
 
 /* Loading states */
 .loading {

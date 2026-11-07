@@ -17,6 +17,22 @@ import {
 import { calibrateDetection, CALIBRATION_FILTERS } from '../utils/calibrationUtils';
 import { applyFilterChainToCanvas } from '../utils/imagePreprocessing';
 
+// Display labels for the scale picker (display only)
+const SCALE_LABELS = {
+  major: 'Major',
+  minor: 'Minor',
+  pentatonic_major: 'Major pentatonic',
+  pentatonic_minor: 'Minor pentatonic',
+  blues: 'Blues',
+};
+
+const MicGlyph = () => (
+  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <rect x="5.5" y="1.5" width="5" height="8" rx="2.5" />
+    <path d="M3 7.5a5 5 0 0 0 10 0M8 12.5v2" />
+  </svg>
+);
+
 // --- Fretboard Logic ---
 const ALL_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']; // All 12 notes
 const OPEN_STRINGS = ['E', 'A', 'D', 'G', 'B', 'E']; // 6th to 1st string
@@ -752,291 +768,342 @@ function GuitarObjDetection() {
   }
 
   return (
-          <div className={`guitar-obj-detection${theme.isDarkMode ? ' dark' : ' light'}`}>
-      <div className="guitar-obj-detection-content">
-        {/* Calibration UI */}
-        {isStreaming && showCalibrationPrompt && !calibrating && (
-          <div style={{ marginBottom: 24, textAlign: 'center', color: 'var(--space-accent)' }}>
-            <div style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 8 }}>Please put your guitar in frame before calibrating.</div>
-            <button className="start-btn" onClick={handleCalibration} disabled={calibrating}>
-              Start Calibration
-            </button>
-          </div>
-        )}
-        {showOverridePrompt && (
-          <div className="calibration-override-prompt" style={{ textAlign: 'center', marginBottom: 24 }}>
-            <div style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 8 }}>
-              Are you sure you want to recalibrate?
-            </div>
-            <button className="start-btn" onClick={() => handleOverrideConfirm(true)} style={{ marginRight: 12 }}>Yes, recalibrate</button>
-            <button className="stop-btn" onClick={() => handleOverrideConfirm(false)}>Cancel</button>
-          </div>
-        )}
-        {isStreaming && calibrating && (
-          <div style={{ marginBottom: 24, textAlign: 'center' }}>
-            <button className="stop-btn" onClick={handleStopCalibration} style={{ marginRight: 12 }}>
-              Stop Calibration
-            </button>
-            <button className="start-btn" onClick={handleRetakeFrame}>
-              Retake Frame
-            </button>
-            <div style={{ margin: '16px auto', width: 320, maxWidth: '90%' }}>
-              <div className="space-progress-bar-bg">
-                <div className="space-progress-bar-fill" style={{ width: `${(calibrationProgress && calibrationProgress.percent) || 0}%` }} />
+    <div className={`practice-detect${theme.isDarkMode ? ' dark' : ' light'}`}>
+      <div className="practice-stage">
+        {/* ---------- Camera stage ---------- */}
+        <div className="practice-stage-main">
+          <div className="guitar-video-container practice-frame">
+            {/* Main video/canvas always shown when streaming */}
+            {isStreaming ? (
+              <>
+                <video
+                  id="video"
+                  ref={videoRef}
+                  className="guitar-video"
+                  playsInline
+                  muted
+                  style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1 }}
+                />
+                <canvas
+                  id="canvas"
+                  ref={canvasRef}
+                  className="guitar-canvas"
+                  style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 2, pointerEvents: 'none' }}
+                />
+                {/* Overlay scale label on video */}
+                <div className="guitar-scale-label-overlay" style={{ position: 'absolute', zIndex: 3 }}>
+                  {selectedRootRef.current} {selectedScaleRef.current.replace('_', ' ')}
+                </div>
+
+                {/* Frame transmission status indicator */}
+                {isStreaming && showDebugCanvas && (
+                  <div style={{
+                    position: 'absolute',
+                    top: 56,
+                    left: 16,
+                    zIndex: 5,
+                    background: 'rgba(5,6,15,0.82)',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    border: `1px solid ${
+                      frameStatus === 'success' ? '#4CAF50' :
+                      frameStatus === 'error' ? '#F44336' :
+                      frameStatus === 'sending' ? '#FF9800' : '#666'
+                    }`,
+                    color: 'white',
+                    fontSize: '11px',
+                    fontFamily: 'var(--font-mono)'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{
+                        width: '8px',
+                        height: '8px',
+                        borderRadius: '50%',
+                        backgroundColor:
+                          frameStatus === 'success' ? '#4CAF50' :
+                          frameStatus === 'error' ? '#F44336' :
+                          frameStatus === 'sending' ? '#FF9800' : '#666',
+                        animation: frameStatus === 'sending' ? 'pulse 1s infinite' : 'none'
+                      }}></span>
+                      <span>
+                        {frameStatus === 'success' ? 'Sent' :
+                         frameStatus === 'error' ? 'Failed' :
+                         frameStatus === 'sending' ? 'Sending' : 'Idle'}
+                      </span>
+                    </div>
+                    <div style={{ marginTop: '4px', fontSize: '10px', opacity: 0.8 }}>
+                      Frames: {frameCount} | Last: {lastFrameTime ? lastFrameTime.toLocaleTimeString() : 'Never'}
+                    </div>
+                  </div>
+                )}
+                {/* Debug canvas to show frames sent to Roboflow */}
+                {isStreaming && showDebugCanvas && (
+                  <div className="debug-roboflow-container">
+                    <canvas
+                      id="debug-roboflow-canvas"
+                      width={220}
+                      height={124}
+                      style={{ width: 220, height: 124, display: 'block' }}
+                    />
+                    <div className="debug-roboflow-label">
+                      Calibrated view
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="guitar-video-placeholder">
+                <svg className="guitar-video-placeholder-icon" viewBox="0 0 32 32" width="40" height="40" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <rect x="3" y="9" width="19" height="14" rx="3" />
+                  <path d="M22 14l7-4v12l-7-4" />
+                  <path d="M7 14h8M7 18h11" opacity=".45" />
+                </svg>
+                <div className="guitar-video-placeholder-text">
+                  Start the camera to see your fretboard
+                </div>
+                {streamStatus && streamStatus.startsWith('Error') ? (
+                  <div className="guitar-video-placeholder-error" role="alert">{streamStatus}</div>
+                ) : (
+                  <div className="guitar-video-placeholder-hint">
+                    Hold the guitar so the neck runs across the frame. Your browser will ask for camera access.
+                  </div>
+                )}
               </div>
-              <div style={{ marginTop: 6, color: 'var(--space-accent)', fontSize: 14, fontFamily: 'monospace' }}>
-                {typeof calibrationProgress === 'object' && calibrationProgress !== null ? calibrationProgress.text : calibrationProgress}
-              </div>
-            </div>
-            {noGuitarDetected && (
-              <div style={{ color: 'red', marginTop: 12, fontWeight: 'bold' }}>NO GUITAR DETECTED</div>
             )}
           </div>
-        )}
-        {isStreaming && !calibrating && calibrationResult && calibrationDone && (
-          <div style={{ marginBottom: 24, textAlign: 'center' }}>
-            <button className="start-btn" onClick={handleRetakeFrame}>
-              Retake Calibration Frame
-            </button>
-            <div style={{ marginTop: 12, color: 'var(--space-accent)' }}>
-              <strong>Baseline (No Preprocessing):</strong> {calibrationResult.baseline ? (calibrationResult.baseline * 100).toFixed(1) + '%' : '--'}<br/>
-              <strong>Best Filter:</strong> {Array.isArray(calibrationResult?.filterChain) ? calibrationResult.filterChain.map(f => `${f.filter} (${f.param})`).join(', ') : '--'}<br/>
-              <strong>Avg Confidence After Preprocessing:</strong> {calibrationResult.avgConfidence ? (calibrationResult.avgConfidence * 100).toFixed(1) + '%' : '--'}
-            </div>
-          </div>
-        )}
-        {isStreaming && !calibrating && !calibrationDone && calibrationProgress && calibrationProgress.toString().includes('No filter achieved confidence') && (
-          <div style={{
-            color: 'red',
-            background: 'rgba(255,255,255,0.08)',
-            border: '2px solid #ff61a6',
-            borderRadius: 12,
-            padding: '16px 24px',
-            margin: '24px auto',
-            maxWidth: 420,
-            fontWeight: 'bold',
-            fontSize: 18,
-            textAlign: 'center',
-            boxShadow: '0 0 16px 2px #ff61a6'
-          }}>
-            Calibration failed: No filter achieved confidence ≥ 80%.<br/>
-            <span style={{ color: '#fff' }}>Please move to a location with better lighting and try again.</span>
-            <div style={{ marginTop: 16 }}>
-              <button className="start-btn" onClick={() => setShowOverridePrompt(true)}>
-                Retry Calibration
+
+          {/* Camera toolbar below the video/canvas */}
+          <div className="practice-camera-bar">
+            {!isStreaming ? (
+              <button className="start-btn" onClick={() => setIsStreaming(true)}>
+                Start camera
               </button>
-            </div>
+            ) : (
+              <button className="stop-btn" onClick={() => setIsStreaming(false)}>
+                Stop camera
+              </button>
+            )}
+            {isStreaming && (
+              <button
+                className={`toggle-debug-canvas-btn ${!showDebugCanvas ? 'hidden' : ''}`}
+                onClick={() => setShowDebugCanvas(!showDebugCanvas)}
+                aria-pressed={showDebugCanvas}
+              >
+                {showDebugCanvas ? 'Hide' : 'Show'} calibrated view
+              </button>
+            )}
+            <span className="practice-camera-status" aria-live="polite">
+              <span className={`practice-camera-dot${isStreaming ? ' is-live' : ''}`} aria-hidden="true" />
+              {isStreaming ? 'Camera on' : 'Camera off'}
+            </span>
           </div>
-        )}
-        <div className="guitar-video-container" style={{ position: 'relative', width: 900, height: 540, margin: 'auto' }}>
-          {/* Main video/canvas always shown when streaming */}
-          {isStreaming ? (
-            <>
-              <video
-                id="video"
-                ref={videoRef}
-                className="guitar-video"
-                playsInline
-                muted
-                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1 }}
-              />
-              <canvas
-                id="canvas"
-                ref={canvasRef}
-                className="guitar-canvas"
-                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 2, pointerEvents: 'none' }}
-              />
-              {/* Overlay scale label on video */}
-              <div className="guitar-scale-label-overlay" style={{ position: 'absolute', zIndex: 3 }}>
-                {selectedRootRef.current} {selectedScaleRef.current.replace('_', ' ')}
-              </div>
-              
-              {/* Frame transmission status indicator */}
-              {isStreaming && showDebugCanvas && (
-                <div style={{
-                  position: 'absolute',
-                  top: 24,
-                  left: 24,
-                  zIndex: 5,
-                  background: 'rgba(0,0,0,0.8)',
-                  padding: '8px 12px',
-                  borderRadius: '6px',
-                  border: `2px solid ${
-                    frameStatus === 'success' ? '#4CAF50' :
-                    frameStatus === 'error' ? '#F44336' :
-                    frameStatus === 'sending' ? '#FF9800' : '#666'
-                  }`,
-                  color: 'white',
-                  fontSize: '12px',
-                  fontFamily: 'monospace'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{
-                      width: '8px',
-                      height: '8px',
-                      borderRadius: '50%',
-                      backgroundColor: 
-                        frameStatus === 'success' ? '#4CAF50' :
-                        frameStatus === 'error' ? '#F44336' :
-                        frameStatus === 'sending' ? '#FF9800' : '#666',
-                      animation: frameStatus === 'sending' ? 'pulse 1s infinite' : 'none'
-                    }}></span>
-                    <span>
-                      {frameStatus === 'success' ? 'Sent' :
-                       frameStatus === 'error' ? 'Failed' :
-                       frameStatus === 'sending' ? 'Sending' : 'Idle'}
-                    </span>
-                  </div>
-                  <div style={{ marginTop: '4px', fontSize: '10px', opacity: 0.8 }}>
-                    Frames: {frameCount} | Last: {lastFrameTime ? lastFrameTime.toLocaleTimeString() : 'Never'}
-                  </div>
-                </div>
-              )}
-              {/* AudioPitchDetector overlayed in video-container */}
-              <div style={{ position: 'absolute', top: 24, right: 24, zIndex: 4 }}>
-                <AudioPitchDetector>
-                  {({ note, frequency, listening, start, stop, error }) => {
-                    // Extract note name (strip octave)
-                    const noteName = note ? note.replace(/\d+$/, "") : null;
-                    // Check if note is in scale
-                    const currentScaleNotes = scaleNotesRef.current;
-                    const isInScale = noteName && currentScaleNotes.includes(noteName);
+        </div>
 
-                    // --- Keep last detected note/frequency for 2 seconds ---
-                    const [displayNote, setDisplayNote] = useState(null);
-                    const [displayFreq, setDisplayFreq] = useState(null);
-                    const [displayTimeout, setDisplayTimeout] = useState(null);
-                    // Update displayNote/freq on new detection
-                    useEffect(() => {
-                      if (note && frequency) {
-                        setDisplayNote(note);
-                        setDisplayFreq(frequency);
-                        if (displayTimeout) clearTimeout(displayTimeout);
-                        // If not in scale, display for 4s, else 2s
-                        const timeoutMs = (!isInScale && noteName) ? 4000 : 2000;
-                        const timeout = setTimeout(() => {
-                          setDisplayNote(null);
-                          setDisplayFreq(null);
-                        }, timeoutMs);
-                        setDisplayTimeout(timeout);
-                      } else if (!note && !frequency && displayTimeout == null && (displayNote || displayFreq)) {
-                        // If no note, start a timeout to clear after 2s (in case missed above)
-                        const timeout = setTimeout(() => {
-                          setDisplayNote(null);
-                          setDisplayFreq(null);
-                        }, 2000);
-                        setDisplayTimeout(timeout);
-                      }
-                      // Cleanup on unmount or note change
-                      return () => {
-                        if (displayTimeout) clearTimeout(displayTimeout);
-                      };
-                    }, [note, frequency, isInScale, noteName]);
-                    // --- End keep last note logic ---
+        {/* ---------- Control rail ---------- */}
+        <aside className="practice-rail" aria-label="Practice controls">
+          {/* Heard-note readout */}
+          <section className="practice-rail-group">
+            {isStreaming ? (
+              <AudioPitchDetector>
+                {({ note, frequency, listening, start, stop, error }) => {
+                  // Extract note name (strip octave)
+                  const noteName = note ? note.replace(/\d+$/, "") : null;
+                  // Check if note is in scale
+                  const currentScaleNotes = scaleNotesRef.current;
+                  const isInScale = noteName && currentScaleNotes.includes(noteName);
 
-                    return (
-                      <div className="guitar-audio-note-panel">
-                        <div className="audio-note-label">🎤 Detected Note</div>
-                        <div className="audio-note-value">{displayNote || '--'}</div>
-                        <div className="audio-freq-value">{displayFreq ? displayFreq.toFixed(2) + ' Hz' : '--'}</div>
-                        {!isInScale && noteName && (
-                          <div className="audio-warning">
-                            Note {noteName} is not in the {selectedRootRef.current} {selectedScaleRef.current.replace('_',' ')} scale!
-                          </div>
-                        )}
-                        {error && <div className="audio-warning">{error}</div>}
-                        <div className="audio-controls">
-                          {!listening ? (
-                            <button className="start-btn" onClick={start}>Start Audio</button>
-                          ) : (
-                            <button className="stop-btn" onClick={stop}>Stop Audio</button>
-                          )}
-                        </div>
+                  // --- Keep last detected note/frequency for 2 seconds ---
+                  const [displayNote, setDisplayNote] = useState(null);
+                  const [displayFreq, setDisplayFreq] = useState(null);
+                  const [displayTimeout, setDisplayTimeout] = useState(null);
+                  // Update displayNote/freq on new detection
+                  useEffect(() => {
+                    if (note && frequency) {
+                      setDisplayNote(note);
+                      setDisplayFreq(frequency);
+                      if (displayTimeout) clearTimeout(displayTimeout);
+                      // If not in scale, display for 4s, else 2s
+                      const timeoutMs = (!isInScale && noteName) ? 4000 : 2000;
+                      const timeout = setTimeout(() => {
+                        setDisplayNote(null);
+                        setDisplayFreq(null);
+                      }, timeoutMs);
+                      setDisplayTimeout(timeout);
+                    } else if (!note && !frequency && displayTimeout == null && (displayNote || displayFreq)) {
+                      // If no note, start a timeout to clear after 2s (in case missed above)
+                      const timeout = setTimeout(() => {
+                        setDisplayNote(null);
+                        setDisplayFreq(null);
+                      }, 2000);
+                      setDisplayTimeout(timeout);
+                    }
+                    // Cleanup on unmount or note change
+                    return () => {
+                      if (displayTimeout) clearTimeout(displayTimeout);
+                    };
+                  }, [note, frequency, isInScale, noteName]);
+                  // --- End keep last note logic ---
+
+                  return (
+                    <div className={`guitar-audio-note-panel${listening ? ' is-listening' : ''}`}>
+                      <div className="audio-note-label">
+                        <MicGlyph />
+                        Heard note
                       </div>
-                    );
-                  }}
-                </AudioPitchDetector>
+                      <div className="audio-readout">
+                        <div className="audio-note-value">{displayNote || '--'}</div>
+                        <div className="audio-freq-value">{displayFreq ? displayFreq.toFixed(2) + ' Hz' : '-- Hz'}</div>
+                      </div>
+                      {!isInScale && noteName && (
+                        <div className="audio-warning">
+                          {noteName} isn't in {selectedRootRef.current} {selectedScaleRef.current.replace('_',' ')}
+                        </div>
+                      )}
+                      {error && <div className="audio-warning">{error}</div>}
+                      <div className="audio-controls">
+                        {!listening ? (
+                          <button className="start-btn" onClick={start}>Listen with microphone</button>
+                        ) : (
+                          <button className="stop-btn" onClick={stop}>Stop listening</button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }}
+              </AudioPitchDetector>
+            ) : (
+              <div className="guitar-audio-note-panel is-idle">
+                <div className="audio-note-label">
+                  <MicGlyph />
+                  Heard note
+                </div>
+                <div className="audio-readout">
+                  <div className="audio-note-value">--</div>
+                  <div className="audio-freq-value">-- Hz</div>
+                </div>
+                <p className="practice-rail-hint">Start the camera, then turn on the microphone to hear which note you play.</p>
               </div>
-              {/* Debug canvas to show frames sent to Roboflow */}
-              {isStreaming && showDebugCanvas && (
-                <div className="debug-roboflow-container">
-                  <canvas
-                    id="debug-roboflow-canvas"
-                    width={220}
-                    height={124}
-                    style={{ width: 220, height: 124, display: 'block' }}
-                  />
-                  <div className="debug-roboflow-label">
-                    Calibrated Video
+            )}
+          </section>
+
+          {/* Scale controls */}
+          <section className="guitar-scale-controls practice-rail-group">
+            <div className="guitar-scale-btns-row">
+              <div className="guitar-root-notes" role="group" aria-labelledby="practice-key-label">
+                <span className="practice-rail-label" id="practice-key-label">Key</span>
+                <div className="practice-segmented practice-segmented--keys">
+                  {ROOT_NOTES.map(note => (
+                    <button
+                      key={note}
+                      className={`guitar-scale-btn${selectedRoot === note ? ' active' : ''}`}
+                      onClick={() => setSelectedRoot(note)}
+                      aria-pressed={selectedRoot === note}
+                    >
+                      {note}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="guitar-scale-types" role="group" aria-labelledby="practice-scale-label">
+                <span className="practice-rail-label" id="practice-scale-label">Scale</span>
+                <div className="practice-segmented practice-segmented--scales">
+                  {SCALE_TYPES.map(type => (
+                    <button
+                      key={type}
+                      className={`guitar-scale-btn${selectedScale === type ? ' active' : ''}`}
+                      onClick={() => setSelectedScale(type)}
+                      aria-pressed={selectedScale === type}
+                    >
+                      {SCALE_LABELS[type] || type.replace('_', ' ')}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="guitar-current-scale">
+              <span className="practice-rail-label">Notes in this scale</span>
+              <div className="guitar-scale-notes" aria-label={`Notes: ${scaleNotes.join(', ')}`}>
+                {scaleNotes.map(n => (
+                  <span key={n} className={`practice-note-chip${n === selectedRoot ? ' is-root' : ''}`}>{n}</span>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          {/* Calibration */}
+          {(isStreaming || showOverridePrompt) && (
+            <section className="practice-rail-group practice-calibration">
+              <span className="practice-rail-label">Calibration</span>
+              {isStreaming && showCalibrationPrompt && !calibrating && (
+                <div className="practice-calibration-block">
+                  <p>Put your whole guitar neck in frame, then calibrate so detection adjusts to your lighting.</p>
+                  <button className="start-btn" onClick={handleCalibration} disabled={calibrating}>
+                    Start calibration
+                  </button>
+                </div>
+              )}
+              {showOverridePrompt && (
+                <div className="calibration-override-prompt practice-calibration-block">
+                  <p>Recalibrate? Your current calibration will be replaced.</p>
+                  <div className="practice-calibration-actions">
+                    <button className="start-btn" onClick={() => handleOverrideConfirm(true)}>Yes, recalibrate</button>
+                    <button className="stop-btn" onClick={() => handleOverrideConfirm(false)}>Keep current</button>
                   </div>
                 </div>
               )}
-            </>
-          ) : (
-            <div className="guitar-video-placeholder">
-              <div className="guitar-video-placeholder-text">
-                {streamStatus || "Click 'Start Stream' to begin"}
-              </div>
-            </div>
+              {isStreaming && calibrating && (
+                <div className="practice-calibration-block">
+                  <div className="space-progress-bar-bg" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={(calibrationProgress && calibrationProgress.percent) || 0}>
+                    <div className="space-progress-bar-fill" style={{ width: `${(calibrationProgress && calibrationProgress.percent) || 0}%` }} />
+                  </div>
+                  <div className="practice-calibration-progress">
+                    {typeof calibrationProgress === 'object' && calibrationProgress !== null ? calibrationProgress.text : calibrationProgress}
+                  </div>
+                  {noGuitarDetected && (
+                    <div className="practice-calibration-alert" role="alert">No guitar found in the frame. Move it into view and retake the frame.</div>
+                  )}
+                  <div className="practice-calibration-actions">
+                    <button className="stop-btn" onClick={handleStopCalibration}>
+                      Stop calibrating
+                    </button>
+                    <button className="start-btn" onClick={handleRetakeFrame}>
+                      Retake frame
+                    </button>
+                  </div>
+                </div>
+              )}
+              {isStreaming && !calibrating && calibrationResult && calibrationDone && (
+                <div className="practice-calibration-block">
+                  <dl className="practice-calibration-result">
+                    <div>
+                      <dt>Before calibration</dt>
+                      <dd>{calibrationResult.baseline ? (calibrationResult.baseline * 100).toFixed(1) + '%' : '--'}</dd>
+                    </div>
+                    <div>
+                      <dt>After calibration</dt>
+                      <dd>{calibrationResult.avgConfidence ? (calibrationResult.avgConfidence * 100).toFixed(1) + '%' : '--'}</dd>
+                    </div>
+                    <div className="is-wide">
+                      <dt>Filter used</dt>
+                      <dd>{Array.isArray(calibrationResult?.filterChain) ? calibrationResult.filterChain.map(f => `${f.filter} (${f.param})`).join(', ') : '--'}</dd>
+                    </div>
+                  </dl>
+                  <button className="btn-ghost" onClick={handleRetakeFrame}>
+                    Retake calibration frame
+                  </button>
+                </div>
+              )}
+              {isStreaming && !calibrating && !calibrationDone && calibrationProgress && calibrationProgress.toString().includes('No filter achieved confidence') && (
+                <div className="practice-calibration-block practice-calibration-failed" role="alert">
+                  <p><strong>Calibration couldn't lock on.</strong> No filter reached 80% confidence. Try brighter, even lighting and calibrate again.</p>
+                  <button className="start-btn" onClick={() => setShowOverridePrompt(true)}>
+                    Calibrate again
+                  </button>
+                </div>
+              )}
+            </section>
           )}
-        </div>
-
-        {/* Stream and PiP toggle buttons below the video/canvas */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24, gap: '1rem' }}>
-          {!isStreaming ? (
-            <button className="start-btn" onClick={() => setIsStreaming(true)}>
-              Begin Practice
-            </button>
-          ) : (
-            <button className="stop-btn" onClick={() => setIsStreaming(false)}>
-              Stop Stream
-            </button>
-          )}
-          {isStreaming && (
-            <button 
-              className={`toggle-debug-canvas-btn ${!showDebugCanvas ? 'hidden' : ''}`}
-              onClick={() => setShowDebugCanvas(!showDebugCanvas)}
-            >
-              {showDebugCanvas ? 'Hide' : 'Show'} Calibrated Video
-            </button>
-          )}
-        </div>
-
-        {/* Scale controls always at the bottom, centered */}
-        <div className="guitar-scale-controls">
-          <h3>Scale Controls</h3>
-          <div className="guitar-scale-btns-row">
-            <div className="guitar-root-notes">
-              <label>Root Note: </label>
-              {ROOT_NOTES.map(note => (
-                <button
-                  key={note}
-                  className={`guitar-scale-btn${selectedRoot === note ? ' active' : ''}`}
-                  onClick={() => setSelectedRoot(note)}
-                >
-                  {note}
-                </button>
-              ))}
-            </div>
-            <div className="guitar-scale-types">
-              <label>Scale Type: </label>
-              {SCALE_TYPES.map(type => (
-                <button
-                  key={type}
-                  className={`guitar-scale-btn${selectedScale === type ? ' active' : ''}`}
-                  onClick={() => setSelectedScale(type)}
-                >
-                  {type.replace('_', ' ')}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="guitar-current-scale">
-            <div className="guitar-scale-notes">
-              Notes: {scaleNotes.join(', ')}
-            </div>
-          </div>
-        </div>
+        </aside>
       </div>
     </div>
   );

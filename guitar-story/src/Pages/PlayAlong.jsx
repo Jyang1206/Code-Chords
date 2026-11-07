@@ -123,7 +123,7 @@ const TabOverlay = ({ playNotes, currentStepIdx, isPlaying }) => {
   return (
     <div className="tab-overlay">
       <div className="tab-next-label">
-        Next:
+        Next
       </div>
       {upcomingNotes.map((note, index) => (
         <div
@@ -137,7 +137,7 @@ const TabOverlay = ({ playNotes, currentStepIdx, isPlaying }) => {
             {note.stringIdx}-{note.fretNum}
           </div>
           <div className="tab-note-duration">
-            {(note.duration || 1).toFixed(1)}s
+            {(note.duration || 1).toFixed(1)} s
           </div>
         </div>
       ))}
@@ -230,7 +230,7 @@ const GuitarHeroInterface = ({ playNotes, currentStepIdx, isPlaying, playbackSta
       {/* Play zone on the left */}
       <div className="play-zone">
         <div className="play-zone-label">
-          PLAY
+          Play
         </div>
       </div>
       {/* Moving notes */}
@@ -403,7 +403,7 @@ function PlayAlong() {
   // Add safety check for playNotes
   if (!playNotes) {
     console.error(`[ERROR] playNotes is undefined. mainMode: ${mainMode}, selectedChord: ${selectedChord}, selectedSong: ${selectedSong}`);
-    return <div>Error: Invalid selection. Please try again.</div>;
+    return <div className="playalong-page"><p className="pa-error" role="alert">That selection couldn't be loaded. Pick another chord or song.</p></div>;
   }
   
   const currentStep = playNotes[currentStepIdx] || null;
@@ -762,162 +762,190 @@ function PlayAlong() {
 
   // UI: Top-level mode selector, then show only relevant dropdown
   return (
-    <div className="playalong-container">
-      {/* Animated background elements */}
-      <div className="playalong-background" />
-      
-      <div className="playalong-content">
-        {/* Header */}
-        <div className="playalong-header">
-          <h1 className="playalong-title">
-            PLAY ALONG
-          </h1>
-          <p className="playalong-subtitle">
-            Master guitar chords and songs with real-time guidance
-          </p>
-        </div>
+    <div className="playalong-page">
+      <header className="page-head">
+        <h1>Play along</h1>
+        <p>
+          Pick a chord or a song, press play, and strike each note as it reaches the line.
+          We listen through your microphone and score every note.
+        </p>
+      </header>
 
-        {/* Score Display */}
-        {showScoreboard && (
-          <div className="score-display">
-            <div className="score-stats">
-              <div className="score-stat">
-                <div className="score-value">
-                  {currentScore}
-                </div>
-                <div className="score-label">Score</div>
-              </div>
-              <div className="score-stat">
-                <div className="score-value score-correct">
-                  {sessionStats.correct}/{sessionStats.total}
-                </div>
-                <div className="score-label">Correct/Total</div>
-              </div>
-              <div className="score-stat">
-                <div className="score-value score-accuracy">
-                  {chordAccuracy}%
-                </div>
-                <div className="score-label">Accuracy</div>
-              </div>
-            </div>
-            <button className="space-button" onClick={handleTryAgain} style={{ marginTop: 24 }}>
-              Try Again
+      {/* Toolbar: mode, selection, transport, readouts */}
+      <section className="pa-toolbar" aria-label="Play along controls">
+        <div className="pa-toolbar-group">
+          <div className="pa-segmented" role="group" aria-label="What to play">
+            <button
+              type="button"
+              onClick={() => setMainMode("Chords")}
+              className={`pa-segment ${mainMode === "Chords" ? 'active' : ''}`}
+              aria-pressed={mainMode === "Chords"}
+              disabled={isPlaying}
+            >
+              Chords
+            </button>
+            <button
+              type="button"
+              onClick={() => setMainMode("Songs")}
+              className={`pa-segment ${mainMode === "Songs" ? 'active' : ''}`}
+              aria-pressed={mainMode === "Songs"}
+              disabled={isPlaying}
+            >
+              Songs
             </button>
           </div>
-        )}
 
-        {/* Control Panel */}
-        <div className="control-panel">
-          <div className="control-content">
-            {/* Top-level mode selector */}
-            <div className="mode-selector">
-              <button
-                onClick={() => setMainMode("Chords")}
-                className={`mode-button ${mainMode === "Chords" ? 'active' : ''}`}
+          {/* Chord dropdown (only in Chord mode) */}
+          {isChordMode && (
+            <div className="pa-field">
+              <label className="selection-label" htmlFor="pa-chord-select">
+                Chord
+              </label>
+              <select
+                id="pa-chord-select"
+                value={selectedChord}
+                onChange={e => setSelectedChord(e.target.value)}
+                className="selection-dropdown"
                 disabled={isPlaying}
               >
-                Chords
-              </button>
-              <button
-                onClick={() => setMainMode("Songs")}
-                className={`mode-button ${mainMode === "Songs" ? 'active' : ''}`}
-                disabled={isPlaying}
-              >
-                Songs
-              </button>
+                {Object.keys(CHORDS).map(name => (
+                  <option key={name} value={name}>{name}</option>
+                ))}
+              </select>
             </div>
+          )}
 
-            {/* Chord dropdown (only in Chord mode) */}
-            {isChordMode && (
-              <div className="selection-container">
-                <label className="selection-label">
-                  SELECT CHORD
-                </label>
-                <select
-                  value={selectedChord}
-                  onChange={e => setSelectedChord(e.target.value)}
-                  className="selection-dropdown"
-                  disabled={isPlaying}
-                >
-                  {Object.keys(CHORDS).map(name => (
-                    <option key={name} value={name}>{name}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* Song dropdown (only in Song mode) */}
-            {isSongMode && (
-              <div className="selection-container">
-                <label className="selection-label">
-                  SELECT SONG
-                </label>
-                <select
-                  value={selectedSong}
-                  onChange={e => setSelectedSong(e.target.value)}
-                  className="selection-dropdown"
-                  disabled={isPlaying}
-                >
-                  {Object.keys(SONGS).map(name => (
-                    <option key={name} value={name}>{name}</option>
-                  ))}
-                  {customTabs.map(tab => (
-                    <option key={tab.title} value={tab.title}>{tab.title}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* Control Buttons */}
-            <div className="control-buttons">
-              <button
-                onClick={startPlayback}
+          {/* Song dropdown (only in Song mode) */}
+          {isSongMode && (
+            <div className="pa-field">
+              <label className="selection-label" htmlFor="pa-song-select">
+                Song
+              </label>
+              <select
+                id="pa-song-select"
+                value={selectedSong}
+                onChange={e => setSelectedSong(e.target.value)}
+                className="selection-dropdown"
                 disabled={isPlaying}
-                className="play-button"
               >
-                PLAY
-              </button>
-              
-              <button
-                onClick={stopPlayback}
-                disabled={!isPlaying}
-                className="stop-button"
-              >
-                STOP
-              </button>
+                {Object.keys(SONGS).map(name => (
+                  <option key={name} value={name}>{name}</option>
+                ))}
+                {customTabs.map(tab => (
+                  <option key={tab.title} value={tab.title}>{tab.title}</option>
+                ))}
+                {loadingCustomTabs && (
+                  <option disabled value="">Loading your tabs…</option>
+                )}
+              </select>
             </div>
+          )}
+
+          {/* Control Buttons */}
+          <div className="pa-transport">
+            <button
+              type="button"
+              onClick={startPlayback}
+              disabled={isPlaying}
+              className="start-btn pa-play"
+            >
+              <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+                <path d="M4 2.8v10.4L13 8z" fill="currentColor" />
+              </svg>
+              Play
+            </button>
+            <button
+              type="button"
+              onClick={stopPlayback}
+              disabled={!isPlaying}
+              className="stop-btn pa-stop"
+            >
+              <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true">
+                <rect x="3" y="3" width="10" height="10" rx="1.5" fill="currentColor" />
+              </svg>
+              Stop
+            </button>
           </div>
         </div>
 
-        {/* Visual Feedback Overlay */}
-        {visualFeedback && (
-          <div className="visual-feedback">
-            <div className="feedback-popup">
-              <div className="feedback-message">
-                {visualFeedback.message}
-              </div>
-              {visualFeedback.type === 'correct' && visualFeedback.points > 0 && (
-                <div className="feedback-points">
-                  +{visualFeedback.points} pts
-                </div>
-              )}
-              {visualFeedback.timing !== 0 && (
-                <div className="feedback-timing">
-                  {visualFeedback.timing > 0 ? '+' : ''}{visualFeedback.timing}ms
-                </div>
-              )}
-            </div>
+        {/* Readouts */}
+        <dl className="pa-readouts">
+          <div className="pa-readout">
+            <dt>Score</dt>
+            <dd>{currentScore}</dd>
           </div>
-        )}
+          <div className="pa-readout">
+            <dt>Hits</dt>
+            <dd>
+              {sessionStats.correct}<span className="pa-readout-of">/{sessionStats.total}</span>
+            </dd>
+          </div>
+          <div className="pa-readout">
+            <dt>Accuracy</dt>
+            <dd>{chordAccuracy}<span className="pa-readout-of">%</span></dd>
+          </div>
+        </dl>
+      </section>
 
-        {/* Countdown Overlay */}
-        {showCountdown && countdown > 0 && (
-          <div className="countdown-overlay">
-            <div className="countdown-number">
+      {/* Run summary */}
+      {showScoreboard && (
+        <div className="pa-result" role="status">
+          <p>
+            <strong>Run finished.</strong>{" "}
+            You hit <span className="pa-mono">{sessionStats.correct}</span> of{" "}
+            <span className="pa-mono">{sessionStats.total}</span> notes for{" "}
+            <span className="pa-mono">{currentScore}</span> points.
+          </p>
+          <button type="button" className="btn-ghost pa-reset" onClick={handleTryAgain}>
+            Reset score
+          </button>
+        </div>
+      )}
+
+      {/* Visual Feedback Overlay */}
+      {visualFeedback && (
+        <div className="visual-feedback" aria-hidden="true">
+          <div className={`feedback-popup is-${visualFeedback.type}`}>
+            <div className="feedback-message">
+              {visualFeedback.message}
+            </div>
+            {visualFeedback.type === 'correct' && visualFeedback.points > 0 && (
+              <div className="feedback-points">
+                +{visualFeedback.points} pts
+              </div>
+            )}
+            {visualFeedback.timing !== 0 && (
+              <div className="feedback-timing">
+                {visualFeedback.timing > 0 ? '+' : ''}{visualFeedback.timing} ms
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Countdown Overlay */}
+      {showCountdown && countdown > 0 && (
+        <div className="countdown-overlay" role="status" aria-live="assertive">
+          <div className="countdown-inner">
+            <div className="countdown-number" key={countdown}>
               {countdown}
             </div>
+            <p className="countdown-hint">Get your fretting hand ready</p>
           </div>
-        )}
+        </div>
+      )}
+
+      {/* Stage: camera + note highway */}
+      <section className="pa-stage" aria-label="Play along stage">
+        <div className="pa-stage-bar">
+          <span className="pa-stage-title">
+            {isChordMode ? selectedChord : selectedSong}
+          </span>
+          <ul className="pa-legend" aria-label="Legend">
+            <li><span className="pa-dot is-note" aria-hidden="true" />Next note</li>
+            <li><span className="pa-dot is-root" aria-hidden="true" />Root</li>
+          </ul>
+        </div>
 
         {/* Guitar Display */}
         <div className="guitar-display" data-guitar-display>
@@ -935,16 +963,9 @@ function PlayAlong() {
             } catch (error) {
               console.error('Error rendering PlayAlongOverlay:', error);
               return (
-                <div style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  height: "400px",
-                  background: "#000",
-                  color: "#fff",
-                  fontSize: "1.2rem"
-                }}>
-                  Camera overlay loading...
+                <div className="pa-stage-empty" role="status">
+                  <p className="pa-camera-title">Starting the camera view</p>
+                  <p className="pa-camera-hint">If this doesn't change in a few seconds, reload the page.</p>
                 </div>
               );
             }
@@ -953,26 +974,32 @@ function PlayAlong() {
 
         {/* Guitar Hero Interface */}
         {overlayActive && (
-          <GuitarHeroInterface 
-            playNotes={playNotes}
-            currentStepIdx={syncedStepIdx}
-            isPlaying={isPlaying}
-            playbackStartTimeRef={playbackStartTimeRef}
-            playbackTime={playbackTime}
-          />
+          <div className="pa-highway-scroll">
+            <GuitarHeroInterface
+              playNotes={playNotes}
+              currentStepIdx={syncedStepIdx}
+              isPlaying={isPlaying}
+              playbackStartTimeRef={playbackStartTimeRef}
+              playbackTime={playbackTime}
+            />
+          </div>
         )}
 
         {/* Tab Overlay */}
         {isPlaying && (
-          <TabOverlay 
+          <TabOverlay
             playNotes={playNotes}
             currentStepIdx={currentStepIdx}
             isPlaying={isPlaying}
           />
         )}
-      </div>
+
+        {!isPlaying && !showCountdown && (
+          <p className="pa-stage-hint">Press play for a three-second count-in, then follow the notes from right to left.</p>
+        )}
+      </section>
     </div>
   );
 }
 
-export default PlayAlong; 
+export default PlayAlong;

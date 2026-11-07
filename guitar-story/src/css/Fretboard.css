@@ -1,0 +1,52 @@
+.fretboard {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  filter: drop-shadow(0 40px 60px rgba(0, 0, 0, 0.55));
+}
+
+.fb-constellation {
+  fill: none;
+  stroke: #ffd58a;
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  opacity: 0.7;
+  filter: drop-shadow(0 0 4px rgba(255, 190, 90, 0.9));
+  animation: fb-draw 2.2s 0.5s var(--ease-out, ease-out) forwards;
+}
+
+.fb-note {
+  opacity: 0;
+  animation: fb-light 0.6s calc(0.35s + var(--i) * 0.12s) var(--ease-out, ease-out) forwards;
+}
+.fb-note:not(.in-shape) { --dim: 0.5; }
+.fb-note.in-shape { --dim: 1; }
+
+.fb-halo { opacity: 0.55; }
+.fb-note:not(.in-shape) .fb-halo { opacity: 0; }
+
+.fb-label {
+  font-family: 'Archivo', sans-serif;
+  font-stretch: 62%;
+  font-weight: 900;
+  font-size: 21px;
+  fill: #2a1405;
+  pointer-events: none;
+}
+.fb-note.is-root .fb-label { fill: #2b0c00; }
+
+@keyframes fb-light {
+  0% { opacity: 0; transform-box: fill-box; }
+  60% { opacity: calc(var(--dim) * 1.15); }
+  100% { opacity: var(--dim); }
+}
+@keyframes fb-draw { to { stroke-dashoffset: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .fb-note { animation: none; opacity: var(--dim); }
+  .fb-constellation { animation: none; stroke-dashoffset: 0; }
+}

@@ -1,44 +1,47 @@
-import React, { useState, useEffect } from 'react';
-import AnimatedLogo from './AnimatedLogo';
-import '../css/SplashScreen.css';
+import React, { useEffect, useState } from "react";
+import SpaceBackground from "./SpaceBackground";
+import "../css/SplashScreen.css";
 
-const SplashScreen = ({ onComplete, duration = Infinity }) => {
-  const [showLogo, setShowLogo] = useState(true);
+const SplashScreen = ({ onComplete, duration = 2600 }) => {
+  const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowLogo(false);
-      if (onComplete) {
-        onComplete();
-      }
-    }, duration);
-
-    // Handler for skipping splash
-    const skipSplash = () => {
-      setShowLogo(false);
-      if (onComplete) onComplete();
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      setLeaving(true);
+      setTimeout(() => onComplete && onComplete(), 380);
     };
-    window.addEventListener('mousedown', skipSplash);
-    window.addEventListener('keydown', skipSplash);
-
+    const timer = setTimeout(finish, duration);
+    window.addEventListener("mousedown", finish);
+    window.addEventListener("keydown", finish);
+    window.addEventListener("touchstart", finish, { passive: true });
     return () => {
       clearTimeout(timer);
-      window.removeEventListener('mousedown', skipSplash);
-      window.removeEventListener('keydown', skipSplash);
+      window.removeEventListener("mousedown", finish);
+      window.removeEventListener("keydown", finish);
+      window.removeEventListener("touchstart", finish);
     };
   }, [duration, onComplete]);
 
-  if (!showLogo) {
-    return null;
-  }
-
   return (
-    <div className="splash-screen">
-      <AnimatedLogo onAnimationComplete={() => {
-        // The logo animation completes before the splash screen
-      }} />
+    <div className={`splash${leaving ? " is-leaving" : ""}`} role="presentation">
+      <SpaceBackground />
+      <div className="splash-inner">
+        <h1 className="splash-word">Guitar Story</h1>
+        <div className="splash-strings" aria-hidden="true">
+          {["E", "A", "D", "G", "B", "e"].map((n, i) => (
+            <div className="splash-string" key={n} style={{ "--i": i }}>
+              <span className="splash-note">{n}</span>
+              <span className="splash-wire" />
+            </div>
+          ))}
+        </div>
+        <p className="splash-hint">Click or press any key to skip</p>
+      </div>
     </div>
   );
 };
 
-export default SplashScreen; 
+export default SplashScreen;

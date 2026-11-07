@@ -1,5 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
-import { useTheme } from "../contexts/ThemeContext";
+import React, { useEffect, useState } from "react";
 import "../css/GuitarTuner.css";
 // You need to install pitchy: npm install pitchy
 // import { createPitchDetector } from "pitchy";
@@ -21,26 +20,45 @@ function getClosestString(freq) {
   );
 }
 
+/* ---------- Gauge geometry (presentation only) ---------- */
+const GAUGE = { cx: 160, cy: 172, r: 136 };
+const SWEEP = 60; // degrees either side of centre for ±50 cents
+const CENTS_RANGE = 50;
+const centsToDeg = (c) => (Math.max(-CENTS_RANGE, Math.min(CENTS_RANGE, c)) / CENTS_RANGE) * SWEEP;
+
+function polar(deg, r) {
+  const rad = (deg * Math.PI) / 180;
+  return [GAUGE.cx + r * Math.sin(rad), GAUGE.cy - r * Math.cos(rad)];
+}
+
+function arcPath(fromDeg, toDeg, r) {
+  const [x1, y1] = polar(fromDeg, r);
+  const [x2, y2] = polar(toDeg, r);
+  const large = Math.abs(toDeg - fromDeg) > 180 ? 1 : 0;
+  return `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;
+}
+
+const TICKS = Array.from({ length: 21 }, (_, i) => -50 + i * 5);
+const TICK_LABELS = [-50, -25, 0, 25, 50];
+
+function splitNote(n) {
+  if (!n) return { letter: "–", octave: "" };
+  const m = n.match(/^([A-G][#b]?)(\d)?$/);
+  return m ? { letter: m[1], octave: m[2] || "" } : { letter: n, octave: "" };
+}
+
+const STATUS_COPY = {
+  "In Tune": "In tune",
+  "Too Low": "Flat, tighten the string",
+  "Too High": "Sharp, loosen the string",
+  "No clear pitch": "Play one open string",
+};
+
 const GuitarTuner = () => {
-  const { theme } = useTheme();
   const [tuningStatus, setTuningStatus] = useState("");
   // Track last valid pitch and note
   const [lastFrequency, setLastFrequency] = useState(null);
   const [lastNote, setLastNote] = useState(null);
-
-  // Use AudioPitchDetector for pitch detection
-  // Use the render prop to get note, frequency, clarity, listening, start, stop, error
-  // keep lastFrequency/lastNote 
-
-  // Compute the target frequency for the last detected note
-  const targetFreq = lastNote ? GUITAR_STRINGS.find(s => s.note === lastNote)?.freq : null;
-  // Compute rocket angle relative to target
-  const rocketAngle = (lastFrequency && targetFreq)
-    ? Math.max(-30, Math.min(30, (lastFrequency - targetFreq) * 5))
-    : 0;
-
-  // For the ticks, center tick is always at 0 (target), others are relative
-  const tickAngles = [-30, -20, -10, 0, 10, 20, 30];
 
   return (
     <AudioPitchDetector>
@@ -60,149 +78,151 @@ const GuitarTuner = () => {
           }
         }, [frequency, note]);
 
-        // Compute the target frequency for the last detected note
+        // Derived display values
         const targetFreq = lastNote ? GUITAR_STRINGS.find(s => s.note === lastNote)?.freq : null;
-        const rocketAngle = (lastFrequency && targetFreq)
-          ? Math.max(-30, Math.min(30, (lastFrequency - targetFreq) * 5))
-          : 0;
+        const hasReading = Boolean(lastFrequency && targetFreq);
+        const cents = hasReading ? 1200 * Math.log2(lastFrequency / targetFreq) : 0;
+        const needleDeg = centsToDeg(cents);
+        // the in-tune window matches the ±1 Hz rule above, expressed in cents
+        const windowCents = targetFreq ? 1200 * Math.log2((targetFreq + 1) / targetFreq) : 5;
+        const windowDeg = centsToDeg(windowCents);
+
+        const inTune = hasReading && tuningStatus === "In Tune";
+        const idle = !hasReading || tuningStatus === "No clear pitch";
+        let state = "idle";
+        if (hasReading) {
+          if (inTune) state = "ok";
+          else if (Math.abs(cents) > 25) state = "far";
+          else state = "near";
+        }
+
+        const { letter, octave } = splitNote(lastNote);
+        const centsLabel = hasReading
+          ? `${cents > 0 ? "+" : cents < 0 ? "−" : ""}${Math.abs(cents).toFixed(0)} cents`
+          : "– cents";
+
+        let statusText;
+        if (!listening && !hasReading) statusText = "Press start, then play one open string";
+        else if (!hasReading) statusText = "Listening, play one open string";
+        else statusText = STATUS_COPY[tuningStatus] || tuningStatus;
+
+        const [nx, ny] = polar(0, GAUGE.r - 22);
 
         return (
-          <div className={`guitar-detection-panel space-tuner${theme.isDarkMode ? " dark" : " light"}`}>
-            <div className="space-bg">
-              {/* Space background with stars/planets via CSS */}
-              <div className="planet" />
-              <div className="stars" />
+          <section
+            className={`tuner-instrument is-${state}${idle ? " is-faded" : ""}`}
+            aria-label="Tuner"
+          >
+            <div className="tuner-gauge">
+              <svg
+                className="tuner-gauge-svg"
+                viewBox="0 0 320 196"
+                role="img"
+                aria-label={hasReading ? `${lastNote}, ${centsLabel}` : "No pitch detected"}
+              >
+                <path className="tg-track" d={arcPath(-SWEEP, SWEEP, GAUGE.r)} />
+                <path className="tg-window" d={arcPath(-windowDeg, windowDeg, GAUGE.r)} />
+                <g className="tg-ticks">
+                  {TICKS.map((c) => {
+                    const deg = centsToDeg(c);
+                    const major = c % 25 === 0;
+                    const [x1, y1] = polar(deg, GAUGE.r - 8);
+                    const [x2, y2] = polar(deg, GAUGE.r - (c === 0 ? 30 : major ? 22 : 15));
+                    return (
+                      <line
+                        key={c}
+                        className={c === 0 ? "tg-tick tg-tick--zero" : major ? "tg-tick tg-tick--major" : "tg-tick"}
+                        x1={x1} y1={y1} x2={x2} y2={y2}
+                      />
+                    );
+                  })}
+                </g>
+                <g className="tg-labels">
+                  {TICK_LABELS.map((c) => {
+                    const [x, y] = polar(centsToDeg(c), GAUGE.r + 14);
+                    return (
+                      <text key={c} x={x} y={y} textAnchor="middle" dominantBaseline="middle">
+                        {c > 0 ? `+${c}` : c < 0 ? `−${Math.abs(c)}` : "0"}
+                      </text>
+                    );
+                  })}
+                </g>
+                <text className="tg-side" x={GAUGE.cx - GAUGE.r + 6} y={GAUGE.cy + 16} textAnchor="start">♭ flat</text>
+                <text className="tg-side" x={GAUGE.cx + GAUGE.r - 6} y={GAUGE.cy + 16} textAnchor="end">sharp ♯</text>
+                <g
+                  className="tg-needle"
+                  style={{
+                    transform: `rotate(${needleDeg}deg)`,
+                    transformOrigin: `${GAUGE.cx}px ${GAUGE.cy}px`,
+                  }}
+                >
+                  <line x1={GAUGE.cx} y1={GAUGE.cy + 10} x2={nx} y2={ny} />
+                </g>
+                <circle className="tg-pivot" cx={GAUGE.cx} cy={GAUGE.cy} r="7" />
+                <circle className="tg-pivot-core" cx={GAUGE.cx} cy={GAUGE.cy} r="2.5" />
+              </svg>
             </div>
-            <div className="tuner-container">
-              <h2 className="tuner-title"> Tuner</h2>
-              <div className="tuner-display">
-                {(lastFrequency || lastFrequency === 0) ? (
-                  <>
-                    <div className={`note-display${tuningStatus === 'No clear pitch' ? ' faded' : ''}`}>
-                      <span className="tuner-note">{lastNote || '--'}</span>
-                      <span className="tuner-freq">{lastFrequency ? lastFrequency.toFixed(2) : '--'} Hz</span>
-                    </div>
-                    <div className={`tuning-indicator ${tuningStatus.replace(/\s/g, "-").toLowerCase()}`}> 
 
-                      {/* Space needle/indicator */}
-                      <div className="needle-wrapper rocket-wrapper">
-                        <svg
-                          className="rocket-svg"
-                          width="80"
-                          height="120"
-                          viewBox="0 0 80 120"
-                          style={{
-                            display: 'block',
-                            margin: '0 auto'
-                          }}
-                        >
-                          {/* Tuning tick marks (center tick is target) */}
-                          <g className="tuning-ticks">
-                            {tickAngles.map((angle, i) => {
-                              const rad = (angle - 90) * Math.PI / 180;
-                              const r1 = 60, r2 = angle === 0 ? 40 : 48;
-                              const x1 = 40 + r1 * Math.cos(rad);
-                              const y1 = 70 + r1 * Math.sin(rad);
-                              const x2 = 40 + r2 * Math.cos(rad);
-                              const y2 = 70 + r2 * Math.sin(rad);
-                              return (
-                                <line
-                                  key={angle}
-                                  x1={x1}
-                                  y1={y1}
-                                  x2={x2}
-                                  y2={y2}
-                                  stroke={angle === 0 ? '#ff0' : '#6cf'}
-                                  strokeWidth={angle === 0 ? 3 : 1.5}
-                                  opacity={angle === 0 ? 1 : 0.7}
-                                />
-                              );
-                            })}
-                          </g>
-                          {/* Rocket and flame group, which rotates */}
-                          <g style={{
-                            transform: `rotate(${rocketAngle}deg)`,
-                            transformOrigin: '40px 70px',
-                            transition: 'transform 0.15s cubic-bezier(.4,2,.6,1)'
-                          }}>
-                            {/* Rocket body */}
-                            <rect x="34" y="30" width="12" height="40" rx="6" fill="#fff" stroke="#6cf" strokeWidth="2"/>
-                            {/* Rocket window */}
-                            <ellipse cx="40" cy="45" rx="4" ry="6" fill="#6cf" stroke="#fff" strokeWidth="1"/>
-                            {/* Rocket nose cone */}
-                            <polygon points="40,10 30,30 50,30" fill="#6cf"/>
-                            {/* Rocket fins */}
-                            <polygon points="30,70 20,90 40,80" fill="#23a"/>
-                            <polygon points="50,70 60,90 40,80" fill="#23a"/>
-                            {/* Rocket flame - animate size and color with frequency */}
-                            <g className="rocket-flame-group">
-                              <polygon
-                                className="rocket-flame"
-                                points={`36,70 44,70 40,${90 + (lastFrequency ? Math.min(20, Math.max(0, (lastFrequency - 80) / 2)) : 10)}`}
-                                fill={
-                                  lastFrequency
-                                    ? lastFrequency < 120
-                                      ? '#f90'
-                                      : lastFrequency < 200
-                                        ? '#ff0'
-                                        : '#0f0'
-                                    : '#f90'
-                                }
-                                style={{
-                                  filter: 'drop-shadow(0 0 10px #ff0) drop-shadow(0 0 20px #f90)',
-                                  transition: 'all 0.2s'
-                                }}
-                              />
-                              {/* Inner flame for more effect */}
-                              <polygon
-                                points={`38,70 42,70 40,${80 + (lastFrequency ? Math.min(10, Math.max(0, (lastFrequency - 80) / 4)) : 5)}`}
-                                fill="#fff"
-                                opacity="0.7"
-                              />
-                            </g>
-                          </g>
-                        </svg>
-                        <div className="indicator-arc" />
-                      </div>
-                      <span className="tuning-status">{tuningStatus}</span>
-                    </div>
-                    {/* Digital frequency readout */}
-                    <div className="digital-frequency-readout">
-                      <span>Pitch: </span>
-                      <span className="freq-value">{frequency ? frequency.toFixed(2) : '--'} Hz</span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="note-display">
-                    <span className="tuner-note">--</span>
-                    <span className="freq">Listening...</span>
-                  </div>
+            <div className="tuner-readout" aria-live="polite">
+              <p className="tuner-note-name">
+                {letter}
+                {octave && <sub>{octave}</sub>}
+              </p>
+              <p className="tuner-hz">
+                {hasReading ? `${lastFrequency.toFixed(2)} Hz` : "– Hz"}
+                <span className="tuner-hz-sep" aria-hidden="true">·</span>
+                {centsLabel}
+              </p>
+              <p className="tuner-status">
+                {inTune && (
+                  <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                    <path d="M3 8.5l3.2 3L13 4.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
                 )}
-              </div>
-              <div className="tuner-controls">
-                {!listening ? (
-                  <button onClick={start} className="start-btn">Start Tuner</button>
-                ) : (
-                  <button onClick={stop} className="stop-btn">Stop Tuner</button>
-                )}
-              </div>
-              {error && <div className="tuner-error">{error}</div>}
-              <div className="string-list">
-                <h4>Standard Tuning</h4>
-                <ul>
-                  {GUITAR_STRINGS.map(s => (
-                    <li key={s.note}>
-                      <span className="string-note">{s.note}</span> <span className="string-freq">{s.freq} Hz</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+                {statusText}
+              </p>
             </div>
-          </div>
+
+            <div className="tuner-controls">
+              {!listening ? (
+                <button onClick={start} className="btn-walnut tuner-toggle">Start tuner</button>
+              ) : (
+                <button onClick={stop} className="btn-walnut tuner-toggle">Stop tuner</button>
+              )}
+            </div>
+
+            {error && (
+              <p className="tuner-error" role="alert">
+                {error} Allow microphone access for this site, then press Start tuner.
+              </p>
+            )}
+
+            <div className="tuner-strings">
+              <h2 className="tuner-strings-title">Standard tuning</h2>
+              <ul>
+                {GUITAR_STRINGS.map(s => {
+                  const active = s.note === lastNote && hasReading;
+                  const n = splitNote(s.note);
+                  return (
+                    <li
+                      key={s.note}
+                      className={`string-chip${active ? " is-active" : ""}${active && inTune ? " is-tuned" : ""}`}
+                      aria-current={active ? "true" : undefined}
+                    >
+                      <span className="string-chip-note">
+                        {n.letter}<sub>{n.octave}</sub>
+                      </span>
+                      <span className="string-chip-hz">{s.freq.toFixed(2)}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          </section>
         );
       }}
     </AudioPitchDetector>
   );
 };
 
-export default GuitarTuner; 
+export default GuitarTuner;

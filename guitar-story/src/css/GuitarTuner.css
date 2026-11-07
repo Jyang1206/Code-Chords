@@ -1,365 +1,220 @@
-/* Space-themed background */
-.space-tuner {
+/* Tuner — one instrument: an analog cents gauge, the note, the six strings */
+
+.tuner-page { max-width: 760px; }
+
+.tuner-instrument {
+  --state: var(--dust-2);
   position: relative;
-  min-height: 500px;
-  padding: 2rem 0 2rem 0;
-  border-radius: 20px;
-  overflow: hidden;
-  box-shadow: 0 0 40px 0 var(--space-shadow), 0 0 0 2px var(--space-shadow);
-  background: var(--space-bg);
-  color: var(--space-text);
-  background-image: var(--space-star-bg), var(--space-bg);
-  background-blend-mode: lighten, normal;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: clamp(20px, 4vw, 40px) clamp(16px, 4vw, 40px) clamp(20px, 3vw, 32px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(14px) saturate(120%);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  color: var(--star);
+}
+.tuner-instrument.is-ok { --state: var(--ok); }
+.tuner-instrument.is-near { --state: var(--amber-ink); }
+.tuner-instrument.is-far { --state: var(--ember); }
+
+/* ---------- Gauge ---------- */
+.tuner-gauge { width: min(100%, 480px); }
+.tuner-gauge-svg { display: block; width: 100%; height: auto; overflow: visible; }
+
+.tg-track {
+  fill: none;
+  stroke: var(--line-strong);
+  stroke-width: 1.5;
+}
+.tg-window {
+  fill: none;
+  stroke: var(--ok);
+  stroke-width: 6;
+  stroke-linecap: round;
+  opacity: 0.35;
+  transition: opacity 0.3s;
+}
+.is-ok .tg-window { opacity: 0.9; }
+
+.tg-tick { stroke: var(--dust-2); stroke-width: 1; stroke-linecap: round; }
+.tg-tick--major { stroke: var(--dust); stroke-width: 1.6; }
+.tg-tick--zero { stroke: var(--star); stroke-width: 2.4; }
+
+.tg-labels text {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  fill: var(--dust-2);
+}
+.tg-side {
+  font-family: var(--font-body);
+  font-size: 11px;
+  fill: var(--dust);
 }
 
-.space-bg {
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  z-index: 0;
-  background: var(--space-bg);
-  overflow: hidden;
+.tg-needle {
+  transition: transform 0.22s var(--ease-out);
 }
-
-.planet {
-  position: absolute;
-  bottom: 10%;
-  left: 10%;
-  width: 120px;
-  height: 120px;
-  background: radial-gradient(circle at 30% 30%, var(--space-blue) 70%, var(--space-shadow) 100%);
-  border-radius: 50%;
-  box-shadow: 0 0 60px 20px var(--space-blue);
-  opacity: 0.7;
+.tg-needle line {
+  stroke: var(--state);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  transition: stroke 0.25s;
 }
+.is-faded .tg-needle line { opacity: 0.55; }
+.tg-pivot { fill: var(--surface-solid); stroke: var(--line-strong); stroke-width: 1.5; }
+.tg-pivot-core { fill: var(--state); transition: fill 0.25s; }
 
-.stars {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  background: var(--space-star-bg);
-  opacity: 0.5;
-}
-
-.tuner-container {
-  position: relative;
-  z-index: 1;
-  max-width: 400px;
-  margin: 0 auto;
-  background: var(--space-card-bg);
-  border-radius: 16px;
-  padding: 2rem 1.5rem 1.5rem 1.5rem;
-  box-shadow: 0 0 30px 0 var(--space-shadow);
-}
-
-.tuner-title {
+/* ---------- Readout ---------- */
+.tuner-readout {
+  display: grid;
+  justify-items: center;
+  margin-top: -4px;
   text-align: center;
-  color: var(--space-star);
-  font-family: 'Orbitron', 'Arial', sans-serif;
-  letter-spacing: 2px;
-  margin-bottom: 1.5rem;
-  text-shadow: 0 0 8px var(--space-blue), 0 0 2px #fff;
 }
+.tuner-note-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-stretch: 62%;
+  font-weight: 900;
+  font-size: clamp(4.8rem, 16vw, 7.5rem);
+  line-height: 0.9;
+  letter-spacing: -0.02em;
+  color: var(--star);
+  transition: color 0.25s, opacity 0.25s;
+}
+.tuner-note-name sub {
+  font-family: var(--font-mono);
+  font-stretch: normal;
+  font-weight: 500;
+  font-size: 0.24em;
+  vertical-align: baseline;
+  margin-left: 0.12em;
+  color: var(--dust);
+}
+.is-ok .tuner-note-name { color: var(--ok); }
+.is-faded .tuner-note-name { opacity: 0.45; }
 
-.tuner-display {
-  display: flex;
-  flex-direction: column;
+.tuner-hz {
+  margin: 10px 0 0;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--dust);
+  font-variant-numeric: tabular-nums;
+}
+.tuner-hz-sep { margin: 0 0.6em; color: var(--dust-2); }
+
+.tuner-status {
+  display: inline-flex;
   align-items: center;
-  margin-bottom: 1.5rem;
+  gap: 6px;
+  min-height: 1.6em;
+  margin: 14px 0 0;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--state);
+  transition: color 0.25s;
 }
+.is-idle .tuner-status { color: var(--dust); }
 
-.note-display {
-  font-size: 2.2rem;
-  color: #fff;
-  margin-bottom: 0.5rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.tuner-note {
-  font-size: 2.8rem;
-  font-weight: bold;
-  letter-spacing: 2px;
-  color: #6cf;
-  text-shadow: 0 0 8px #6cf, 0 0 2px #fff;
-}
-
-.tuner-freq {
-  font-size: 1.1rem;
-  color: #fff;
-  opacity: 0.8;
-}
-
-.tuning-indicator {
-  margin-top: 0.5rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.needle-wrapper {
-  position: relative;
-  width: 90px;
-  height: 60px;
-  margin-bottom: 0.5rem;
-}
-
-.needle {
-  position: absolute;
-  left: 50%;
-  bottom: 10px;
-  width: 4px;
-  height: 48px;
-  background: linear-gradient(180deg, #fff 0%, #6cf 100%);
-  border-radius: 2px;
-  transform-origin: bottom center;
-  box-shadow: 0 0 8px #6cf8;
-  transition: transform 0.15s cubic-bezier(.4,2,.6,1);
-}
-
-.indicator-arc {
-  position: absolute;
-  left: 50%;
-  bottom: 10px;
-  width: 80px;
-  height: 40px;
-  border-bottom: 4px solid #6cf;
-  border-radius: 0 0 80px 80px;
-  transform: translateX(-50%);
-  opacity: 0.5;
-}
-
-.tuning-status {
-  font-size: 1.1rem;
-  color: #fff;
-  margin-top: 0.2rem;
-  text-shadow: 0 0 4px #6cf8;
-}
-
-.tuning-indicator.in-tune .needle {
-  background: linear-gradient(180deg, #fff 0%, #0f0 100%);
-  box-shadow: 0 0 12px #0f08;
-}
-.tuning-indicator.too-low .needle {
-  background: linear-gradient(180deg, #fff 0%, #f90 100%);
-  box-shadow: 0 0 12px #f908;
-}
-.tuning-indicator.too-high .needle {
-  background: linear-gradient(180deg, #fff 0%, #f33 100%);
-  box-shadow: 0 0 12px #f338;
-}
-
-.tuner-controls {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 1rem;
-}
-
-.start-btn, .stop-btn {
-  background: linear-gradient(90deg, #6cf 0%, #23a 100%);
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 0.7rem 1.5rem;
-  font-size: 1.1rem;
-  font-family: 'Orbitron', 'Arial', sans-serif;
-  cursor: pointer;
-  box-shadow: 0 0 8px #6cf8;
-  transition: background 0.2s, box-shadow 0.2s;
-}
-.start-btn:hover, .stop-btn:hover {
-  background: linear-gradient(90deg, #23a 0%, #6cf 100%);
-  box-shadow: 0 0 16px #6cfb;
-}
+/* ---------- Controls ---------- */
+.tuner-controls { margin-top: 20px; }
+.tuner-page .tuner-toggle { min-width: 11em; padding: 0.85em 1.6em; font-size: 1rem; }
 
 .tuner-error {
-  color: #f33;
-  background: rgba(40,0,0,0.7);
-  border-radius: 6px;
-  padding: 0.5rem 1rem;
-  margin-bottom: 1rem;
+  max-width: 44ch;
+  margin: 16px 0 0;
+  padding: 10px 14px;
+  border: 1px solid color-mix(in srgb, var(--bad) 45%, transparent);
+  border-radius: var(--radius-s);
+  background: color-mix(in srgb, var(--bad) 10%, transparent);
+  color: var(--bad);
+  font-size: 0.9rem;
   text-align: center;
-  font-weight: bold;
-  box-shadow: 0 0 8px #f338;
 }
 
-.string-list {
-  margin-top: 1.2rem;
-  background: rgba(30,30,50,0.7);
-  border-radius: 8px;
-  padding: 0.7rem 1rem;
-  color: #fff;
-  font-size: 1rem;
+/* ---------- Strings ---------- */
+.tuner-strings {
+  justify-self: stretch;
+  margin-top: clamp(24px, 4vw, 36px);
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
 }
-.string-list h4 {
-  margin-bottom: 0.5rem;
-  color: #6cf;
-  font-family: 'Orbitron', 'Arial', sans-serif;
+.tuner-strings-title {
+  margin: 0 0 12px;
+  font-family: var(--font-body);
+  font-stretch: normal;
+  font-size: 0.85rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--dust);
 }
-.string-list ul {
+.tuner-strings ul {
   list-style: none;
-  padding: 0;
   margin: 0;
-}
-.string-list li {
-  display: flex;
-  justify-content: space-between;
-  padding: 0.2rem 0;
-}
-.string-note {
-  font-weight: bold;
-  color: #fff;
-}
-.string-freq {
-  color: #6cf;
-  opacity: 0.8;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
 }
 
-/* Light mode overrides */
-.space-tuner.light .tuner-container {
-  background: rgba(255,255,255,0.85);
-  color: #222;
+.string-chip {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 12px 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  background: transparent;
+  transition: border-color 0.25s, background-color 0.25s, color 0.25s;
 }
-.space-tuner.light .tuner-title,
-.space-tuner.light .tuner-note,
-.space-tuner.light .string-list h4 {
-  color: #236cff;
-  text-shadow: 0 0 8px #236cff44;
+.string-chip-note {
+  font-family: var(--font-display);
+  font-stretch: 62%;
+  font-weight: 900;
+  font-size: 1.7rem;
+  line-height: 1;
+  color: var(--star);
 }
-.space-tuner.light .needle {
-  background: linear-gradient(180deg, #236cff 0%, #6cf 100%);
+.string-chip-note sub {
+  font-family: var(--font-mono);
+  font-stretch: normal;
+  font-weight: 500;
+  font-size: 0.4em;
+  vertical-align: baseline;
+  margin-left: 0.1em;
+  color: var(--dust-2);
 }
-.space-tuner.light .indicator-arc {
-  border-bottom: 4px solid #236cff;
-}
-
-.rocket-wrapper {
-  position: relative;
-  width: 80px;
-  height: 120px;
-  margin-bottom: 0.5rem;
-  display: flex;
-  justify-content: center;
-  align-items: flex-end;
-}
-
-.rocket-svg {
-  width: 80px;
-  height: 120px;
-  display: block;
-  filter: drop-shadow(0 0 8px #6cf8);
-}
-
-.rocket-flame-group .rocket-flame {
-  animation: rocket-flame-flicker 0.18s infinite alternate;
-}
-@keyframes rocket-flame-flicker {
-  0% { filter: drop-shadow(0 0 10px #ff0) drop-shadow(0 0 20px #f90); }
-  100% { filter: drop-shadow(0 0 20px #ff0) drop-shadow(0 0 30px #f90); }
+.string-chip-hz {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--dust);
+  font-variant-numeric: tabular-nums;
 }
 
-.digital-frequency-readout {
-  margin-top: 0.7rem;
-  text-align: center;
-  font-family: 'Orbitron', 'Consolas', 'monospace';
-  font-size: 1.3rem;
-  background: #111a;
-  color: #6cf;
-  border-radius: 8px;
-  padding: 0.3rem 1.2rem;
-  box-shadow: 0 0 8px #6cf4;
-  display: inline-block;
+/* the string you're on: walnut plate */
+.string-chip.is-active {
+  background: var(--walnut-grain);
+  border-color: rgba(200, 154, 98, 0.55);
+  box-shadow: inset 0 1px 0 rgba(255, 220, 170, 0.22), inset 0 -2px 0 rgba(0, 0, 0, 0.3);
 }
-.freq-value {
-  font-weight: bold;
-  color: #ff0;
-  margin-left: 0.5rem;
-  letter-spacing: 1px;
-  text-shadow: 0 0 6px #ff08;
+.string-chip.is-active .string-chip-note { color: #fff4e2; }
+.string-chip.is-active .string-chip-note sub,
+.string-chip.is-active .string-chip-hz { color: rgba(255, 236, 205, 0.75); }
+.string-chip.is-tuned { border-color: var(--ok); }
+
+/* ---------- Small screens ---------- */
+@media (max-width: 520px) {
+  .tuner-strings ul { gap: 5px; }
+  .string-chip { padding: 10px 2px 8px; border-radius: var(--radius-s); }
+  .string-chip-note { font-size: 1.35rem; }
+  .string-chip-hz { font-size: 0.56rem; letter-spacing: -0.03em; }
+  .tuner-hz { font-size: 0.78rem; }
 }
 
-/* Responsive adjustments */
-@media (max-width: 600px) {
-  .rocket-wrapper, .rocket-svg {
-    width: 60px;
-    height: 90px;
-  }
-  .digital-frequency-readout {
-    font-size: 1rem;
-    padding: 0.2rem 0.7rem;
-  }
+@media (prefers-reduced-motion: reduce) {
+  .tg-needle { transition: none; }
 }
-
-.faded {
-  opacity: 0.5;
-  filter: grayscale(0.7);
-  transition: opacity 0.2s, filter 0.2s;
-}
-
-.string-select-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 1.2rem;
-  gap: 0.5rem;
-}
-.string-select-label {
-  font-family: 'Orbitron', 'Arial', sans-serif;
-  color: #6cf;
-  margin-right: 0.7rem;
-  font-size: 1.1rem;
-}
-.string-select-btn {
-  background: linear-gradient(90deg, #222 0%, #1a1a40 100%);
-  color: #fff;
-  border: 2px solid #6cf;
-  border-radius: 6px;
-  padding: 0.3rem 0.9rem;
-  font-size: 1.1rem;
-  font-family: 'Orbitron', 'Arial', sans-serif;
-  cursor: pointer;
-  margin: 0 0.1rem;
-  transition: background 0.2s, border 0.2s, color 0.2s;
-  box-shadow: 0 0 6px #6cf4;
-}
-.string-select-btn.selected, .string-select-btn:hover {
-  background: linear-gradient(90deg, #6cf 0%, #23a 100%);
-  color: #222;
-  border: 2px solid #fff;
-  box-shadow: 0 0 12px #6cfb;
-}
-.target-pitch {
-  display: inline-block;
-  margin-left: 1.2rem;
-  color: #6cf;
-  font-size: 1.1rem;
-  font-family: 'Orbitron', 'Arial', sans-serif;
-  letter-spacing: 1px;
-} 
-
-/* Light mode overrides for GuitarTuner.css */
-.light-mode .space-tuner,
-.light-mode .tuner-container {
-  background: var(--space-card-bg-light) !important;
-  color: var(--space-shadow) !important;
-  box-shadow: 0 0 30px 0 var(--space-accent2);
-}
-.light-mode .tuner-title {
-  color: var(--space-accent) !important;
-  text-shadow: 0 0 8px var(--space-accent2), 0 0 2px #fff !important;
-}
-.light-mode .tuner-note,
-.light-mode .string-list h4 {
-  color: var(--space-accent) !important;
-}
-.light-mode .start-btn,
-.light-mode .stop-btn {
-  background: var(--space-btn-bg-light) !important;
-  color: var(--space-shadow) !important;
-}
-.light-mode .start-btn:hover,
-.light-mode .stop-btn:hover {
-  background: var(--space-btn-hover-light) !important;
-  color: var(--space-accent) !important;
-} 

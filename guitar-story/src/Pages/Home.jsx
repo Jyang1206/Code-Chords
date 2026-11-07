@@ -1,88 +1,109 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { useTheme } from "../contexts/ThemeContext";
-import Login from "../components/Login";
-import Signup from "../components/Signup";
-import "../css/SpaceTheme.css";
+import Fretboard from "../components/Fretboard";
 import "../css/Home.css";
-import githubLogo from '../assets/github-mark.png';
+import githubLogo from "../assets/github-mark.png";
+
+const Glyph = ({ name }) => {
+  const common = {
+    viewBox: "0 0 32 32",
+    width: 28,
+    height: 28,
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.6,
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    "aria-hidden": true,
+  };
+  switch (name) {
+    case "practice": // a lens over strings
+      return (
+        <svg {...common}>
+          <path d="M3 11h26M3 16h26M3 21h26" opacity=".45" />
+          <circle cx="16" cy="16" r="8.5" />
+          <circle cx="16" cy="16" r="2.4" fill="currentColor" stroke="none" />
+        </svg>
+      );
+    case "playalong": // falling notes onto a line
+      return (
+        <svg {...common}>
+          <path d="M4 25h24" />
+          <circle cx="9" cy="20" r="2.4" fill="currentColor" stroke="none" />
+          <circle cx="16" cy="12" r="2.4" />
+          <circle cx="23" cy="6" r="2.4" />
+          <path d="M9 14v2M16 6v2M23 12v8" opacity=".45" />
+        </svg>
+      );
+    case "tabs": // a staff with fret numbers
+      return (
+        <svg {...common}>
+          <path d="M4 8h24M4 13h24M4 18h24M4 23h24" opacity=".45" />
+          <path d="M9 11.5v3M14 16.5v3M20 6.5v3M24 21.5v3" strokeWidth="2.4" />
+        </svg>
+      );
+    case "tuner": // needle on an arc
+      return (
+        <svg {...common}>
+          <path d="M5 22a11 11 0 0 1 22 0" />
+          <path d="M16 22 19.5 11" strokeWidth="2" />
+          <circle cx="16" cy="22" r="1.8" fill="currentColor" stroke="none" />
+          <path d="M16 9v2M8.5 12.5l1.4 1.4M23.5 12.5l-1.4 1.4" opacity=".45" />
+        </svg>
+      );
+    case "scoreboard": // rising bars
+      return (
+        <svg {...common}>
+          <path d="M4 27h24" />
+          <rect x="7" y="17" width="4.5" height="10" rx="1" />
+          <rect x="14" y="11" width="4.5" height="16" rx="1" />
+          <rect x="21" y="5" width="4.5" height="22" rx="1" fill="currentColor" stroke="none" />
+        </svg>
+      );
+    default:
+      return null;
+  }
+};
+
+const TOOLS = [
+  {
+    key: "practice",
+    title: "Practice",
+    path: "/practice",
+    body: "Point your webcam at your guitar. Pick a key and one of ten scales and modes, and the notes appear on your own fretboard. Slow down a YouTube lesson alongside it.",
+  },
+  {
+    key: "playalong",
+    title: "Play along",
+    path: "/playalong",
+    body: "Notes scroll toward you as the song plays. The app listens through your mic and scores every note you land.",
+  },
+  {
+    key: "tabs",
+    title: "Tabs",
+    path: "/custom-tabs",
+    body: "Write your own tabs, save them to your account, and load them into Play along.",
+  },
+  {
+    key: "tuner",
+    title: "Tuner",
+    path: "/tuner",
+    body: "Pluck a string and see how far sharp or flat it is, so everything after this sounds right.",
+  },
+  {
+    key: "scoreboard",
+    title: "Scoreboard",
+    path: "/scoreboard",
+    body: "Keep your best scores, watch them climb, and see how you rank against other players.",
+  },
+];
 
 function Home({ setShowAuthModal, setShowSignup }) {
   const { currentUser } = useAuth();
-  const { theme, isDarkMode } = useTheme();
   const navigate = useNavigate();
-  const [scrollY, setScrollY] = useState(0);
-  const [showEclipse, setShowEclipse] = useState(false);
 
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrollPosition = window.scrollY;
-      setScrollY(scrollPosition);
-      
-      if (!isDarkMode) {
-        const windowHeight = window.innerHeight;
-        const documentHeight = document.documentElement.scrollHeight;
-        const scrollPercentage = (scrollPosition + windowHeight) / documentHeight;
-        
-        if (scrollPercentage > 0.8) {
-          setShowEclipse(true);
-        } else {
-          setShowEclipse(false);
-        }
-      }
-    };
-    
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [isDarkMode]);
-
-  const sections = [
-    {
-      title: "Practice Mode",
-      description: "Master your guitar skills with AI-powered practice sessions. Get real-time feedback and track your progress as you learn chords, scales, and techniques.",
-      icon: "🎯",
-      color: "var(--primary)",
-      path: "/practice"
-    },
-    {
-      title: "Play Along",
-      description: "Play along with your favorite songs! Our AI detects your guitar playing and provides instant feedback to help you stay in rhythm.",
-      icon: "🎼",
-      color: "var(--secondary)",
-      path: "/playalong"
-    },
-    {
-      title: "Custom Tabs",
-      description: "Create and share your own guitar tabs. Build a community of guitarists and discover new music from fellow musicians.",
-      icon: "📝",
-      color: "var(--accent)",
-      path: "/custom-tabs"
-    },
-    {
-      title: "Tuner",
-      description: "Keep your guitar perfectly tuned with our advanced digital tuner. Supports all standard tunings and provides visual feedback.",
-      icon: "🎚️",
-      color: "var(--primary)",
-      path: "/tuner"
-    },
-    {
-      title: "Scoreboard",
-      description: "Compete with other guitarists worldwide! Track your scores, climb the leaderboard, and challenge yourself to improve.",
-      icon: "🏅",
-      color: "var(--secondary)",
-      path: "/scoreboard"
-    },
-    {
-      title: "Progress Tracking",
-      description: "Monitor your learning journey with detailed analytics. See your improvement over time and celebrate your achievements.",
-      icon: "📈",
-      color: "var(--accent)",
-      path: "/scoreboard"
-    }
-  ];
-
-  const handleSectionClick = (path) => {
+  const go = (path) => {
     if (!currentUser) {
       setShowAuthModal(true);
       setShowSignup(false);
@@ -91,125 +112,111 @@ function Home({ setShowAuthModal, setShowSignup }) {
     }
   };
 
+  const firstName = currentUser?.displayName?.split(" ")[0];
+
   return (
-    <div className="home-container">
-      <section className="hero-section space-card">
-        <h1 className="glow-text hero-title">
-          Guitar Story
-        </h1>
-    
-        <h2 className="hero-subtitle">
-          Your All-in-One Guitar Learning Experience
-        </h2>
-        
-        <p className="hero-description">
-          Welcome to Guitar Story! Your all-in-one guitar learning experience. 
-          Whether you're a complete beginner or an experienced guitarist, you'll find a use for our platform
-          that helps you reach new heights in your musical journey.
-          Code Chords combines computer vision and object-detection technology with traditional guitar learning methods 
-          to create the ultimate learning experience.
-        </p>
-        
-
-        <div className="hero-cta"> 
-          <h2 className="glow-text cta-title">
-            {currentUser ? "Welcome Back!" : "Ready to begin your musical journey?"}
-          </h2>
-          
-          <p className="cta-description">
-            {currentUser 
-              ? "What are you in the mood for today?"
-              : "One small step for you, one giant leap for guitar learning!"
-            }
+    <div className="home">
+      <section className="home-hero" aria-labelledby="home-title">
+        <div className="home-hero-copy">
+          <p className="home-kicker">
+            {currentUser ? `Welcome back${firstName ? `, ${firstName}` : ""}.` : "A practice room for guitar, in your browser."}
           </p>
-          
-          {!currentUser && (
-            <button
-              className="space-button cta-button"
-              onClick={() => { setShowAuthModal(true); setShowSignup(false); }}
-            >
-              Start Your Mission
-            </button>
-          )}
-        </div>
-        
-        <div className="section-separator hero-separator"></div>
-      </section>
-
-      {/* Features Grid */}
-      <section className="features-section">
-        <div className="features-grid">
-          {sections.map((section, index) => (
-            <div key={index} className="space-card feature-card"
-            onClick={() => handleSectionClick(section.path)}>
-              <div className="feature-icon">
-                {section.icon}
-              </div>
-              
-              <h3 className="glow-text feature-title">
-                {section.title}
-              </h3>
-              
-              <p className="feature-description">
-                {section.description}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
-       {/* App Information */}
-       <div className="features-section">
-          <h2 className="glow-text feature-title">
-            About Code Chords
-          </h2>
-
-          <p className="feature-description">
-            Code Chords is a team of two students who are passionate about music and technology. We got the idea to utilize computer vision and object detection 
-            to create a guitar learning platform that is more interactive and engaging. We've also incoporated other features that we felt were crucial to the learning experience.
-            We wanted to gamify the learning experience, so we added a scoreboard and a progress tracking system as a way to not only track your progress, but also to make it more fun and engaging by competing with other users.
-            We hope you enjoy using Code Chords as much as we enjoyed creating it!
+          <h1 id="home-title" className="home-title">
+            <span>Guitar</span>
+            <span>Story</span>
+          </h1>
+          <p className="home-lede">
+            Your webcam finds the fretboard and lights up the notes of a scale on your own guitar. Then
+            the app listens to check you played them.
           </p>
-
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', alignItems: 'center', marginTop: '1.5rem', flexWrap: 'wrap' }}>
-            {/* GitHub Repo */}
-            <a href="https://github.com/Jyang1206/Code-Chords" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none', color: 'inherit' }}>
-              <span style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: 'rgba(255,255,255,0.85)',
-                borderRadius: '50%',
-                width: 36,
-                height: 36,
-                boxShadow: '0 2px 8px #a3bffa33',
-                marginRight: 4
-              }}>
-                <img src={githubLogo} alt="GitHub" style={{ width: 22, height: 22, verticalAlign: 'middle' }} />
-              </span>
-              <span style={{ fontWeight: 600, fontSize: '1.1rem' }}>GitHub Repository</span>
-            </a>
-           
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem', background: 'rgba(255,255,255,0.12)', borderRadius: 18, padding: '0.5rem 1.2rem', boxShadow: '0 2px 8px #a3bffa33', cursor: 'pointer' }}
-              onClick={() => {
-                window.open('https://www.linkedin.com/in/ng-jie-yang-4928bb242', '_blank', 'noopener');
-                window.open('https://www.linkedin.com/in/sean-ow-02722a251', '_blank', 'noopener');
-              }}
-              title="Ng Jie Yang & Sean Ow LinkedIn"
-            >
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <span style={{ fontSize: 24, borderRadius: '50%', background: '#a3bffa22', padding: '0.15em 0.4em', marginRight: 4 }}>🧑‍💻</span>
-                <span style={{ fontWeight: 500, fontSize: '1.05rem' }}>Ng Jie Yang</span>
-              </span>
-              <span style={{ fontSize: 22, color: '#aaa' }}>+</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <span style={{ fontSize: 24, borderRadius: '50%', background: '#ffb34722', padding: '0.15em 0.4em', marginRight: 4 }}>🧑‍🎤</span>
-                <span style={{ fontWeight: 500, fontSize: '1.05rem' }}>Sean Ow</span>
-              </span>
-            </div>
+          <div className="home-actions">
+            {currentUser ? (
+              <>
+                <button className="btn-walnut" onClick={() => navigate("/practice")}>Start practising</button>
+                <button className="btn-ghost" onClick={() => navigate("/playalong")}>Play a song</button>
+              </>
+            ) : (
+              <>
+                <button className="btn-walnut" onClick={() => { setShowAuthModal(true); setShowSignup(true); }}>
+                  Create a free account
+                </button>
+                <button className="btn-ghost" onClick={() => { setShowAuthModal(true); setShowSignup(false); }}>
+                  Sign in
+                </button>
+              </>
+            )}
           </div>
         </div>
+
+        <figure className="home-board">
+          <div className="home-board-tilt">
+            <Fretboard />
+          </div>
+          <figcaption className="home-board-legend">
+            <span className="legend-dot legend-dot--root" /> Root
+            <span className="legend-dot" /> A minor pentatonic
+            <span className="legend-line" /> Position 1, as you’d play it
+          </figcaption>
+        </figure>
+      </section>
+
+      <section className="home-tools" aria-labelledby="tools-title">
+        <header className="home-section-head">
+          <h2 id="tools-title">One session, start to finish</h2>
+          <p>Tune up, learn the shape, play the song, keep the score. Everything runs in the browser, with nothing to install.</p>
+        </header>
+
+        <ul className="tool-list">
+          {TOOLS.map((t) => (
+            <li key={t.key}>
+              <button className="tool-row" onClick={() => go(t.path)}>
+                <span className="tool-glyph"><Glyph name={t.key} /></span>
+                <span className="tool-title">{t.title}</span>
+                <span className="tool-body">{t.body}</span>
+                <svg className="tool-chevron" viewBox="0 0 20 20" width="18" height="18" aria-hidden="true">
+                  <path d="M7 4l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="home-about" aria-labelledby="about-title">
+        <div className="home-about-text">
+          <h2 id="about-title">Made by two students who play</h2>
+          <p>
+            Code Chords started as an NUS Orbital project. We wanted the feedback of a lesson without the
+            lesson: a model that finds your fretboard in the camera, a pitch detector that hears what you
+            played, and a scoreboard that gives you a reason to come back tomorrow.
+          </p>
+        </div>
+        <div className="home-about-links">
+          <a className="person" href="https://www.linkedin.com/in/ng-jie-yang-4928bb242" target="_blank" rel="noopener noreferrer">
+            <span className="person-mark" aria-hidden="true">JY</span>
+            <span>
+              <strong>Ng Jie Yang</strong>
+              <small>LinkedIn</small>
+            </span>
+          </a>
+          <a className="person" href="https://www.linkedin.com/in/sean-ow-02722a251" target="_blank" rel="noopener noreferrer">
+            <span className="person-mark" aria-hidden="true">SO</span>
+            <span>
+              <strong>Sean Ow</strong>
+              <small>LinkedIn</small>
+            </span>
+          </a>
+          <a className="person person--repo" href="https://github.com/Jyang1206/Code-Chords" target="_blank" rel="noopener noreferrer">
+            <span className="person-mark" aria-hidden="true"><img src={githubLogo} alt="" /></span>
+            <span>
+              <strong>Source code</strong>
+              <small>Jyang1206/Code-Chords</small>
+            </span>
+          </a>
+        </div>
+      </section>
     </div>
   );
 }
 
-export default Home; 
+export default Home;

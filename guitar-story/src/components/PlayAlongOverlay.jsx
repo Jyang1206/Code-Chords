@@ -467,31 +467,31 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
         if (isHighlighted) {
           ctx.beginPath();
           ctx.arc(xRot, yRot, scaleRadius, 0, 2 * Math.PI);
-          ctx.fillStyle = '#FFD600'; // Yellow for highlighted
+          ctx.fillStyle = '#f5b544'; // Amber for highlighted
           ctx.fill();
           ctx.closePath();
         } else if (isRoot) {
           ctx.beginPath();
           ctx.arc(xRot, yRot, rootRadius, 0, 2 * Math.PI);
-          ctx.fillStyle = '#e53935'; // Red for root
+          ctx.fillStyle = '#ea6a32'; // Ember for root
           ctx.fill();
           ctx.closePath();
         } else if (isArpeggio) {
           ctx.beginPath();
           ctx.arc(xRot, yRot, scaleRadius, 0, 2 * Math.PI);
-          ctx.fillStyle = '#1976d2'; // Blue for arpeggio
+          ctx.fillStyle = '#ffd58a'; // Pale amber for arpeggio
           ctx.fill();
           ctx.closePath();
         } else {
           ctx.beginPath();
           ctx.arc(xRot, yRot, nonScaleRadius, 0, 2 * Math.PI);
-          ctx.fillStyle = 'grey'; // Grey for other notes
+          ctx.fillStyle = 'rgba(214, 216, 236, 0.5)'; // Light grey for other notes
           ctx.fill();
           ctx.closePath();
         }
         
         ctx.font = `${fontSize}px monospace`;
-        ctx.fillStyle = 'white';
+        ctx.fillStyle = '#f3ede2';
         ctx.fillText(noteName, xRot + 7 * scaleFactor, yRot + 3 * scaleFactor);
       }
     }
@@ -590,10 +590,11 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
             onCorrectNote && onCorrectNote(timingAccuracy);
           }
         }, [note, expectedNote, onCorrectNote, onIncorrectNote, highlightedNotes, lastDetectedNote, lastNoteTime, consecutiveDetections]);
-                return (
-          <div className="guitar-video-container">
+        return (
+          <div className="guitar-video-container pa-camera">
             {/* Main video/canvas always shown when streaming */}
             <>
+              <div className="pa-camera-frame">
               <video
                 id="video"
                 ref={videoRef}
@@ -608,95 +609,76 @@ function PlayAlongOverlay({ arpeggioNotes = [], currentStep = 0, highlightedNote
               />
               {/* Fallback when video not loaded */}
               {!videoLoaded && (
-                <div style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: '100%',
-                  background: '#000',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#fff',
-                  fontSize: '1.2rem',
-                  zIndex: 3
-                }}>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>📹</div>
-                    <div>Camera Loading...</div>
-                    <div style={{ fontSize: '0.9rem', marginTop: '0.5rem', opacity: 0.7 }}>
-                      Please allow camera access
-                    </div>
-                  </div>
+                <div className="pa-camera-empty" role="status">
+                  <svg className="pa-camera-icon" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
+                    <path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h2l1.5-2h8l1.5 2h2A1.5 1.5 0 0 1 21 7.5v10a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+                    <circle cx="12" cy="12.5" r="3.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                  </svg>
+                  <p className="pa-camera-title">Waiting for your camera</p>
+                  <p className="pa-camera-hint">
+                    Allow camera access when your browser asks, then point the camera at your fretboard.
+                    If you blocked it, re-enable the camera from the icon in the address bar and reload.
+                  </p>
+                  <p className="pa-camera-hint">Scoring still works from the microphone without video.</p>
                 </div>
               )}
-              
+              </div>
+
               {/* AudioPitchDetector overlayed in video-container */}
-              <div style={{ position: 'absolute', top: 24, right: 24, zIndex: 4 }}>
-                <div className="guitar-audio-note-panel">
-                  <div className="audio-note-label">🎤 Play Along</div>
-                  <div className="audio-note-value">
-                    Exp: <span style={{ color: "#1976d2", fontWeight: 700 }}>{expectedNote || "-"}</span>
+              <div className="pa-listen-wrap">
+                <div className="pa-listen">
+                  <div className="pa-listen-head">
+                    <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+                      <rect x="9" y="3" width="6" height="11" rx="3" fill="none" stroke="currentColor" strokeWidth="1.6" />
+                      <path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                    </svg>
+                    <span>{listening ? "Listening" : "Microphone off"}</span>
                   </div>
-                  <div className="audio-freq-value">
-                    Det: <span style={{ color: lastFeedback === "correct" ? "#4caf50" : lastFeedback === "incorrect" ? "#e53935" : "#222", fontWeight: 700 }}>
-                      {note ? note.replace(/\d+$/, "") : (listening ? "Listening..." : "-")}
-                    </span>
+                  <div className="pa-listen-readouts">
+                    <div className="pa-listen-readout">
+                      <span className="pa-listen-label">Expected</span>
+                      <span className="pa-listen-value is-expected">{expectedNote || "–"}</span>
+                    </div>
+                    <div className="pa-listen-readout">
+                      <span className="pa-listen-label">Heard</span>
+                      <span className={`pa-listen-value ${lastFeedback === "correct" ? "is-hit" : lastFeedback === "incorrect" ? "is-miss" : ""}`}>
+                        {note ? note.replace(/\d+$/, "") : (listening ? "…" : "–")}
+                      </span>
+                    </div>
                   </div>
                   {lastFeedback && (
-                    <div style={{ 
-                      color: lastFeedback === "correct" ? "#4caf50" : "#e53935", 
-                      fontWeight: 700,
-                      fontSize: "1.2em"
-                    }}>
-                      {lastFeedback === "correct" ? "✔️ Correct!" : "✖️ Incorrect!"}
+                    <div className={`pa-listen-verdict ${lastFeedback === "correct" ? "is-hit" : "is-miss"}`}>
+                      {lastFeedback === "correct" ? "Right note" : "Not that note"}
                     </div>
                   )}
-                  {error && <div className="audio-warning">{error}</div>}
-                  <div className="audio-controls">
+                  {error && <div className="pa-listen-warning" role="alert">{error}</div>}
+                  <div className="pa-listen-controls">
                     {!listening ? (
-                      <button className="start-btn" onClick={start}>Start Audio</button>
+                      <button className="start-btn" onClick={start}>Start listening</button>
                     ) : (
-                      <button className="stop-btn" onClick={stop}>Stop Audio</button>
+                      <button className="stop-btn" onClick={stop}>Stop listening</button>
                     )}
                   </div>
-                  
+
                   {/* Calibration Status and Debug */}
-                  <div style={{ marginTop: '12px', padding: '8px', background: 'rgba(0,0,0,0.1)', borderRadius: '4px' }}>
-                    <div style={{ fontSize: '10px', color: '#888', marginBottom: '4px' }}>
-                      Calibration Status:
-                    </div>
-                    <div style={{ 
-                      fontSize: '11px', 
-                      color: calibrationDone ? '#4CAF50' : '#FF9800',
-                      fontWeight: 'bold'
-                    }}>
-                      {calibrationDone ? '✅ Calibrated' : '⚠️ Not Calibrated'}
+                  <div className="pa-calibration">
+                    <div className={`pa-calibration-status ${calibrationDone ? "is-done" : "is-pending"}`}>
+                      <span className="pa-calibration-dot" aria-hidden="true" />
+                      {calibrationDone ? 'Camera calibrated' : 'Camera not calibrated'}
                     </div>
                     {calibrationDone && currentCalibrationRef.current && (
-                      <div style={{ fontSize: '9px', color: '#666', marginTop: '2px' }}>
-                        Filters: {currentCalibrationRef.current.filterChain ? 
-                          currentCalibrationRef.current.filterChain.map(f => `${f.filter}(${f.param})`).join(', ') : 
-                          'None'}
+                      <div className="pa-calibration-filters">
+                        {currentCalibrationRef.current.filterChain ?
+                          currentCalibrationRef.current.filterChain.map(f => `${f.filter}(${f.param})`).join(', ') :
+                          'No filters'}
                       </div>
                     )}
-                    <div style={{ marginTop: '8px' }}>
-                      <button 
-                        style={{ 
-                          fontSize: '9px', 
-                          padding: '2px 6px', 
-                          background: '#1976d2', 
-                          color: 'white', 
-                          border: 'none', 
-                          borderRadius: '3px',
-                          cursor: 'pointer'
-                        }}
-                        onClick={handleCalibrateInGuitarObjDetection}
-                      >
-                        {calibrationDone ? 'Recalibrate' : 'Calibrate'}
-                      </button>
-                    </div>
+                    <button
+                      className="pa-calibrate-btn"
+                      onClick={handleCalibrateInGuitarObjDetection}
+                    >
+                      {calibrationDone ? 'Recalibrate camera' : 'Calibrate camera'}
+                    </button>
                   </div>
                 </div>
               </div>

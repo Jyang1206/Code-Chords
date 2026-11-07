@@ -41,7 +41,6 @@
 }
 
 html, body {
-  font-family: 'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif;
   font-weight: 500;
   letter-spacing: 0.5px;
 }
@@ -52,7 +51,6 @@ body {
   background-image: var(--space-star-bg), var(--space-bg);
   background-blend-mode: lighten, normal;
   min-height: 100vh;
-  font-family: 'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif;
   font-weight: 500;
   letter-spacing: 0.5px;
 }
@@ -74,7 +72,6 @@ body.dark-mode, .dark-mode #root {
   margin: 0 auto;
   padding: 2rem;
   text-align: center;
-  font-family: 'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif;
   font-weight: 500;
   letter-spacing: 0.5px;
 }
@@ -83,7 +80,6 @@ a {
   font-weight: 500;
   color: var(--space-accent);
   text-decoration: inherit;
-  font-family: 'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif;
 }
 
 a:hover {
@@ -94,7 +90,6 @@ h1 {
   font-size: 3.2em;
   line-height: 1.1;
   font-weight: 700;
-  font-family: 'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif;
   letter-spacing: 1px;
 }
 
@@ -104,7 +99,6 @@ button {
   padding: 0.6em 1.2em;
   font-size: 1em;
   font-weight: 600;
-  font-family: 'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif;
   background-color: var(--cosmic-shadow);
   color: var(--cosmic-star);
   cursor: pointer;
@@ -134,83 +128,4 @@ button:focus-visible {
   button {
     background-color: #f9f9f9;
   }
-}
-
-/* Universal light mode overrides for all major panels, cards, overlays, and buttons */
-.light-mode .guitar-scale-controls,
-.light-mode .guitar-audio-note-panel,
-.light-mode .settings-content,
-.light-mode .card,
-.light-mode .lessons-content,
-.light-mode .learnsongs-content,
-.light-mode .tuner-container,
-.light-mode .ytp-space-container,
-.light-mode .song-card,
-.light-mode .cosmic-profile,
-.light-mode .cosmic-login-form,
-.light-mode .navbar,
-.light-mode .camera-permission-message {
-  background: var(--space-card-bg-light) !important;
-  color: var(--space-shadow) !important;
-  box-shadow: 0 2px 12px var(--space-accent2);
-  font-family: 'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif;
-  font-weight: 500;
-  letter-spacing: 0.5px;
-}
-
-.light-mode .guitar-scale-btn,
-.light-mode .start-btn,
-.light-mode .stop-btn,
-.light-mode .cosmic-login-btn,
-.light-mode .favorite-btn,
-.light-mode .rating-select {
-  background: var(--space-btn-bg-light) !important;
-  color: var(--space-shadow) !important;
-  border-color: var(--space-accent2) !important;
-  font-family: 'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-}
-
-.light-mode .guitar-scale-btn:hover,
-.light-mode .start-btn:hover,
-.light-mode .stop-btn:hover,
-.light-mode .cosmic-login-btn:hover,
-.light-mode .favorite-btn:hover {
-  background: var(--space-btn-hover-light) !important;
-  color: var(--space-accent) !important;
-}
-
-.light-mode .guitar-scale-label-overlay,
-.light-mode .audio-note-label,
-.light-mode .navbar-brand {
-  color: var(--space-accent) !important;
-  font-family: 'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-}
-
-.light-mode .guitar-scale-btn.active,
-.light-mode .song-card:hover,
-.light-mode .navbar-light {
-  background: var(--space-accent2) !important;
-  color: var(--space-shadow) !important;
-}
-
-.light-mode .user-rating,
-.light-mode .audio-note-value,
-.light-mode .ytp-space-speed {
-  color: var(--space-accent) !important;
-  font-family: 'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-}
-
-.light-mode .guitar-scale-notes,
-.light-mode .song-info p,
-.light-mode .read-the-docs {
-  color: var(--space-accent2) !important;
-  font-family: 'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif;
-  font-weight: 500;
-  letter-spacing: 0.5px;
 }

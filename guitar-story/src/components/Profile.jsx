@@ -1,6 +1,5 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import "../css/SpaceTheme.css";
 import "../css/Profile.css";
 
 export default function Profile({ user }) {
@@ -12,34 +11,34 @@ export default function Profile({ user }) {
     navigate('/search-history');
   };
 
+  const initial = (user.displayName || user.email || "?").trim().charAt(0).toUpperCase();
+
   return (
     <div className="profile-container">
-      {/* Avatar */}
-      <div className="profile-avatar">
-        🎸
+      <div className="profile-avatar" aria-hidden="true">
+        {initial}
       </div>
 
-      {/* User Info */}
       <div className="profile-info">
-        <div className="profile-label" style={{ color: 'var(--primary)' }}>Email Address:</div>
-        <div className="profile-email" style={{ color: 'var(--primary)' }}>{user.email}</div>
+        {user.displayName && <div className="profile-name">{user.displayName}</div>}
+        <div className="profile-email">{user.email}</div>
+        <div className="profile-status">
+          <span className="profile-status-dot" aria-hidden="true" />
+          <span className="profile-status-text">
+            {user.emailVerified ? "Email verified" : "Signed in"}
+          </span>
+        </div>
       </div>
 
-      {/* Account Status */}
-      <div className="profile-status">
-        <span>✅</span>
-        <span className="profile-status-text">Account Verified</span>
-      </div>
-
-      {/* Actions */}
       <div className="profile-actions">
-        <button 
+        <button
+          type="button"
           onClick={handleViewSearchHistory}
-          className="space-button profile-history-btn"
+          className="btn-ghost profile-history-btn"
         >
-          View Search History
+          View search history
         </button>
       </div>
     </div>
   );
-} 
+}

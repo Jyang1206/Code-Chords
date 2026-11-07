@@ -1,87 +1,71 @@
 import React, { useState } from "react";
-import { signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
-import { auth, googleProvider } from "../firebase";
-import { useTheme } from "../contexts/ThemeContext";
-import "../css/SpaceTheme.css";
-import "../css/Login.css";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "../firebase";
+import { friendlyAuthError } from "./authErrors";
+import "../css/Auth.css";
 
 export default function Login({ onSwitch }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const { theme } = useTheme();
+  const [busy, setBusy] = useState(false);
 
-  const handleLogin = async e => {
+  const handleLogin = async (e) => {
     e.preventDefault();
+    setError("");
+    setBusy(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
     } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    try {
-      await signInWithPopup(auth, googleProvider);
-    } catch (err) {
-      setError(err.message);
+      setError(friendlyAuthError(err));
+    } finally {
+      setBusy(false);
     }
   };
 
   return (
-    <div className="space-loading login-container">
-      <div className="space-card login-card">
-        <h2 className="glow-text login-title">
-          Welcome to Guitar Story!
-        </h2>
-        
-        {error && (
-          <div className="login-error">
-            {error}
-          </div>
-        )}
-        
-        <form onSubmit={handleLogin} className="login-form">
+    <div className="auth-card">
+      <div className="auth-strings" aria-hidden="true">
+        {Array.from({ length: 6 }, (_, i) => <span key={i} />)}
+      </div>
+      <h2 className="auth-title">Sign in</h2>
+      <p className="auth-sub">Pick up where you left off.</p>
+
+      <form onSubmit={handleLogin} className="auth-form" noValidate={false}>
+        <label className="auth-field">
+          <span>Email</span>
           <input
             type="email"
-            placeholder="Enter your email"
+            autoComplete="email"
             value={email}
-            onChange={e => setEmail(e.target.value)}
+            onChange={(e) => setEmail(e.target.value)}
             required
-            className="space-input login-input"
+            className="space-input"
           />
-          
+        </label>
+        <label className="auth-field">
+          <span>Password</span>
           <input
             type="password"
-            placeholder="Enter your password"
+            autoComplete="current-password"
             value={password}
-            onChange={e => setPassword(e.target.value)}
+            onChange={(e) => setPassword(e.target.value)}
             required
-            className="space-input login-input"
+            className="space-input"
           />
-          
-          <button 
-            type="submit" 
-            className="space-button login-submit-button"
-          >
-            Sign In
-          </button>
-        </form>
-        
-        <div className="section-separator login-separator"></div>
-        
-        <p className="login-switch-text">
-          New to Guitar Story?
-        </p>
-        
-        <button 
-          type="button" 
-          onClick={onSwitch} 
-          className="space-button login-switch-button"
-        >
-          Sign Up
+        </label>
+
+        {error && <p className="auth-error" role="alert">{error}</p>}
+
+        <button type="submit" className="btn-walnut auth-submit" disabled={busy}>
+          {busy ? "Signing in…" : "Sign in"}
         </button>
-      </div>
+      </form>
+
+      <p className="auth-switch">
+        New to Guitar Story?{" "}
+        <button type="button" onClick={onSwitch} className="auth-link">Create an account</button>
+      </p>
     </div>
   );
-} 
+}

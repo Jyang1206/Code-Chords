@@ -1,6 +1,5 @@
 import React from "react";
 import { useTheme } from "../contexts/ThemeContext";
-import "../css/SpaceTheme.css";
 import "../css/Settings.css";
 import { useAuth } from "../contexts/AuthContext";
 import { signOut } from "firebase/auth";
@@ -20,150 +19,82 @@ function Settings() {
   };
 
   return (
-    <div className="settings-container" style={{ 
-      minHeight: '100vh', 
-      padding: '2rem',
-      position: 'relative',
-      zIndex: 10
-    }}>
-      <div className="space-card" style={{ 
-        maxWidth: '800px', 
-        margin: '0 auto',
-        textAlign: 'center',
-        background: 'rgba(26, 26, 46, 0.8)',
-        backdropFilter: 'blur(10px)',
-        border: '2px solid var(--glow)',
-        boxShadow: '0 0 20px var(--glow), inset 0 0 20px rgba(255, 179, 71, 0.1)'
-      }}>
-        <h1 className="glow-text" style={{
-          fontFamily: 'var(--font-primary)',
-          fontSize: '2.5rem',
-          marginBottom: '2rem',
-          color: 'var(--primary)'
-        }}>
-          Mission Control
-        </h1>
+    <div className="settings-page">
+      <header className="page-head">
+        <h1>Settings</h1>
+        <p>Your account and how Guitar Story looks on this device.</p>
+      </header>
 
-        {/* Profile Section */}
-        <div className="profile-section space-card" style={{
-          marginBottom: '2rem',
-          textAlign: 'left',
-          background: 'rgba(26, 26, 46, 0.6)',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid var(--border)',
-          boxShadow: '0 0 15px rgba(255, 179, 71, 0.3)'
-        }}>
-          <h2 style={{
-            fontFamily: 'var(--font-primary)',
-            fontSize: '1.5rem',
-            marginBottom: '1rem',
-            color: 'var(--primary)'
-          }}>
-            User Profile
-          </h2>
-          <Profile style={{
-            color: 'var(--primary)'
-          }} user={currentUser} />
-        </div>
-
-        {/* Theme Settings */}
-        <div className="theme-section space-card" style={{
-          marginBottom: '2rem',
-          textAlign: 'center',
-          background: 'rgba(26, 26, 46, 0.6)',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid var(--border)',
-          boxShadow: '0 0 15px rgba(255, 179, 71, 0.3)'
-        }}>
-          <h2 style={{
-            fontFamily: 'var(--font-primary)',
-            fontSize: '1.5rem',
-            marginBottom: '1rem',
-            color: 'var(--accent)'
-          }}>
-            Theme Settings
-          </h2>
-          
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '1rem',
-            marginBottom: '1rem'
-          }}>
-            <span style={{ color: 'var(--primary)' }}>
-              Current Theme:
-            </span>
-            <span style={{ 
-              color: 'var(--primary)',
-              fontWeight: 'bold',
-              fontSize: '1.1rem'
-            }}>
-              {isDarkMode ? 'Dark Mode' : 'Light Mode'}
-            </span>
+      <div className="settings-pane space-card">
+        {/* Account */}
+        <section className="settings-row" aria-labelledby="settings-account">
+          <div className="settings-label">
+            <h2 id="settings-account">Account</h2>
+            <p>The account your scores and history are saved to.</p>
           </div>
+          <div className="settings-control">
+            {currentUser ? (
+              <Profile user={currentUser} />
+            ) : (
+              <p className="settings-note">
+                You are not signed in. Use the sign in button at the top of the page to save your progress.
+              </p>
+            )}
+          </div>
+        </section>
 
-          <button 
-            onClick={toggleTheme} 
-            className="space-button"
-            style={{
-              fontSize: '1.1rem',
-              padding: '12px 24px',
-              marginBottom: '1rem'
-            }}
-          >
-            {isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-          </button>
+        {/* Appearance */}
+        <section className="settings-row" aria-labelledby="settings-theme">
+          <div className="settings-label">
+            <h2 id="settings-theme">Appearance</h2>
+            <p>Night is easier on the eyes in a dim room. Dawn suits daylight.</p>
+          </div>
+          <div className="settings-control">
+            <div className="segmented" role="group" aria-label="Theme">
+              <button
+                type="button"
+                className={`segmented-option${isDarkMode ? " is-selected" : ""}`}
+                aria-pressed={isDarkMode}
+                onClick={() => { if (!isDarkMode) toggleTheme(); }}
+              >
+                <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M16 12.2A6.5 6.5 0 0 1 7.8 4a6.5 6.5 0 1 0 8.2 8.2Z" />
+                </svg>
+                Night
+              </button>
+              <button
+                type="button"
+                className={`segmented-option${!isDarkMode ? " is-selected" : ""}`}
+                aria-pressed={!isDarkMode}
+                onClick={() => { if (isDarkMode) toggleTheme(); }}
+              >
+                <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
+                  <circle cx="10" cy="10" r="3.4" />
+                  <path d="M10 2.5v1.8M10 15.7v1.8M2.5 10h1.8M15.7 10h1.8M4.7 4.7l1.3 1.3M14 14l1.3 1.3M4.7 15.3 6 14M14 6l1.3-1.3" />
+                </svg>
+                Dawn
+              </button>
+            </div>
+          </div>
+        </section>
 
-          <p style={{
-            color: 'var(--primary)',
-            fontSize: '0.9rem',
-            lineHeight: '1.5'
-          }}>
-          </p>
-        </div>
-
-        {/* Account Actions */}
-        <div className="account-section space-card" style={{
-          marginBottom: '2rem',
-          textAlign: 'center',
-          background: 'rgba(26, 26, 46, 0.6)',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid var(--border)',
-          boxShadow: '0 0 15px rgba(255, 179, 71, 0.3)'
-        }}>
-          <h2 style={{
-            fontFamily: 'var(--font-primary)',
-            fontSize: '1.5rem',
-            marginBottom: '1rem',
-            color: '#ff6b6b'
-          }}>
-            Account Actions
-          </h2>
-
-          <button 
-            onClick={handleSignOut} 
-            className="space-button"
-            style={{
-              background: 'linear-gradient(135deg, #ff6b6b, #ee5a52)',
-              fontSize: '1.1rem',
-              padding: '12px 24px'
-            }}
-          >
-            Sign Out
-          </button>
-
-          <p style={{
-            color: 'var(--primary)',
-            fontSize: '0.9rem',
-            marginTop: '1rem'
-          }}>
-            Sign out of your account and return to the login screen.
-          </p>
-        </div>
+        {/* Session */}
+        {currentUser && (
+          <section className="settings-row" aria-labelledby="settings-session">
+            <div className="settings-label">
+              <h2 id="settings-session">Sign out</h2>
+              <p>Sign out on this device. Your scores stay saved to your account.</p>
+            </div>
+            <div className="settings-control">
+              <button type="button" onClick={handleSignOut} className="btn-ghost">
+                Sign out
+              </button>
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );
 }
 
-export default Settings; 
+export default Settings;

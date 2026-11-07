@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { CustomTabsService } from '../services/customTabsService';
+import '../css/CustomTabs.css';
 
 const ALL_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const OPEN_STRINGS = ['E', 'A', 'D', 'G', 'B', 'E']; // 6th to 1st string
@@ -9,6 +10,22 @@ function getNoteAtPosition(stringIdx, fretNum) {
   const openNoteIdx = ALL_NOTES.indexOf(OPEN_STRINGS[stringIdx]);
   const noteIdx = (openNoteIdx + fretNum) % 12;
   return ALL_NOTES[noteIdx];
+}
+
+/* ---------- Presentation helpers ---------- */
+const STAFF_ROWS = [6, 5, 4, 3, 2, 1]; // top line to bottom line, as tab is read
+const FRETS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+
+// the name printed at the left of each tab line
+function stringLabel(stringNum) {
+  const name = OPEN_STRINGS[stringNum - 1];
+  return stringNum === 6 ? name.toLowerCase() : name;
+}
+
+function stringName(stringNum) {
+  if (stringNum === 1) return 'Low E string';
+  if (stringNum === 6) return 'High e string';
+  return `${OPEN_STRINGS[stringNum - 1]} string`;
 }
 
 function CustomTabs() {
@@ -125,707 +142,252 @@ function CustomTabs() {
   };
 
   const GuitarTabInterface = () => (
-    <div style={{
-      background: 'var(--space-card-bg)',
-      borderRadius: '16px',
-      padding: '25px',
-      marginBottom: '25px',
-      border: '1px solid var(--space-border)',
-      boxShadow: '0 0 40px 5px var(--space-shadow)',
-      color: 'var(--space-text)'
-    }}>
-      <div style={{ textAlign: 'center', marginBottom: '25px' }}>
-        <h3 style={{ 
-          color: 'var(--space-star)', 
-          marginBottom: '10px', 
-          fontSize: '1.8rem',
-          fontFamily: "'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif",
-          fontWeight: '600',
-          letterSpacing: '0.5px',
-          textShadow: '0 0 8px var(--space-accent)'
-        }}>Guitar Tab Creator</h3>
-        <p style={{ 
-          color: 'var(--space-text)', 
-          margin: 0,
-          fontSize: '1.1rem',
-          textShadow: '0 0 4px var(--space-shadow)'
-        }}>Click on the fretboard to add notes to your tab</p>
+    <div className="tab-picker">
+      <div className="tab-section-head">
+        <h3>Pick a note</h3>
+        <p>Choose a string and fret, set how long it rings, then add it to the tab.</p>
       </div>
-      
-      <div style={{ display: 'flex', gap: '15px', marginBottom: '25px' }}>
-        {/* String labels */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '30px' }}>
-          {[6, 5, 4, 3, 2, 1].map(stringNum => (
-            <div key={stringNum} style={{
-              width: '30px',
-              height: '30px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: 'var(--space-shadow)',
-              color: 'var(--space-star)',
-              borderRadius: '50%',
-              fontWeight: 'bold',
-              fontSize: '0.9rem',
-              fontFamily: "'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif",
-              letterSpacing: '0.5px',
-              boxShadow: '0 0 8px var(--space-shadow)'
-            }}>
-              {stringNum}
+
+      <div className="tab-staff-scroll">
+        <div className="tab-staff tab-staff--picker" role="group" aria-label="Fret picker">
+          <div className="tab-staff-frets" aria-hidden="true">
+            <span className="tab-staff-name" />
+            {FRETS.map(fret => (
+              <span key={fret} className="tab-staff-fretnum">{fret}</span>
+            ))}
+          </div>
+
+          {STAFF_ROWS.map(stringNum => (
+            <div key={stringNum} className="tab-line">
+              <span className="tab-staff-name" aria-hidden="true">{stringLabel(stringNum)}</span>
+              {FRETS.map(fret => {
+                const noteName = getNoteAtPosition(stringNum - 1, fret);
+                const isSelected = currentNote.stringIdx === stringNum && currentNote.fretNum === fret;
+
+                return (
+                  <button
+                    type="button"
+                    key={`${stringNum}-${fret}`}
+                    className={`fret-cell${isSelected ? ' is-selected' : ''}`}
+                    aria-pressed={isSelected}
+                    aria-label={`${stringName(stringNum)}, fret ${fret}, ${noteName}`}
+                    onClick={() => setCurrentNote({ stringIdx: stringNum, fretNum: fret, duration: 1 })}
+                  >
+                    <span className="fret-cell-num">{fret}</span>
+                  </button>
+                );
+              })}
             </div>
           ))}
         </div>
-
-        {/* Fretboard */}
-        <div style={{
-          flex: 1,
-          background: 'var(--space-card-bg)',
-          borderRadius: '10px',
-          padding: '20px',
-          border: '2px solid var(--space-border)',
-          boxShadow: '0 0 16px var(--space-shadow)'
-        }}>
-          {/* Fret numbers */}
-          <div style={{ display: 'flex', marginBottom: '15px', gap: '8px' }}>
-            {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(fret => (
-              <div key={fret} style={{
-                flex: 1,
-                textAlign: 'center',
-                color: 'var(--space-star)',
-                fontWeight: 'bold',
-                fontSize: '0.8rem',
-                padding: '5px',
-                fontFamily: "'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif",
-                letterSpacing: '0.5px'
-              }}>
-                {fret}
-              </div>
-            ))}
-          </div>
-
-          {/* Strings and frets */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {[6, 5, 4, 3, 2, 1].map(stringNum => (
-              <div key={stringNum} style={{ display: 'flex', gap: '8px', height: '35px' }}>
-                {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(fret => {
-                  const noteName = getNoteAtPosition(stringNum - 1, fret);
-                  const isSelected = currentNote.stringIdx === stringNum && currentNote.fretNum === fret;
-                  
-                  return (
-                    <div
-                      key={`${stringNum}-${fret}`}
-                      onClick={() => setCurrentNote({ stringIdx: stringNum, fretNum: fret, duration: 1 })}
-                      style={{
-                        flex: 1,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        background: isSelected ? 'var(--space-accent)' : 'var(--space-shadow)',
-                        border: `1px solid ${isSelected ? 'var(--space-star)' : 'var(--space-border)'}`,
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        transition: 'all 0.25s',
-                        position: 'relative',
-                        overflow: 'hidden',
-                        boxShadow: isSelected ? '0 0 15px var(--space-star)' : '0 0 8px var(--space-shadow)'
-                      }}
-                    >
-                      <span style={{
-                        color: isSelected ? 'var(--space-shadow)' : 'var(--space-star)',
-                        fontWeight: 'bold',
-                        fontSize: '0.8rem',
-                        textShadow: '1px 1px 2px rgba(0, 0, 0, 0.8)',
-                        fontFamily: "'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif",
-                        letterSpacing: '0.5px'
-                      }}>{noteName}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
 
-      {/* Current note display */}
-      <div style={{
-        background: 'var(--space-card-bg)',
-        borderRadius: '16px',
-        padding: '25px',
-        marginTop: '25px',
-        border: '1px solid var(--space-border)',
-        boxShadow: '0 0 40px 5px var(--space-shadow)',
-        color: 'var(--space-text)'
-      }}>
-        <h4 style={{ 
-          color: 'var(--space-star)', 
-          marginBottom: '15px', 
-          fontSize: '1.2rem',
-          fontFamily: "'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif",
-          fontWeight: '600',
-          letterSpacing: '0.5px',
-          textShadow: '0 0 8px var(--space-accent)'
-        }}>Current Note:</h4>
-        <div style={{ display: 'flex', gap: '15px', marginBottom: '15px' }}>
-          <span style={{ 
-            color: 'var(--space-text)', 
-            fontWeight: '600',
-            fontFamily: "'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif",
-            letterSpacing: '0.5px'
-          }}>String {currentNote.stringIdx}, Fret {currentNote.fretNum}</span>
-          <span style={{ 
-            color: 'var(--space-text)', 
-            fontWeight: '600',
-            fontFamily: "'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif",
-            letterSpacing: '0.5px'
-          }}>Note: {getNoteAtPosition(currentNote.stringIdx - 1, currentNote.fretNum)}</span>
-        </div>
-        
-        <div style={{ display: 'flex', gap: '15px', marginBottom: '15px' }}>
-          <label style={{ 
-            color: 'var(--space-text)', 
-            fontWeight: '600',
-            fontFamily: "'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif",
-            letterSpacing: '0.5px'
-          }}>Duration (seconds):</label>
+      {/* Current note + add */}
+      <div className="tab-toolbar">
+        <p className="tab-selected">
+          <span className="tab-selected-label">Selected</span>
+          <span>{stringName(currentNote.stringIdx)}, fret <span className="mono-amber">{currentNote.fretNum}</span></span>
+          <span className="tab-selected-note mono-amber">{getNoteAtPosition(currentNote.stringIdx - 1, currentNote.fretNum)}</span>
+        </p>
+
+        <div className="tab-field tab-field--duration">
+          <label htmlFor="tab-note-duration">Duration (seconds)</label>
           <input
+            id="tab-note-duration"
+            className="space-input"
             type="number"
             min="0.1"
             max="10"
             step="0.1"
             value={currentNote.duration}
             onChange={(e) => setCurrentNote(prev => ({ ...prev, duration: parseFloat(e.target.value) }))}
-            style={{
-              width: '100px',
-              padding: '10px',
-              border: '2px solid var(--space-border)',
-              borderRadius: '8px',
-              background: 'var(--space-shadow)',
-              color: 'var(--space-star)',
-              fontSize: '1rem',
-              transition: 'border-color 0.25s, box-shadow 0.25s',
-              fontFamily: "'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif",
-              fontWeight: '500',
-              letterSpacing: '0.5px',
-              boxShadow: '0 0 8px var(--space-shadow)'
-            }}
-            onFocus={(e) => {
-              e.target.style.borderColor = 'var(--space-star)';
-              e.target.style.boxShadow = '0 0 16px var(--space-star)';
-            }}
-            onBlur={(e) => {
-              e.target.style.borderColor = 'var(--space-border)';
-              e.target.style.boxShadow = '0 0 8px var(--space-shadow)';
-            }}
           />
         </div>
 
-        <button 
-          onClick={handleAddNote}
-          style={{
-            background: 'var(--space-btn-bg)',
-            color: 'var(--space-star)',
-            border: '1px solid var(--space-border)',
-            padding: '12px 24px',
-            borderRadius: '8px',
-            fontSize: '1rem',
-            fontWeight: '600',
-            cursor: 'pointer',
-            transition: 'all 0.25s',
-            letterSpacing: '0.5px',
-            fontFamily: "'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif",
-            boxShadow: '0 0 12px var(--space-shadow)'
-          }}
-          onMouseEnter={(e) => {
-            e.target.style.borderColor = 'var(--space-accent2)';
-            e.target.style.backgroundColor = 'var(--space-accent)';
-            e.target.style.color = 'var(--space-shadow)';
-          }}
-          onMouseLeave={(e) => {
-            e.target.style.borderColor = 'var(--space-border)';
-            e.target.style.backgroundColor = 'var(--space-btn-bg)';
-            e.target.style.color = 'var(--space-star)';
-          }}
-        >
-          Add Note to Tab
+        <button type="button" className="btn-ghost" onClick={handleAddNote}>
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+            <path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+          </svg>
+          Add note
         </button>
       </div>
     </div>
   );
 
   const TabNotesDisplay = ({ notes }) => (
-    <div style={{
-      background: 'var(--space-card-bg)',
-      borderRadius: '16px',
-      padding: '20px',
-      marginBottom: '20px',
-      border: '1px solid var(--space-border)',
-      boxShadow: '0 0 40px 5px var(--space-shadow)',
-      color: 'var(--space-text)'
-    }}>
-      <h4 style={{ 
-        color: 'var(--space-star)', 
-        marginBottom: '15px', 
-        fontSize: '1.3rem',
-        fontFamily: "'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif",
-        fontWeight: '600',
-        letterSpacing: '0.5px',
-        textShadow: '0 0 8px var(--space-accent)'
-      }}>Tab Notes ({notes.length}):</h4>
-      <div style={{
-        maxHeight: '300px',
-        overflowY: 'auto',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '10px'
-      }}>
-        {notes.map((note, index) => (
-          <div key={index} style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '15px',
-            background: 'var(--space-shadow)',
-            padding: '12px',
-            borderRadius: '8px',
-            border: '1px solid var(--space-border)',
-            boxShadow: '0 0 8px var(--space-shadow)'
-          }}>
-            <span style={{ 
-              color: 'var(--space-text)', 
-              fontSize: '0.9rem',
-              fontFamily: "'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif",
-              letterSpacing: '0.5px'
-            }}>String {note.stringIdx}, Fret {note.fretNum}</span>
-            <span style={{ 
-              color: 'var(--space-text)', 
-              fontSize: '0.9rem',
-              fontFamily: "'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif",
-              letterSpacing: '0.5px'
-            }}>Note: {note.note}</span>
-            <span style={{ 
-              color: 'var(--space-text)', 
-              fontSize: '0.9rem',
-              fontFamily: "'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif",
-              letterSpacing: '0.5px'
-            }}>Duration: {note.duration}s</span>
-            <button 
-              onClick={() => handleRemoveNote(index)}
-              style={{
-                background: '#e74c3c',
-                color: 'white',
-                border: 'none',
-                width: '25px',
-                height: '25px',
-                borderRadius: '50%',
-                cursor: 'pointer',
-                fontSize: '1rem',
-                fontWeight: 'bold',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.25s',
-                marginLeft: 'auto',
-                fontFamily: "'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif",
-                letterSpacing: '0.5px'
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.background = '#c0392b';
-                e.target.style.transform = 'scale(1.1)';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.background = '#e74c3c';
-                e.target.style.transform = 'scale(1)';
-              }}
-            >
-              ×
-            </button>
-          </div>
-        ))}
+    <div className="tab-preview">
+      <div className="tab-section-head">
+        <h3>Your tab <span className="tab-count">{notes.length} {notes.length === 1 ? 'note' : 'notes'}</span></h3>
+        {notes.length > 0 && <p>Notes play left to right. Remove any note with the cross under it.</p>}
       </div>
+
+      {notes.length === 0 ? (
+        <p className="tab-empty">No notes yet. Pick a fret above and press Add note.</p>
+      ) : (
+        <div className="tab-staff-scroll">
+          <div className="tab-staff tab-staff--preview">
+            <div className="tab-preview-names" aria-hidden="true">
+              {STAFF_ROWS.map(stringNum => (
+                <span key={stringNum} className="tab-staff-name">{stringLabel(stringNum)}</span>
+              ))}
+            </div>
+            <ol className="tab-preview-cols">
+              {notes.map((note, index) => (
+                <li key={index} className="tab-col">
+                  <div className="tab-col-lines">
+                    {STAFF_ROWS.map(stringNum => (
+                      <span key={stringNum} className="tab-col-line">
+                        {note.stringIdx === stringNum && (
+                          <span className="tab-col-fret">{note.fretNum}</span>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                  <span className="tab-col-meta">{note.note}</span>
+                  <span className="tab-col-meta tab-col-dur">{note.duration}s</span>
+                  <button
+                    type="button"
+                    className="tab-col-remove"
+                    onClick={() => handleRemoveNote(index)}
+                    aria-label={`Remove note ${index + 1}: ${stringName(note.stringIdx)}, fret ${note.fretNum}`}
+                  >
+                    <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+                      <path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                    </svg>
+                  </button>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </div>
+      )}
     </div>
   );
 
   if (!currentUser) {
     return (
-      <div style={{
-        maxWidth: '1200px',
-        margin: '0 auto',
-        padding: '20px',
-        textAlign: 'center',
-        color: 'var(--space-text)',
-        fontFamily: "'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif",
-        fontWeight: '500',
-        letterSpacing: '0.5px'
-      }}>
-        <h2 style={{ 
-          color: 'var(--space-star)', 
-          marginBottom: '20px', 
-          fontSize: '2rem',
-          fontFamily: "'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif",
-          fontWeight: '700',
-          letterSpacing: '1px',
-          textShadow: '0 0 10px var(--space-accent), 0 0 20px var(--space-star)'
-        }}>Custom Tabs</h2>
-        <p style={{ 
-          color: 'var(--space-text)',
-          fontSize: '1.2rem',
-          textShadow: '0 0 4px var(--space-shadow)'
-        }}>Please log in to create and manage your custom tabs.</p>
+      <div className="tabs-page">
+        <header className="page-head">
+          <h1>Tabs</h1>
+          <p>Log in to write your own tabs and keep them for Play along.</p>
+        </header>
       </div>
     );
   }
 
+  const canSave = !(newTab.title.trim() === '' || newTab.notes.length === 0);
+
   return (
-    <div style={{
-      maxWidth: '1200px',
-      margin: '0 auto',
-      padding: '20px',
-      fontFamily: "'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif",
-      fontWeight: '500',
-      letterSpacing: '0.5px'
-    }}>
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '30px',
-        paddingBottom: '20px',
-        borderBottom: '2px solid var(--space-border)'
-      }}>
-        <h2 style={{ 
-          color: 'var(--space-star)', 
-          margin: 0, 
-          fontSize: '2.5rem', 
-          fontWeight: '700',
-          letterSpacing: '1px',
-          textShadow: '0 0 10px var(--space-accent), 0 0 20px var(--space-star)',
-          fontFamily: "'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif"
-        }}>Custom Tabs</h2>
-        <button 
+    <div className="tabs-page">
+      <div className="tabs-head">
+        <header className="page-head">
+          <h1>Tabs</h1>
+          <p>Write a riff note by note on a real tab staff, then save it to play along with later.</p>
+        </header>
+        <button
+          type="button"
+          className={showCreateForm ? 'btn-ghost' : 'btn-walnut'}
           onClick={() => setShowCreateForm(!showCreateForm)}
-          style={{
-            background: 'var(--space-btn-bg)',
-            color: 'var(--space-star)',
-            border: '1px solid var(--space-border)',
-            padding: '12px 24px',
-            borderRadius: '8px',
-            fontSize: '1rem',
-            fontWeight: '600',
-            cursor: 'pointer',
-            transition: 'all 0.25s',
-            letterSpacing: '0.5px',
-            fontFamily: "'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif",
-            boxShadow: '0 0 12px var(--space-shadow)'
-          }}
-          onMouseEnter={(e) => {
-            e.target.style.borderColor = 'var(--space-accent2)';
-            e.target.style.backgroundColor = 'var(--space-accent)';
-            e.target.style.color = 'var(--space-shadow)';
-          }}
-          onMouseLeave={(e) => {
-            e.target.style.borderColor = 'var(--space-border)';
-            e.target.style.backgroundColor = 'var(--space-btn-bg)';
-            e.target.style.color = 'var(--space-star)';
-          }}
+          aria-expanded={showCreateForm}
         >
-          {showCreateForm ? 'Cancel' : 'Create New Tab'}
+          {showCreateForm ? 'Cancel' : 'New tab'}
         </button>
       </div>
 
       {showCreateForm && (
-        <div style={{
-          background: 'var(--space-card-bg)',
-          borderRadius: '16px',
-          padding: '30px',
-          marginBottom: '30px',
-          border: '1px solid var(--space-border)',
-          boxShadow: '0 0 40px 5px var(--space-shadow)',
-          color: 'var(--space-text)'
-        }}>
-          <div style={{ marginBottom: '30px' }}>
-            <h3 style={{ 
-              color: 'var(--space-star)', 
-              marginBottom: '20px', 
-              fontSize: '1.5rem',
-              fontFamily: "'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif",
-              fontWeight: '600',
-              letterSpacing: '0.5px',
-              textShadow: '0 0 8px var(--space-accent)'
-            }}>Tab Information</h3>
-            <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
-              <div style={{ flex: 1 }}>
-                <label style={{ 
-                  display: 'block', 
-                  color: 'var(--space-text)', 
-                  marginBottom: '8px', 
-                  fontWeight: '600',
-                  fontFamily: "'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif",
-                  letterSpacing: '0.5px'
-                }}>Title:</label>
-                <input
-                  type="text"
-                  value={newTab.title}
-                  onChange={(e) => setNewTab(prev => ({ ...prev, title: e.target.value }))}
-                  placeholder="Enter tab title"
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    border: '2px solid var(--space-border)',
-                    borderRadius: '8px',
-                    background: 'var(--space-shadow)',
-                    color: 'var(--space-star)',
-                    fontSize: '1rem',
-                    transition: 'border-color 0.25s, box-shadow 0.25s',
-                    fontFamily: "'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif",
-                    fontWeight: '500',
-                    letterSpacing: '0.5px',
-                    boxShadow: '0 0 8px var(--space-shadow)'
-                  }}
-                  onFocus={(e) => {
-                    e.target.style.borderColor = 'var(--space-star)';
-                    e.target.style.boxShadow = '0 0 16px var(--space-star)';
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.borderColor = 'var(--space-border)';
-                    e.target.style.boxShadow = '0 0 8px var(--space-shadow)';
-                  }}
-                />
-              </div>
-              <div style={{ flex: 1 }}>
-                <label style={{ 
-                  display: 'block', 
-                  color: 'var(--space-text)', 
-                  marginBottom: '8px', 
-                  fontWeight: '600',
-                  fontFamily: "'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif",
-                  letterSpacing: '0.5px'
-                }}>Artist (optional):</label>
-                <input
-                  type="text"
-                  value={newTab.artist}
-                  onChange={(e) => setNewTab(prev => ({ ...prev, artist: e.target.value }))}
-                  placeholder="Enter artist name"
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    border: '2px solid var(--space-border)',
-                    borderRadius: '8px',
-                    background: 'var(--space-shadow)',
-                    color: 'var(--space-star)',
-                    fontSize: '1rem',
-                    transition: 'border-color 0.25s, box-shadow 0.25s',
-                    fontFamily: "'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif",
-                    fontWeight: '500',
-                    letterSpacing: '0.5px',
-                    boxShadow: '0 0 8px var(--space-shadow)'
-                  }}
-                  onFocus={(e) => {
-                    e.target.style.borderColor = 'var(--space-star)';
-                    e.target.style.boxShadow = '0 0 16px var(--space-star)';
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.borderColor = 'var(--space-border)';
-                    e.target.style.boxShadow = '0 0 8px var(--space-shadow)';
-                  }}
-                />
-              </div>
+        <section className="tabs-editor" aria-label="New tab">
+          <div className="tab-fields">
+            <div className="tab-field">
+              <label htmlFor="tab-title">Title</label>
+              <input
+                id="tab-title"
+                className="space-input"
+                type="text"
+                value={newTab.title}
+                onChange={(e) => setNewTab(prev => ({ ...prev, title: e.target.value }))}
+                placeholder="My first riff"
+              />
+            </div>
+            <div className="tab-field">
+              <label htmlFor="tab-artist">Artist <span className="tab-optional">optional</span></label>
+              <input
+                id="tab-artist"
+                className="space-input"
+                type="text"
+                value={newTab.artist}
+                onChange={(e) => setNewTab(prev => ({ ...prev, artist: e.target.value }))}
+                placeholder="Who wrote it"
+              />
             </div>
           </div>
 
           <GuitarTabInterface />
-          
+
           <TabNotesDisplay notes={newTab.notes} />
 
-          <div style={{ textAlign: 'center', marginTop: '20px' }}>
-            <button 
+          <div className="tabs-editor-foot">
+            {!canSave && (
+              <p className="tab-hint">
+                {newTab.title.trim() === '' ? 'Add a title and at least one note to save.' : 'Add at least one note to save.'}
+              </p>
+            )}
+            <button
+              type="button"
+              className="btn-walnut"
               onClick={handleSaveTab}
-              disabled={newTab.title.trim() === '' || newTab.notes.length === 0}
-              style={{
-                background: 'var(--space-btn-bg)',
-                color: 'var(--space-star)',
-                border: '1px solid var(--space-border)',
-                padding: '15px 30px',
-                borderRadius: '8px',
-                fontSize: '1.1rem',
-                fontWeight: '600',
-                cursor: newTab.title.trim() === '' || newTab.notes.length === 0 ? 'not-allowed' : 'pointer',
-                transition: 'all 0.25s',
-                letterSpacing: '0.5px',
-                fontFamily: "'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif",
-                boxShadow: '0 0 12px var(--space-shadow)',
-                opacity: newTab.title.trim() === '' || newTab.notes.length === 0 ? 0.5 : 1
-              }}
-              onMouseEnter={(e) => {
-                if (newTab.title.trim() !== '' && newTab.notes.length > 0) {
-                  e.target.style.borderColor = 'var(--space-accent2)';
-                  e.target.style.backgroundColor = 'var(--space-accent)';
-                  e.target.style.color = 'var(--space-shadow)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (newTab.title.trim() !== '' && newTab.notes.length > 0) {
-                  e.target.style.borderColor = 'var(--space-border)';
-                  e.target.style.backgroundColor = 'var(--space-btn-bg)';
-                  e.target.style.color = 'var(--space-star)';
-                }
-              }}
+              disabled={!canSave}
             >
-              Save Tab
+              Save tab
             </button>
           </div>
-        </div>
+        </section>
       )}
 
-      <div style={{ marginTop: '30px' }}>
-        <h3 style={{ 
-          color: 'var(--space-star)', 
-          marginBottom: '20px', 
-          fontSize: '1.8rem',
-          fontFamily: "'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif",
-          fontWeight: '700',
-          letterSpacing: '1px',
-          textShadow: '0 0 10px var(--space-accent), 0 0 20px var(--space-star)'
-        }}>Your Custom Tabs</h3>
+      <section className="tabs-saved" aria-labelledby="tabs-saved-title">
+        <h2 id="tabs-saved-title">Your tabs</h2>
         {loading ? (
-          <div style={{ 
-            textAlign: 'center', 
-            color: 'var(--space-text)', 
-            padding: '40px', 
-            fontSize: '1.1rem',
-            fontFamily: "'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif",
-            letterSpacing: '0.5px'
-          }}>
-            Loading your custom tabs...
-          </div>
+          <p className="tabs-status">Loading your tabs…</p>
         ) : customTabs.length === 0 ? (
-          <div style={{ 
-            textAlign: 'center', 
-            color: 'var(--space-text)', 
-            padding: '40px', 
-            fontSize: '1.1rem',
-            fontFamily: "'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif",
-            letterSpacing: '0.5px'
-          }}>
-            <p>You haven't created any custom tabs yet.</p>
-            <p>Click "Create New Tab" to get started!</p>
-          </div>
+          <p className="tabs-status">You haven't saved any tabs yet. Press New tab to write your first one.</p>
         ) : (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-            gap: '20px'
-          }}>
+          <ul className="tabs-list">
             {customTabs.map((tab) => (
-              <div key={tab.id} style={{
-                background: 'var(--space-card-bg)',
-                borderRadius: '16px',
-                padding: '20px',
-                border: '1px solid var(--space-border)',
-                transition: 'all 0.25s',
-                boxShadow: '0 0 40px 5px var(--space-shadow)',
-                color: 'var(--space-text)'
-              }}>
-                <div>
-                  <h4 style={{ 
-                    color: 'var(--space-star)', 
-                    marginBottom: '10px', 
-                    fontSize: '1.3rem',
-                    fontFamily: "'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif",
-                    fontWeight: '600',
-                    letterSpacing: '0.5px',
-                    textShadow: '0 0 8px var(--space-accent)'
-                  }}>{tab.title}</h4>
-                  {tab.artist && <p style={{ 
-                    color: 'var(--space-text)', 
-                    marginBottom: '8px', 
-                    fontStyle: 'italic',
-                    fontFamily: "'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif",
-                    letterSpacing: '0.5px'
-                  }}>by {tab.artist}</p>}
-                  <p style={{ 
-                    color: 'var(--space-accent)', 
-                    fontWeight: '600', 
-                    marginBottom: '8px',
-                    fontFamily: "'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif",
-                    letterSpacing: '0.5px'
-                  }}>{tab.notes.length} notes</p>
-                  <p style={{ 
-                    color: 'var(--space-text)', 
-                    fontSize: '0.9rem', 
-                    marginBottom: '15px',
-                    opacity: '0.7',
-                    fontFamily: "'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif",
-                    letterSpacing: '0.5px'
-                  }}>
-                    Created: {tab.createdAt?.toDate?.()?.toLocaleDateString() || 'Unknown'}
-                  </p>
+              <li key={tab.id} className="tabs-row">
+                <div className="tabs-row-text">
+                  <h3 className="tabs-row-title">{tab.title}</h3>
+                  {tab.artist && <p className="tabs-row-artist">{tab.artist}</p>}
                 </div>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <button 
+                <p className="tabs-row-meta">
+                  <span>{tab.notes.length} notes</span>
+                  <span>{tab.createdAt?.toDate?.()?.toLocaleDateString() || 'Unknown date'}</span>
+                </p>
+                <div className="tabs-row-actions">
+                  <button
+                    type="button"
+                    className="btn-ghost"
                     onClick={() => {
                       // TODO: Navigate to Play Along with this tab selected
                       console.log('Play tab:', tab);
                     }}
-                    style={{
-                      flex: 1,
-                      padding: '10px',
-                      border: '1px solid var(--space-border)',
-                      borderRadius: '6px',
-                      fontWeight: '600',
-                      cursor: 'pointer',
-                      transition: 'all 0.25s',
-                      background: 'var(--space-btn-bg)',
-                      color: 'var(--space-star)',
-                      fontFamily: "'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif",
-                      letterSpacing: '0.5px'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.borderColor = 'var(--space-accent2)';
-                      e.target.style.backgroundColor = 'var(--space-accent)';
-                      e.target.style.color = 'var(--space-shadow)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.borderColor = 'var(--space-border)';
-                      e.target.style.backgroundColor = 'var(--space-btn-bg)';
-                      e.target.style.color = 'var(--space-star)';
-                    }}
                   >
                     Play
                   </button>
-                  <button 
+                  <button
+                    type="button"
+                    className="btn-ghost tabs-delete"
                     onClick={() => handleDeleteTab(tab.id)}
-                    style={{
-                      flex: 1,
-                      padding: '10px',
-                      border: '1px solid var(--space-border)',
-                      borderRadius: '6px',
-                      fontWeight: '600',
-                      cursor: 'pointer',
-                      transition: 'all 0.25s',
-                      background: '#e74c3c',
-                      color: 'white',
-                      fontFamily: "'Orbitron', 'Audiowide', 'Chakra Petch', 'Rajdhani', 'Exo 2', 'Montserrat', 'Arial', sans-serif",
-                      letterSpacing: '0.5px'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.background = '#c0392b';
-                      e.target.style.transform = 'translateY(-1px)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.background = '#e74c3c';
-                      e.target.style.transform = 'translateY(0)';
-                    }}
+                    aria-label={`Delete ${tab.title}`}
                   >
                     Delete
                   </button>
                 </div>
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
-      </div>
+      </section>
     </div>
   );
 }
 
-export default CustomTabs; 
+export default CustomTabs;

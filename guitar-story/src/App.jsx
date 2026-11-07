@@ -12,9 +12,12 @@ import CustomTabs from "./Pages/CustomTabs";
 import Tuner from "./Pages/Tuner";
 import Scoreboard from "./Pages/Scoreboard";
 import Settings from "./Pages/Settings";
+import SearchHistory from "./Pages/SearchHistory";
+import ResetPassword from "./Pages/ResetPassword";
 import SplashScreen from "./components/SplashScreen";
 import "./css/SpaceTheme.css";
 import "./css/App.css";
+import "./css/Cosmos.css";
 import Login from "./components/Login";
 import Signup from "./components/Signup";
 import { useAuth } from "./contexts/AuthContext";
@@ -26,10 +29,10 @@ function AppContent() {
   const { currentUser } = useAuth();
 
   useEffect(() => {
-    // Show splash screen for 10 seconds on first load
+    // Brief intro on first load; any click or key skips it
     const timer = setTimeout(() => {
       setShowSplash(false);
-    }, 10000);
+    }, 2600);
     return () => clearTimeout(timer);
   }, []);
 
@@ -44,54 +47,33 @@ function AppContent() {
     setShowSplash(false);
   };
 
-  // Modal rendered at the top level
-  const AuthModal = (
-    showAuthModal && (
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        width: '100vw',
-        height: '100vh',
-        background: 'rgba(0,0,0,0.7)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 1000
-      }}>
-        <div style={{ position: 'relative', minWidth: 350 }}>
-          <button
-            onClick={() => setShowAuthModal(false)}
-            style={{
-              position: 'absolute',
-              top: 10,
-              right: 10,
-              background: 'transparent',
-              border: 'none',
-              color: '#fff',
-              fontSize: 24,
-              cursor: 'pointer',
-              zIndex: 1001
-            }}
-            aria-label="Close"
-          >
-            ×
-          </button>
-          {showSignup ? (
-            <Signup onSwitch={() => setShowSignup(false)} />
-          ) : (
-            <Login onSwitch={() => setShowSignup(true)} />
-          )}
-        </div>
+  useEffect(() => {
+    if (!showAuthModal) return;
+    const onKey = (e) => e.key === "Escape" && setShowAuthModal(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showAuthModal]);
+
+  const AuthModal = showAuthModal && (
+    <div className="auth-overlay" onMouseDown={(e) => e.target === e.currentTarget && setShowAuthModal(false)}>
+      <div className="auth-dialog" role="dialog" aria-modal="true" aria-label={showSignup ? "Create an account" : "Sign in"}>
+        <button className="auth-close" onClick={() => setShowAuthModal(false)} aria-label="Close">
+          ×
+        </button>
+        {showSignup ? (
+          <Signup onSwitch={() => setShowSignup(false)} />
+        ) : (
+          <Login onSwitch={() => setShowSignup(true)} />
+        )}
       </div>
-    )
+    </div>
   );
 
   if (showSplash) {
     return (
       <SplashScreen 
         onComplete={handleSplashComplete}
-        duration={10000}
+        duration={2600}
       />
     );
   }
@@ -110,6 +92,8 @@ function AppContent() {
           <Route path="/tuner" element={<Tuner />} />
           <Route path="/scoreboard" element={<Scoreboard />} />
           <Route path="/Settings" element={<Settings />} />
+          <Route path="/search-history" element={<SearchHistory />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
         </Routes>
       </main>
     </div>

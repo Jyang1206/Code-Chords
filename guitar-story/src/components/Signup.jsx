@@ -1,79 +1,73 @@
 import React, { useState } from "react";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth, googleProvider } from "../firebase";
-import { useTheme } from "../contexts/ThemeContext";
-import "../css/SpaceTheme.css";
-import "../css/Signup.css";
+import { auth } from "../firebase";
+import { friendlyAuthError } from "./authErrors";
+import "../css/Auth.css";
 
 export default function Signup({ onSwitch }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const { theme } = useTheme();
+  const [busy, setBusy] = useState(false);
 
-  const handleSignup = async e => {
+  const handleSignup = async (e) => {
     e.preventDefault();
+    setError("");
+    setBusy(true);
     try {
       await createUserWithEmailAndPassword(auth, email, password);
     } catch (err) {
-      setError(err.message);  
+      setError(friendlyAuthError(err));
+    } finally {
+      setBusy(false);
     }
   };
 
   return (
-    <div className="space-loading signup-container">
-      <div className="space-card signup-card">
-        <h2 className="glow-text signup-title">
-          Join the Mission
-        </h2>
-        
-        {error && (
-          <div className="signup-error">
-            {error}
-          </div>
-        )}
-        
-        <form onSubmit={handleSignup} className="signup-form">
+    <div className="auth-card">
+      <div className="auth-strings" aria-hidden="true">
+        {Array.from({ length: 6 }, (_, i) => <span key={i} />)}
+      </div>
+      <h2 className="auth-title">Create an account</h2>
+      <p className="auth-sub">Save your tabs and scores, and get on the scoreboard.</p>
+
+      <form onSubmit={handleSignup} className="auth-form">
+        <label className="auth-field">
+          <span>Email</span>
           <input
             type="email"
-            placeholder="Enter your email"
+            autoComplete="email"
             value={email}
-            onChange={e => setEmail(e.target.value)}
+            onChange={(e) => setEmail(e.target.value)}
             required
-            className="space-input signup-input"
+            className="space-input"
           />
-          
+        </label>
+        <label className="auth-field">
+          <span>Password</span>
           <input
             type="password"
-            placeholder="Create a password"
+            autoComplete="new-password"
+            minLength={6}
             value={password}
-            onChange={e => setPassword(e.target.value)}
+            onChange={(e) => setPassword(e.target.value)}
             required
-            className="space-input signup-input"
+            className="space-input"
           />
-          
-          <button 
-            type="submit" 
-            className="space-button signup-submit-button"
-          >
-            Launch Account
-          </button>
-        </form>
-        
-        <div className="section-separator signup-separator"></div>
-        
-        <p className="signup-switch-text">
-          Already have an account?
-        </p>
-        
-        <button 
-          type="button" 
-          onClick={onSwitch} 
-          className="space-button signup-switch-button"
-        >
-          Return to Login
+          <small>At least 6 characters.</small>
+        </label>
+
+        {error && <p className="auth-error" role="alert">{error}</p>}
+
+        <button type="submit" className="btn-walnut auth-submit" disabled={busy}>
+          {busy ? "Creating account…" : "Create account"}
         </button>
-      </div>
+      </form>
+
+      <p className="auth-switch">
+        Already have an account?{" "}
+        <button type="button" onClick={onSwitch} className="auth-link">Sign in</button>
+      </p>
     </div>
   );
-} 
+}
