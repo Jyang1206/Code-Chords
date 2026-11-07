@@ -1,7 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import Fretboard from "../components/Fretboard";
+import GuitarStage from "../components/GuitarStage";
 import "../css/Home.css";
 import githubLogo from "../assets/github-mark.png";
 
@@ -148,16 +148,7 @@ function Home({ setShowAuthModal, setShowSignup }) {
           </div>
         </div>
 
-        <figure className="home-board">
-          <div className="home-board-tilt">
-            <Fretboard />
-          </div>
-          <figcaption className="home-board-legend">
-            <span className="legend-dot legend-dot--root" /> Root
-            <span className="legend-dot" /> A minor pentatonic
-            <span className="legend-line" /> Position 1, as you’d play it
-          </figcaption>
-        </figure>
+        <GuitarStage />
       </section>
 
       <section className="home-tools" aria-labelledby="tools-title">

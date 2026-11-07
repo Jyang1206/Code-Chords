@@ -62,46 +62,6 @@
 .home-actions .btn-walnut,
 .home-actions .btn-ghost { padding: 0.9em 1.6em; font-size: 1rem; }
 
-/* the board runs off the right edge of the window */
-.home-board {
-  position: absolute;
-  z-index: 1;
-  top: 50%;
-  left: 34%;
-  width: calc(100vw - 34% + 8vw);
-  margin: 0;
-  transform: translateY(-46%);
-  pointer-events: none;
-}
-.home-board-tilt { transform: rotate(-11deg); transform-origin: 20% 50%; }
-
-.home-board-legend {
-  position: absolute;
-  left: 12%;
-  bottom: -40px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  color: var(--dust);
-  pointer-events: auto;
-}
-.legend-dot {
-  width: 10px; height: 10px; border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #fff1c9, #f7c35a 50%, #c27e14);
-  margin-left: 10px;
-}
-.legend-dot:first-child { margin-left: 0; }
-.legend-dot--root { background: radial-gradient(circle at 35% 30%, #ffd2b0, #f07a3e 50%, #a63a10); }
-.legend-line {
-  width: 18px; height: 1.5px;
-  margin-left: 10px;
-  background: #ffd58a;
-  box-shadow: 0 0 6px rgba(255, 190, 90, 0.9);
-}
-
 /* ---------- Section heads ---------- */
 .home-section-head {
   display: grid;
@@ -230,14 +190,6 @@ html .tool-row:hover::before { opacity: 1; }
 /* ---------- Responsive ---------- */
 @media (max-width: 1080px) {
   .home-hero { grid-template-columns: 1fr; min-height: 0; padding-bottom: 0; }
-  .home-board {
-    position: relative;
-    left: auto; top: auto;
-    width: calc(100% + 20vw);
-    margin: 24px -4vw 40px 0;
-    transform: none;
-  }
-  .home-board-legend { left: 4vw; bottom: -20px; }
 }
 
 @media (max-width: 760px) {
@@ -254,6 +206,4 @@ html .tool-row:hover::before { opacity: 1; }
   .tool-title { grid-area: title; }
   .tool-body { grid-area: body; font-size: 0.95rem; }
   .tool-chevron { grid-area: chev; align-self: center; }
-  .home-board { width: calc(100% + 40vw); margin: 64px 0 24px -6vw; }
-  .home-board-legend { position: static; margin: 16px 0 0 6vw; }
 }
